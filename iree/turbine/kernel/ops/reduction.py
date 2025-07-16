@@ -1,4 +1,3 @@
-from typing import Any, List, Optional
 import typing
 
 if typing.TYPE_CHECKING:

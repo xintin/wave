@@ -7,7 +7,7 @@ import sympy
 
 from . import context
 from . import dtype
-from .shaped_type import ShapedType, ShapedDataType
+from .shaped_type import ShapedType
 
 __all__ = [
     "backed_sym_index_type",

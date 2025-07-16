@@ -18,8 +18,6 @@ import torch
 
 from iree.compiler.extras.fx_importer import (
     ContextCache,
-    Empty,
-    EmptyType,
     RefTracker,
 )
 

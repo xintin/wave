@@ -20,7 +20,6 @@ from ..runtime.op_reg import (
     TensorArg,
 )
 
-from ..support.logging import aot_logger as logger
 
 _templates = impl_helper.JinjaTemplateLoader(__name__)
 

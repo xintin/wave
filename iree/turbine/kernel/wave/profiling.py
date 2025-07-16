@@ -11,7 +11,6 @@ import subprocess
 import tempfile
 from collections import namedtuple
 from pathlib import Path
-from typing import Any
 
 import torch
 import iree.runtime

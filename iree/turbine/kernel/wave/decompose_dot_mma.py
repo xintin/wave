@@ -7,7 +7,6 @@
 from .._support.tracing import CapturedTrace
 from .constraints import (
     Constraint,
-    HardwareConstraint,
     GenericDot,
 )
 import torch.fx as fx

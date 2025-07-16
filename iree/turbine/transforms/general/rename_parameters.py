@@ -26,7 +26,6 @@ from iree.compiler.ir import (
 )
 
 from ..rewriter import *
-from iree.compiler.ir import Context
 
 ScopedName = Tuple[Optional[str], str]
 MaybeScopedName = Union[str, ScopedName]

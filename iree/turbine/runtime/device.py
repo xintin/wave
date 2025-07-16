@@ -9,7 +9,6 @@ from hashlib import sha1
 from typing import Any, Callable, Dict, Optional, Union
 from threading import local, Lock
 
-import warnings
 import platform
 import atexit
 

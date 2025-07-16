@@ -3,12 +3,10 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from dataclasses import dataclass
 import torch
 import functools
 import iree.runtime as rt
 from typing import Callable, Optional, Any
-import ctypes
 from ..compile_options import WaveCompileOptions
 from ..profiling import benchmark_module
 from itertools import chain

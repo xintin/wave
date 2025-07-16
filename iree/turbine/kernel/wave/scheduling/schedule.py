@@ -33,16 +33,8 @@ from ..utils.symbol_utils import (
     subs_idxc,
 )
 from ..utils.print_utils import dump_schedule, load_schedule
-from ...lang.global_symbols import (
-    GLOBAL_MEMORY_UNITS,
-    SHARED_MEMORY_UNITS,
-    MMA_UNITS,
-    VALU_UNITS,
-    SHUFFLE_UNITS,
-)
 import torch.fx as fx
 from ....support.logging import get_logger
-import json
 import os
 
 logger = get_logger("turbine.wave.scheduling.schedule")

@@ -6,7 +6,6 @@
 
 import logging
 from pathlib import Path
-import torch
 import unittest
 
 from iree.turbine.transforms.general.custom_op_expansion import ExpandCustomOpsPass
@@ -18,7 +17,6 @@ from iree.turbine.runtime.op_reg import (
 )
 
 # import to regiser custom ops
-import iree.turbine.ops._jinja_test_ops  # ignore[unused-import]
 
 from iree.turbine.support.ir_imports import (
     Context,

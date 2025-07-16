@@ -7,7 +7,6 @@
 import pytest
 import torch
 import math
-import iree.turbine.kernel as tk
 from iree.turbine.kernel.lang.global_symbols import *
 from iree.turbine.kernel.wave.utils.general_utils import (
     get_default_scheduling_params,
@@ -16,8 +15,6 @@ from iree.turbine.kernel.wave.utils.run_utils import (
     set_default_run_config,
 )
 from iree.turbine.kernel.wave.utils.torch_utils import (
-    device_arange,
-    device_full,
     device_randn,
     device_zeros,
     to_default_device,
@@ -36,8 +33,7 @@ from ..common.utils import (
     require_e2e,
     enable_scheduling_barriers,
 )
-from ..common.shapes import get_test_shapes
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 
 shapes = [(128, 128, 128, 128, 128, 128)]
 

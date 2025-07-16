@@ -6,7 +6,7 @@
 
 import sympy
 import functools
-from typing import Any, Optional, Dict
+from typing import Any, Optional
 
 import torch.fx as fx
 

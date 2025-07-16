@@ -9,7 +9,6 @@
 
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple, Union
 
-import warnings
 
 import torch
 from torch._decomp import get_decompositions

@@ -74,8 +74,6 @@ from .tracer import (
     IrTrace,
 )
 
-from typing import TYPE_CHECKING
-
 
 # Limit of tensor volumes. Over this limit, otherwise uncategorized tensor
 # constants will be emitted out-of-line. Under the limit, inline.

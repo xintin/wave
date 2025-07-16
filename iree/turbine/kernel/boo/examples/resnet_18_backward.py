@@ -6,7 +6,6 @@
 
 import argparse
 import contextlib
-from pathlib import Path
 from functools import partial
 
 try:
@@ -17,7 +16,7 @@ except ImportError as e:
     )
 
 import torch
-from torch.profiler import profile, ProfilerActivity, record_function
+from torch.profiler import profile, ProfilerActivity
 
 import torch.optim as optim
 import torchvision.transforms as transforms

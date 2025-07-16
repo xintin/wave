@@ -28,7 +28,6 @@ from iree.turbine.kernel.wave.utils.run_utils import (
 )
 from iree.turbine.kernel.wave.utils.torch_utils import (
     device_arange,
-    device_full,
     device_ones,
     device_randint,
     device_randn,

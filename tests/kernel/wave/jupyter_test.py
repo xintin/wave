@@ -9,7 +9,6 @@ from iree.turbine.kernel._support.dtype import f16, f32
 from iree.turbine.kernel.lang.wave_types import *
 from iree.turbine.kernel.lang.global_symbols import *
 from iree.turbine.kernel.wave.utils.run_utils import set_default_run_config
-import iree.turbine.kernel as tkl
 import iree.turbine.kernel.wave as tkw
 from iree.turbine.kernel.wave.compile import WaveCompileOptions, wave_compile
 from .common.utils import require_e2e

@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any, Optional
 from .scheduling.schedule_enums import SchedulingType
-from .._support.indexing import IndexExpr, IndexSymbol
+from .._support.indexing import IndexSymbol
 from .._support.location_config import LocationCaptureConfig
 from .utils.classes import KernelLaunchInfo
 from ..compiler.kernel_codegen import KernelBufferUsage

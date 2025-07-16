@@ -14,9 +14,7 @@ import iree.turbine.kernel.lang as tkl
 import iree.turbine.kernel.wave as tkw
 from iree.turbine.kernel.wave.expansion.expansion import expand_graph, add_get_results
 from iree.turbine.kernel.wave.type_inference import infer_types
-from iree.turbine.kernel._support.tracing import CapturedTrace
 from iree.turbine.kernel._support.indexing import IndexingContext
-from iree.turbine.kernel.ops.wave_ops import get_custom
 from iree.turbine.kernel.lang.global_symbols import *
 from iree.turbine.kernel.wave.visualization import visualize_graph
 from iree.turbine.kernel.wave.analysis.index_sequence_analysis import (
@@ -70,7 +68,7 @@ def gemm(
 
 graphviz_disabled = False
 try:
-    import pygraphviz
+    pass
 except:
     graphviz_disabled = True
 

@@ -8,9 +8,7 @@ import pytest
 import torch
 from torch.nn import functional as F
 import math
-import iree.turbine.kernel as tk
 import iree.turbine.kernel.lang as tkl
-import iree.turbine.kernel.wave as tkw
 from iree.turbine.kernel.lang.global_symbols import *
 from iree.turbine.kernel.wave.utils.general_utils import (
     get_default_scheduling_params,
@@ -34,7 +32,6 @@ from ..common.utils import (
     require_cdna3,
     enable_scheduling_barriers,
     dump_generated_mlir,
-    param_bool,
 )
 from ..common.shapes import get_test_shapes
 

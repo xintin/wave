@@ -152,7 +152,11 @@ class JinjaTemplateLoader(TemplateLoader):
         suffix: str = ".mlir",
     ):
         try:
-            from jinja2 import Environment, PackageLoader, select_autoescape
+            from jinja2 import (  # noqa: F401
+                Environment,
+                PackageLoader,
+                select_autoescape,
+            )
         except ModuleNotFoundError as e:
             raise ModuleNotFoundError(
                 "Cannot use JinjaTemplateLoader if jinja2 is not installed"

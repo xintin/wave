@@ -8,7 +8,6 @@ from enum import Enum
 
 import math
 from dataclasses import dataclass
-import torch
 import torch.fx as fx
 from torch.utils import _pytree as pytree
 import iree.turbine.kernel.lang as tkl
@@ -16,7 +15,6 @@ import iree.turbine.kernel.lang as tkl
 from ..compiler.kernel_codegen import filter_fx_graph
 from .constraints import (
     Constraint,
-    HardwareConstraint,
     get_constrained_shape,
 )
 from .._support.tracing import CapturedTrace

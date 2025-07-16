@@ -6,8 +6,6 @@
 
 from typing import Any, Dict, List, Tuple
 
-import weakref
-
 
 class TypeSubclassMap:
     """Mapping of super-types to values.

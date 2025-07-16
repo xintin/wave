@@ -11,16 +11,6 @@ import torch
 import iree.turbine.kernel as tk
 import iree.turbine.kernel.lang as tkl
 
-from iree.turbine.kernel.compiler import (
-    builder,
-    dispatch_codegen,
-    kernel_codegen,
-    vector_codegen,
-)
-from iree.turbine.kernel._support import (
-    indexing,
-)
-
 
 M = tk.lang.sym.M
 K = tk.lang.sym.K

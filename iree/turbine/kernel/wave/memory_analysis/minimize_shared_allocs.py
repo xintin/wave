@@ -4,12 +4,11 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from typing import Optional
 from iree.turbine.kernel._support.tracing import CapturedTrace
 import torch.fx as fx
 import numpy as np
 
-from ...ops.wave_ops import get_custom, Allocate, SharedMemoryBarrier, NestedRegionOp
+from ...ops.wave_ops import get_custom, Allocate, SharedMemoryBarrier
 from ..utils.graph_utils import get_users
 from ..utils.symbol_utils import subs_idxc
 from dataclasses import dataclass

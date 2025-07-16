@@ -1,9 +1,5 @@
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
-from .._support.indexing import (
-    IndexExpr,
-    SymIndex,
-)
 
 from .base import (
     CodegenError,
@@ -27,9 +23,6 @@ from .ir import (
     arith_d,
     math_d,
     builtin_d,
-    F16Type,
-    F32Type,
-    F64Type,
 )
 
 # TODO: Use FloatType from upstream when available.

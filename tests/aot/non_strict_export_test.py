@@ -1,6 +1,5 @@
 import logging
 import unittest
-from torch import nn
 import torch
 
 from iree.turbine.aot import *

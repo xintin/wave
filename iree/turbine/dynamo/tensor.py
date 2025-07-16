@@ -10,7 +10,7 @@ This implementation is adapted from a variety of sources, most notably the subcl
 zoo: https://github.com/albanD/subclass_zoo/blob/main/new_device.py
 """
 
-from typing import Any, Optional, Sequence
+from typing import Optional, Sequence
 
 import functools
 import atexit
@@ -27,7 +27,6 @@ from ..runtime.device import (
 )
 
 from ..support.conversions import (
-    DTYPE_TO_ELEMENT_TYPE,
     dtype_to_element_type,
     torch_dtype_to_numpy,
 )
@@ -49,7 +48,6 @@ from iree.runtime import (
 )
 
 from iree.compiler.api import Session, Output
-from iree.compiler.passmanager import PassManager
 
 from iree.compiler.extras.fx_importer import FxImporter
 

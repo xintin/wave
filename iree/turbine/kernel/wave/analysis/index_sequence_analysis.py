@@ -33,9 +33,8 @@ from ..constraints import (
     WorkgroupConstraint,
     DistributionConstraint,
 )
-from ..assumptions import Assumption
 from ..symbolic_constraints import SymbolicAlias
-from ..._support.tracing import CapturedTrace, IndexingContext
+from ..._support.tracing import CapturedTrace
 from ..._support.indexing import IndexSymbol, IndexSequence
 from ...lang.global_symbols import *
 from ..utils.general_utils import (

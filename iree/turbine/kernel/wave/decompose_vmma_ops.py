@@ -11,7 +11,6 @@ from ..wave.constraints import (
     MMAOperand,
 )
 from .._support.tracing import CapturedTrace
-from .._support.indexing import IndexSequence, IndexSymbol, IndexExpr
 from ..ops.wave_ops import (
     get_custom,
     MMA,

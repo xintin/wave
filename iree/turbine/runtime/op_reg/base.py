@@ -8,7 +8,7 @@
 dispatcher.
 """
 
-from typing import Any, Callable, List, Optional, Sequence, Type, Union, cast
+from typing import Any, Callable, Optional, Sequence, Type, Union, cast
 
 from abc import ABC, abstractmethod
 import functools

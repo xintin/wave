@@ -11,7 +11,7 @@ from ..wave.constraints import (
     TilingConstraint,
 )
 from .._support.tracing import CapturedTrace
-from .._support.indexing import IndexingContext, IndexSequence, IndexSymbol, IndexExpr
+from .._support.indexing import IndexSequence, IndexSymbol, IndexExpr
 from ..ops.wave_ops import Read, Write, get_custom
 from ..lang.global_symbols import *
 from .utils.general_utils import (

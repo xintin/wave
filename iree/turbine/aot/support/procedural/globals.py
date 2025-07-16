@@ -9,10 +9,7 @@
 
 from typing import (
     Any,
-    Callable,
-    Dict,
     Generator,
-    Optional,
     Sequence,
     Tuple,
 )
@@ -41,7 +38,6 @@ from ..ir_utils import (
 from .base import (
     AbstractScalar,
     AbstractTensor,
-    Intrinsic,
     IrTrace,
     current_ir_trace,
 )

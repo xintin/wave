@@ -1,18 +1,13 @@
 import torch
 import json
-import math
-import os
 import logging
 import datetime
 import random
 import sqlite3
 import pandas as pd
 from pathlib import Path
-from typing import Dict, Tuple, Optional, Any, List
+from typing import Dict, Tuple, Optional, List
 from dataclasses import dataclass, asdict
-import iree.turbine.kernel as tk
-import iree.turbine.kernel.lang as tkl
-import iree.turbine.kernel.wave as tkw
 from iree.turbine.kernel.wave.utils.general_utils import get_default_scheduling_params
 from iree.turbine.kernel.wave.utils.run_utils import set_default_run_config
 from iree.turbine.kernel.wave.utils.torch_utils import device_randn, device_zeros
@@ -36,11 +31,9 @@ import torch.fx as fx
 import numpy as np
 from iree.turbine.kernel.wave.utils.print_utils import load_schedule, dump_schedule
 from iree.turbine.kernel.wave.scheduling.resources import (
-    resource_reservation_table,
     get_custom_operation_type,
     Operation,
 )
-from iree.turbine.kernel.ops.wave_ops import get_custom
 from iree.turbine.kernel.wave.tuner.utils import (
     latency_to_us,
     format_latency_us,

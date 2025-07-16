@@ -11,7 +11,7 @@ except:
     graphviz_disabled = True
 from torch import fx
 from .scheduling.graph_utils import Edge
-from ..ops.wave_ops import Output, Placeholder, IterArg, get_custom
+from ..ops.wave_ops import Output, get_custom
 from collections import ChainMap
 import math
 

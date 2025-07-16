@@ -9,7 +9,6 @@ import iree.turbine.kernel.wave as tkw
 from iree.turbine.kernel.lang.global_symbols import *
 from iree.turbine.kernel.wave.constraints import MMAType
 from .attention_common import AttentionShape
-from dataclasses import dataclass
 import math
 
 

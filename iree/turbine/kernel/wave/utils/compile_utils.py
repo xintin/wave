@@ -11,7 +11,6 @@ from ...compiler.ir import (
     Operation,
     transform_d,
     UnitAttr,
-    Value,
     Module,
     StringAttr,
 )

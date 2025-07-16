@@ -1,6 +1,5 @@
 from typing import (
     Any,
-    Callable,
     ClassVar,
     Iterable,
     Optional,

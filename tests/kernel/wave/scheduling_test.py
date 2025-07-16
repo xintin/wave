@@ -19,7 +19,6 @@ from iree.turbine.kernel.wave.scheduling.graph_utils import (
     find_strongly_connected_components,
     find_cycles_in_scc,
     all_pairs_longest_paths,
-    evaluate_all_pairs_longest_paths,
 )
 import iree.turbine.kernel as tk
 import iree.turbine.kernel.lang as tkl
@@ -50,7 +49,6 @@ from iree.turbine.kernel.wave.utils.print_utils import (
 import os
 from iree.turbine.kernel.wave.scheduling.resources import (
     resource_reservation_table,
-    get_custom_operation_type,
     Operation,
 )
 from iree.turbine.kernel.wave.utils.general_utils import (

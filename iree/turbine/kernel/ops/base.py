@@ -1,6 +1,6 @@
 """Support for defining the op library and dispatch."""
 
-from typing import Callable, Type, TypeVar
+from typing import Type, TypeVar
 
 import functools
 

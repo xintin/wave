@@ -13,14 +13,13 @@ import json
 import os
 import shutil
 import threading
-import math
 import tempfile
 
 from collections import OrderedDict, deque
 from dataclasses import dataclass, asdict
 from pathlib import Path
 import functools
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
 from iree.turbine.kernel.lang.kernel_buffer import KernelBufferMeta
 

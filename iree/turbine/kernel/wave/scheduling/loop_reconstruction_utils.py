@@ -1,21 +1,12 @@
-from ..constraints import Constraint, TilingConstraint
-from ..._support.indexing import IndexSymbol
-from ..._support.tracing import CapturedTrace
 from ...ops.wave_ops import (
     Iterate,
     IterArg,
-    Output,
     Write,
     GetResult,
     get_custom,
-    Placeholder,
 )
-from ..utils.graph_utils import graph_copy, erase_graph
-from ..utils.symbol_utils import subs_idxc
 import torch.fx as fx
-import math
-from collections import defaultdict, deque, ChainMap
-from ..visualization import visualize_mapped_graphs
+from collections import defaultdict
 from ....support.logging import get_logger
 from ...lang.global_symbols import SHARED_ADDRESS_SPACE
 import random

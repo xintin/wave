@@ -6,11 +6,10 @@
 
 from os import environ
 import sympy
-from typing import Any, Callable, ClassVar, Optional, List, Type, Dict
+from typing import Any, Callable, ClassVar, Optional, List, Type
 from dataclasses import dataclass
 from collections import namedtuple
 import sys
-from ..._support.location import FileLineColInfo
 import torch.fx as fx
 
 from iree.turbine.kernel.lang.global_symbols import *

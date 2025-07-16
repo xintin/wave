@@ -6,7 +6,6 @@
 
 from .._support.tracing import CapturedTrace
 from ...support.logging import get_logger
-from .._support.indexing import IndexingContext
 from ..ops.wave_ops import *
 from ..lang.global_symbols import *
 from .constraints import Constraint, get_constrained_shape

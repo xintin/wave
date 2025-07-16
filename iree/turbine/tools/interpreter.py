@@ -3,7 +3,6 @@ import torch
 from ..support.logging import get_logger
 import re
 from typing import Callable
-from collections import namedtuple
 import numpy as np
 
 logger = get_logger("turbine.wave.interpreter")

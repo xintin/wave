@@ -14,14 +14,12 @@ from iree.turbine.kernel.wave.utils.run_utils import (
     set_default_run_config,
 )
 from iree.turbine.kernel.wave.utils.torch_utils import (
-    device_randn,
     device_zeros,
     quantized_tensor,
 )
 from iree.turbine.kernel.wave.compile import WaveCompileOptions, wave_compile
 from iree.turbine.kernel.wave.constraints import MMAType
 import os
-from torch.testing import assert_close
 from ..common.utils import (
     require_e2e,
     require_cdna3,

@@ -3,8 +3,6 @@ from typing import (
     List,
     Tuple,
     Optional,
-    Iterator,
-    overload,
     Callable,
     Tuple,
 )

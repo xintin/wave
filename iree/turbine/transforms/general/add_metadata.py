@@ -8,14 +8,11 @@
 This pass will add a specified dictionary as an iree.reflection attribute to a module's public function(s).
 """
 
-from typing import Callable, Dict, List, Optional, Tuple, Union
-
-import re
 
 from iree.turbine.support.ir_imports import *
 
 from ..rewriter import *
-from iree.compiler.ir import Context, DictAttr
+from iree.compiler.ir import DictAttr
 
 
 def value_to_attr(value):

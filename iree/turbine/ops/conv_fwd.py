@@ -19,7 +19,6 @@ from ..runtime.op_reg import (
     impl_helper,
 )
 
-from ..support.logging import aot_logger as logger
 
 _templates = impl_helper.JinjaTemplateLoader(__name__)
 

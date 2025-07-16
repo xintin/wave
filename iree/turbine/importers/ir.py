@@ -6,37 +6,5 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 from iree.compiler.ir import (
-    ArrayAttr,
     Attribute as Attribute,
-    Block,
-    Context,
-    DenseElementsAttr,
-    DenseResourceElementsAttr,
-    DictAttr,
-    FloatAttr,
-    BF16Type,
-    ComplexType,
-    F16Type,
-    F32Type,
-    F64Type,
-    Float8E4M3FNType,
-    Float8E5M2FNUZType,
-    Float8E5M2Type,
-    FunctionType,
-    InsertionPoint,
-    IntegerAttr,
-    IntegerType,
-    MLIRError,
-    RankedTensorType,
-    Location,
-    Module,
-    Operation,
-    StringAttr,
-    SymbolTable,
-    Type as IrType,
-    Value,
-)
-
-from iree.compiler.dialects import (
-    func as func_dialect,
 )

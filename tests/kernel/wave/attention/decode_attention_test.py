@@ -7,7 +7,6 @@
 import pytest
 import torch
 import math
-import iree.turbine.kernel as tk
 from iree.turbine.kernel.lang.global_symbols import *
 from iree.turbine.kernel.wave.utils.run_utils import (
     set_default_run_config,

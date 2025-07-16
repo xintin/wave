@@ -5,8 +5,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 import functools
-import os
-from typing import List, Optional, Sequence, Union
+from typing import Optional
 from dataclasses import dataclass
 from iree.runtime import (
     asdevicearray,
@@ -16,10 +15,7 @@ from iree.runtime import (
     HalFence,
     HalElementType,
     DeviceArray,
-    get_driver,
     VmContext,
-    HalDevice,
-    HalDriver,
     VmInstance,
     VmModule,
     VmVariantList,

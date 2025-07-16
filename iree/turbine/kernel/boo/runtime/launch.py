@@ -11,7 +11,7 @@ import warnings
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any, Callable, Iterable, Tuple, Sequence
+from typing import Callable, Iterable, Tuple, Sequence
 
 import torch
 

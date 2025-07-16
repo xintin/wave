@@ -8,7 +8,6 @@ import torch.fx as fx
 from ....support.logging import get_logger
 from .graph_utils import (
     Edge,
-    EdgeWeight,
     find_strongly_connected_components,
     find_cycles_in_scc,
     all_pairs_longest_paths_unevaluated,

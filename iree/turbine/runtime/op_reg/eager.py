@@ -14,7 +14,6 @@ import torch
 from iree.runtime import (
     HalBufferView,
     HalElementType,
-    HalFence,
     VmRef,
     VmVariantList,
 )

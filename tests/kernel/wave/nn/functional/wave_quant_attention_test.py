@@ -5,7 +5,6 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 import torch
-from torch.nn import functional as F
 from torch.testing import assert_close
 
 import iree.turbine.kernel.wave.nn as wave_nn

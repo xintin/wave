@@ -5,7 +5,6 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 import logging
-import pytest
 import unittest
 from iree.turbine.kernel.lang import sym
 from iree.turbine.kernel.wave.assumptions import Assumption

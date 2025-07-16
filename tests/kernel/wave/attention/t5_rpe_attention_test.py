@@ -12,7 +12,6 @@ import os
 from torch.nn import functional as F
 from torch.testing import assert_close
 
-import iree.turbine.kernel as tk
 from iree.turbine.kernel.wave.constraints import MMAType
 from iree.turbine.kernel.wave.templates.attention_common import AttentionShape
 from iree.turbine.kernel.wave.utils.general_utils import (

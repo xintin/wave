@@ -4,13 +4,10 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-import logging
-import unittest
 from typing import List
 
 from iree.compiler.extras.fx_importer import FxImporter
 import torch
-import torch._dynamo as dynamo
 from torch._dynamo.backends.common import aot_autograd
 from torch.fx.experimental.proxy_tensor import make_fx
 from torch._decomp import get_decompositions

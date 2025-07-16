@@ -9,13 +9,10 @@
 # operate on instances of these.
 
 from typing import (
-    cast,
     Dict,
     List,
     Optional,
     Sequence,
-    Tuple,
-    Union,
 )
 
 import torch
@@ -32,14 +29,11 @@ from ..ir_utils import (
     build_tensor_dim_value,
     _is_float_type,
     _is_integer_like_type,
-    Empty,
-    EmptyType,
 )
 
 from .base import (
     Intrinsic,
     IrTrace,
-    ShapedTypeDynamicSizeSentinel,
     current_ir_trace,
 )
 

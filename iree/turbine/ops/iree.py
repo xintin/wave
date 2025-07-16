@@ -6,8 +6,6 @@
 
 """Custom ops for built-in IREE functionality."""
 from typing import cast
-import numpy as np
-import os
 
 from ..support.ir_imports import (
     Attribute,

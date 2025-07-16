@@ -5,7 +5,6 @@ import argparse
 from testutils import evaluate_all
 
 # magic: makes importing this module work in the testsuite
-import torch._inductor.config
 
 import logging
 

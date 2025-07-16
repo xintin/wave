@@ -20,7 +20,6 @@ from iree.runtime import (
     create_io_parameters_module,
     HalBufferView,
     HalElementType,
-    HalFence,
     ParameterProvider,
     VmContext,
     VmFunction,

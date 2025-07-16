@@ -6,7 +6,6 @@
 
 import inspect
 import types
-import typing
 import functools
 import copy
 import torch

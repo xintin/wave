@@ -5,14 +5,12 @@ actual loads/stores/computes to local vectors using PyTorch tensor
 level operations executed as threads over a grid.
 """
 
-from typing import Any, Callable, Type, Optional, Sequence, Union, List
+from typing import Any, Callable, Type, Optional, Union, List
 import types
 
 from dataclasses import dataclass
-import inspect
 import operator as py_operator
 
-import torch
 import torch.fx as fx
 import torch.utils._pytree as pytree
 
@@ -55,12 +53,8 @@ from .ir import (
     AffineExpr,
     AffineMapAttr,
     ArrayAttr,
-    FunctionType,
     VectorType,
-    DenseElementsAttr,
-    F32Type,
     IndexType,
-    FloatAttr,
     InsertionPoint,
     IrType,
     Location,
@@ -70,7 +64,6 @@ from .ir import (
     VectorType,
     arith_d,
     func_d,
-    math_d,
     vector_d,
     scf_d,
 )
@@ -79,7 +72,6 @@ from .kernel_codegen import (
     BoundKernelSignature,
 )
 
-from . import op_matchers
 
 ArgTypeUnion = Union[IndexSymbol, Type[KernelBuffer]]
 

@@ -6,7 +6,6 @@
 
 import torch
 from torch import nn
-from torch.testing import assert_close
 from ..common.utils import (
     require_e2e,
     require_cdna3,

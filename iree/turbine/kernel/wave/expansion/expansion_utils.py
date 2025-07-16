@@ -12,7 +12,6 @@ from ..constraints import (
     WorkgroupConstraint,
     TilingConstraint,
 )
-from torch import fx
 from ..._support.indexing import IndexingContext, IndexSymbol
 from ...ops.wave_ops import (
     get_custom,
@@ -24,7 +23,6 @@ from ...ops.wave_ops import (
     Reshape,
     NewRegister,
     ReduceOp,
-    MMA,
 )
 from ...lang.global_symbols import SHARED_ADDRESS_SPACE
 import itertools

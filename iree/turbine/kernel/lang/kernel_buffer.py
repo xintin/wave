@@ -7,7 +7,7 @@ import torch
 
 from .._support.indexing import IndexExpr
 from .._support.shaped_type import ShapedDataType
-from .._support.dtype import DataType, f32
+from .._support.dtype import DataType
 from .. import ops
 
 __all__ = [

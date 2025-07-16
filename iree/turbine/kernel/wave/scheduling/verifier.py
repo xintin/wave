@@ -1,10 +1,7 @@
 from typing import Dict, List, Optional, Tuple, Callable, TypeAlias
 import numpy as np
-import torch
 import torch.fx as fx
-from .resources import get_available_resources
 from .graph_utils import Edge
-from ...ops.wave_ops import get_custom, IterArg
 
 Schedule: TypeAlias = Dict[fx.Node, int]
 RawEdgesList: TypeAlias = Optional[List[Edge]]

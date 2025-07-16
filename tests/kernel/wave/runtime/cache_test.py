@@ -15,7 +15,6 @@ import pytest
 import torch
 from torch.testing import assert_close
 import math
-import iree.turbine.kernel as tk
 import iree.turbine.kernel.lang as tkl
 import iree.turbine.kernel.wave as tkw
 import sympy

@@ -5,11 +5,10 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from pathlib import Path
 import logging
 import unittest
 
-from iree.compiler.ir import Context, Operation, Module
+from iree.compiler.ir import Context, Module
 
 from iree.turbine.transforms.general import add_metadata
 

@@ -6,7 +6,6 @@
 
 import torch
 from torch import nn
-from torch.testing import assert_close
 import math
 
 import iree.turbine.kernel.lang as tkl
@@ -22,7 +21,6 @@ from iree.turbine.kernel.wave.utils.mma_utils import (
     get_mfma_load_elems_per_thread,
     get_mfma_store_elems_per_thread,
 )
-from iree.turbine.kernel.wave.scheduling.schedule import SchedulingType
 from iree.turbine.kernel.wave.compile import WaveCompileOptions, wave_compile
 from iree.turbine.kernel.wave.constraints import MMAType
 

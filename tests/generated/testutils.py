@@ -6,10 +6,7 @@ import sys
 from functools import partial
 import multiprocessing
 from multiprocessing.pool import ThreadPool
-import threading
 import signal
-import platform
-import resource
 import logging
 from tqdm import *
 

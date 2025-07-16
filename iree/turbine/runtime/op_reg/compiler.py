@@ -31,9 +31,6 @@ from ...support.ir_imports import (
     SymbolTable,
 )
 
-from ...support.logging import (
-    runtime_logger as logger,
-)
 
 from ..device import (
     Device,
