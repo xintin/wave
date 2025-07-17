@@ -4,7 +4,6 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 import torch
-
 from testutils import *
 
 
@@ -227,8 +226,8 @@ class ImportTests(unittest.TestCase):
         opt_foo()
 
     def testImportVisionModule(self):
-        from torch import nn
         import torch.nn.functional as F
+        from torch import nn
 
         class ConvBlock(nn.Module):
             def __init__(self, in_channels, out_channels, kernel_size=3, stride=1):

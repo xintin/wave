@@ -4,33 +4,35 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+from enum import Enum
+
+import numpy as np
+import torch.fx as fx
+
 from ...lang.global_symbols import *
-from ..utils.symbol_utils import subs_idxc
 from ...ops.wave_ops import (
-    Read,
-    Write,
     MMA,
-    ScaledMMA,
+    ApplyExpr,
+    BinaryOpBase,
+    BitcastOp,
+    Broadcast,
+    CastOp,
+    CustomOp,
+    Extract,
     IterArg,
     Output,
-    get_custom,
-    CustomOp,
-    CastOp,
-    BitcastOp,
-    UnaryPyOp,
-    BinaryOpBase,
-    ApplyExpr,
+    Permute,
+    Read,
+    Reshape,
+    ScaledMMA,
     SelectOp,
     SelfIndex,
     ShuffleOp,
-    Permute,
-    Extract,
-    Broadcast,
-    Reshape,
+    UnaryPyOp,
+    Write,
+    get_custom,
 )
-import torch.fx as fx
-from enum import Enum
-import numpy as np
+from ..utils.symbol_utils import subs_idxc
 
 
 def get_resource_names() -> list[str]:

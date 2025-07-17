@@ -5,9 +5,11 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 from typing import Dict, Sequence
+
 import torch
-from ..ops.conv import boo_convolution, make_tuple
+
 from ....support.logging import aot_logger as logger
+from ..ops.conv import boo_convolution, make_tuple
 
 __all__ = [
     "BooConv1d",

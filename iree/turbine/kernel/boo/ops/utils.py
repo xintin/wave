@@ -4,13 +4,13 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-import os
 import functools
-
-from typing import Tuple, Iterable, NamedTuple
+import os
+from typing import Iterable, NamedTuple, Tuple
 
 import torch
 from torch.fx.passes.shape_prop import TensorMetadata
+
 from ....support.logging import runtime_logger as logger
 
 __all__ = [

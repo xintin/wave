@@ -6,9 +6,8 @@
 
 import os
 import shutil
-
 from pathlib import Path
-from typing import Union, OrderedDict
+from typing import OrderedDict, Union
 
 from ....runtime import Launchable
 

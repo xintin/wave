@@ -4,15 +4,24 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+import os
+from typing import List, Optional
+
 import pytest
 import torch
+from torch.testing import assert_close
+
 from iree.turbine.kernel.lang.global_symbols import *
-from iree.turbine.kernel.wave.utils.general_utils import (
-    get_default_scheduling_params,
+from iree.turbine.kernel.wave.compile import WaveCompileOptions, wave_compile
+from iree.turbine.kernel.wave.constraints import GenericDot, MMAOperand, MMAType
+from iree.turbine.kernel.wave.scheduling.schedule import SchedulingType
+from iree.turbine.kernel.wave.templates.paged_decode_attention import (
+    get_paged_decode_attention_kernels,
+    get_paged_decode_intermediate_arrays_shapes,
+    paged_decode_attention_shape,
 )
-from iree.turbine.kernel.wave.utils.run_utils import (
-    set_default_run_config,
-)
+from iree.turbine.kernel.wave.utils.general_utils import get_default_scheduling_params
+from iree.turbine.kernel.wave.utils.run_utils import set_default_run_config
 from iree.turbine.kernel.wave.utils.torch_utils import (
     device_arange,
     device_full,
@@ -20,16 +29,7 @@ from iree.turbine.kernel.wave.utils.torch_utils import (
     device_randn,
     device_zeros,
 )
-from iree.turbine.kernel.wave.compile import WaveCompileOptions, wave_compile
-from iree.turbine.kernel.wave.constraints import MMAType, GenericDot, MMAOperand
-from iree.turbine.kernel.wave.templates.paged_decode_attention import (
-    get_paged_decode_attention_kernels,
-    get_paged_decode_intermediate_arrays_shapes,
-    paged_decode_attention_shape,
-)
-from iree.turbine.kernel.wave.scheduling.schedule import SchedulingType
-import os
-from torch.testing import assert_close
+
 from ..common.utils import (
     dump_generated_mlir,
     enable_scheduling_barriers,
@@ -38,7 +38,6 @@ from ..common.utils import (
     require_cdna3,
     require_e2e,
 )
-from typing import List, Optional
 
 # Reference paged attention implementation from vLLM and sglang.
 # (NUM_Q_HEADS, NUM_KV_HEADS, HEAD_SIZE, HEAD_SIZE_KV, BLOCK_SIZE, NUM_SEQS, SEQ_LEN)

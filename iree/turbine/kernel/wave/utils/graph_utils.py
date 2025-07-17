@@ -3,28 +3,31 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from .symbol_utils import subs_idxc
+from typing import Callable, Optional, Sequence
+
+import torch.fx as fx
+
+import iree.turbine.kernel.lang as tkl
+
+from ..._support.indexing import IndexSymbol
 from ..._support.tracing import CapturedTrace
 from ...lang.global_symbols import *
-import iree.turbine.kernel.lang as tkl
 from ...ops.wave_ops import (
-    get_custom,
-    Write,
-    NestedRegionOp,
-    Output,
+    MMA,
+    Conditional,
+    CustomOp,
     ExtractSlice,
     GetResult,
-    CustomOp,
-    Iterate,
-    Placeholder,
-    Conditional,
-    MMA,
     IterArg,
+    Iterate,
+    NestedRegionOp,
+    Output,
+    Placeholder,
     SharedMemoryBarrier,
+    Write,
+    get_custom,
 )
-from ..._support.indexing import IndexSymbol
-from typing import Callable, Sequence, Optional
-import torch.fx as fx
+from .symbol_utils import subs_idxc
 
 
 def DCE(trace: CapturedTrace):

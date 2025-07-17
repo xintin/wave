@@ -10,7 +10,6 @@ import unittest
 import torch
 
 from iree.turbine.runtime.op_reg import *
-
 from iree.turbine.runtime.op_reg.compiler import _testing_get_cache_size
 
 

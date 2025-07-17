@@ -1,16 +1,19 @@
-from .verifier import ScheduleValidator as ScheduleModifier
+import logging
 import random
-from typing import Callable, Dict, Tuple, Optional, List
 from dataclasses import dataclass
 from enum import Enum, auto
-from iree.turbine.kernel.wave.scheduling.resources import (
-    get_custom_operation_type,
-    Operation,
-)
-from iree.turbine.kernel.ops.wave_ops import get_custom
-from iree.turbine.kernel.wave.tuner.utils import latency_to_us, format_latency_us
-import logging
+from typing import Callable, Dict, List, Optional, Tuple
+
 import numpy as np
+
+from iree.turbine.kernel.ops.wave_ops import get_custom
+from iree.turbine.kernel.wave.scheduling.resources import (
+    Operation,
+    get_custom_operation_type,
+)
+from iree.turbine.kernel.wave.tuner.utils import format_latency_us, latency_to_us
+
+from .verifier import ScheduleValidator as ScheduleModifier
 
 
 class OptimizationAlgorithm(Enum):

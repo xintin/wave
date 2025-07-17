@@ -5,7 +5,6 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 import pytest
-
 import torch
 
 from iree.turbine.ops.conv_fwd import conv_2d_nhwc_fhwc, generic_conv

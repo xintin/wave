@@ -4,15 +4,16 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from .._support.tracing import CapturedTrace
-from ...support.logging import get_logger
-from ..ops.wave_ops import *
-from ..lang.global_symbols import *
-from .constraints import Constraint, get_constrained_shape
-from .utils.symbol_utils import subs_idxc
-from .utils.graph_utils import move_node_after
-from .utils.classes import KernelLaunchInfo
 import math
+
+from ...support.logging import get_logger
+from .._support.tracing import CapturedTrace
+from ..lang.global_symbols import *
+from ..ops.wave_ops import *
+from .constraints import Constraint, get_constrained_shape
+from .utils.classes import KernelLaunchInfo
+from .utils.graph_utils import move_node_after
+from .utils.symbol_utils import subs_idxc
 
 logger = get_logger("turbine.wave.promotion")
 

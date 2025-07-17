@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 from enum import Enum
-from typing import Any, Union, Tuple
+from typing import Any, Tuple, Union
 
 
 def latency_to_us(latency: float) -> float:

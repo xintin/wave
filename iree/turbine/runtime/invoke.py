@@ -4,19 +4,11 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from typing import (
-    Callable,
-)
+from typing import Callable
+
+from iree.runtime import HalFence, VmContext, VmFunction, VmVariantList
 
 from .device import Device
-
-from iree.runtime import (
-    VmContext,
-    VmFunction,
-    HalFence,
-    VmVariantList,
-)
-
 
 __all__ = [
     "invoke_vm_function",

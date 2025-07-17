@@ -8,16 +8,8 @@ from pathlib import Path
 from typing import Any, Callable, Optional, Sequence, Tuple, Union
 
 import torch
-from torch import Tensor
-
-from iree.compiler.api import (
-    Session,
-    Source,
-    Output,
-)
-
+from iree.compiler.api import Output, Session, Source
 from iree.runtime import (
-    create_io_parameters_module,
     HalBufferView,
     HalElementType,
     ParameterProvider,
@@ -26,15 +18,12 @@ from iree.runtime import (
     VmModule,
     VmRef,
     VmVariantList,
+    create_io_parameters_module,
 )
+from torch import Tensor
 
 from ..support.logging import runtime_logger as logger
-
-from .device import (
-    get_device_from_torch,
-    Device,
-)
-
+from .device import Device, get_device_from_torch
 from .invoke import invoke_vm_function
 
 __all__ = [

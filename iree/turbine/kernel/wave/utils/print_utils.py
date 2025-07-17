@@ -3,22 +3,25 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+import logging
+import timeit
+from typing import Callable, Dict, Optional, Sequence, Tuple
+
+import numpy as np
 import torch.fx as fx
+
 from iree.turbine.kernel.ops.wave_ops import (
+    Allocate,
+    IterArg,
     NestedRegionOp,
     Placeholder,
-    get_custom,
-    Allocate,
     Read,
     Write,
-    IterArg,
+    get_custom,
 )
+
 from ..._support.tracing import CapturedTrace
-from typing import Sequence, Optional, Dict, Tuple, Callable
 from ..scheduling.graph_utils import Edge, EdgeWeight
-import numpy as np
-import timeit
-import logging
 
 logger = logging.getLogger(__name__)
 

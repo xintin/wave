@@ -1,19 +1,14 @@
 from typing import Any, Optional
 
-
-from .base import (
-    CodegenError,
-    NDEBUG,
-)
-
+from .base import NDEBUG, CodegenError
 from .ir import (
     Attribute,
     Context,
+    DenseElementsAttr,
     FloatAttr,
     IndexType,
     IntegerAttr,
     IntegerType,
-    DenseElementsAttr,
     IrType,
     Location,
     Operation,
@@ -21,8 +16,8 @@ from .ir import (
     Value,
     VectorType,
     arith_d,
-    math_d,
     builtin_d,
+    math_d,
 )
 
 # TODO: Use FloatType from upstream when available.

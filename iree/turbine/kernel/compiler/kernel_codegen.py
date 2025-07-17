@@ -13,40 +13,27 @@ In a typical code generation stack, there are three elements:
 This level handles #2.
 """
 
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from enum import Enum
 from typing import Any, Callable, Optional, Type
 
-from abc import ABC, abstractmethod
-from enum import Enum
-from dataclasses import dataclass
-
-import torch.fx as fx
 import sympy
+import torch.fx as fx
 
 from iree.turbine.kernel._support.dtype import DataType
 
-from .._support.indexing import (
-    IndexingContext,
-    IndexSymbol,
-    index_symbol,
-)
-
+from .._support.indexing import IndexingContext, IndexSymbol, index_symbol
+from ..lang.grid import Grid
 from ..lang.kernel_buffer import (
     KernelBuffer,
     KernelBufferUsage,
     is_kernel_buffer_meta_derived,
 )
 from ..lang.wave_types import Memory, SymbolBind
-from ..lang.grid import Grid
-from ..ops.wave_ops import get_custom, Placeholder, NestedRegionOp, Read, Write
-
-from .base import (
-    CodegenError,
-)
-
-from .builder import (
-    ModuleBuilder,
-)
-
+from ..ops.wave_ops import NestedRegionOp, Placeholder, Read, Write, get_custom
+from .base import CodegenError
+from .builder import ModuleBuilder
 from .ir import (
     Block,
     FunctionType,
@@ -58,7 +45,6 @@ from .ir import (
     Value,
     func_d,
 )
-
 from .utils import strides_from_symbolic_shape
 
 

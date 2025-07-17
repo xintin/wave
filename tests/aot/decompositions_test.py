@@ -4,10 +4,10 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-import torch
-
 import logging
 import unittest
+
+import torch
 
 from iree.turbine.aot import decompositions
 

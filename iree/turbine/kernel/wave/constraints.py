@@ -7,14 +7,14 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, Callable
-from sympy import ceiling, Piecewise, floor, Integer
+from typing import Callable, Optional
 
-from .._support.indexing import IndexExpr, IndexSymbol, IndexSequence
+from sympy import Integer, Piecewise, ceiling, floor
+
 from .._support.dtype import DataType
+from .._support.indexing import IndexExpr, IndexSequence, IndexSymbol
 from ..lang.global_symbols import *
-from .utils.symbol_utils import subs_idxc, get_min_expr
-
+from .utils.symbol_utils import get_min_expr, subs_idxc
 
 """
 Formatting for different target intrinsics:

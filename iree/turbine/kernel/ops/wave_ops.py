@@ -1,9 +1,10 @@
 from __future__ import annotations
-from abc import ABC
-from dataclasses import dataclass, field, fields
+
+import copy
 import operator
 import sys
-import copy
+from abc import ABC
+from dataclasses import dataclass, field, fields
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -14,18 +15,19 @@ from typing import (
     TypeVar,
     final,
 )
-from typing_extensions import Self
-import torch.fx as fx
 
-from ..lang.kernel_buffer import AddressSpace
-from ..lang.wave_types import Memory, Register, IndexMapping
-from ..lang.global_symbols import *
-from .._support.indexing import IndexExpr, IndexSymbol, IndexSequence
-from .._support.dtype import DataType, i1
-from .._support.regions import RegionGraph
-from .._support.location import FileLineColInfo, StackTraceInfo, capture_location
-from .base import OpDispatcher
 import numpy as np
+import torch.fx as fx
+from typing_extensions import Self
+
+from .._support.dtype import DataType, i1
+from .._support.indexing import IndexExpr, IndexSequence, IndexSymbol
+from .._support.location import FileLineColInfo, StackTraceInfo, capture_location
+from .._support.regions import RegionGraph
+from ..lang.global_symbols import *
+from ..lang.kernel_buffer import AddressSpace
+from ..lang.wave_types import IndexMapping, Memory, Register
+from .base import OpDispatcher
 
 if TYPE_CHECKING:
     from ..wave.constraints import Constraint

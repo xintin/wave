@@ -4,31 +4,33 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+from collections import defaultdict
+from copy import deepcopy
+from math import prod
+
+import torch.fx as fx
+
+from .._support.indexing import IndexSequence, IndexSymbol
+from .._support.tracing import CapturedTrace
+from ..lang.global_symbols import *
+from ..lang.wave_types import IndexMapping
+from ..ops.wave_ops import Read, Write, get_custom
 from ..wave.constraints import (
     Constraint,
     HardwareConstraint,
-    WorkgroupConstraint,
     TilingConstraint,
+    WorkgroupConstraint,
 )
-from .._support.tracing import CapturedTrace
-from .._support.indexing import IndexSequence, IndexSymbol
-from ..lang.wave_types import IndexMapping
-from ..ops.wave_ops import Read, Write, get_custom
-from ..lang.global_symbols import *
-from math import prod
-import torch.fx as fx
-from collections import defaultdict
-from copy import deepcopy
-from .utils.symbol_utils import subs_idxc
-from .utils.general_utils import is_gather
 from .minimize_global_loads import (
-    has_write_shared_user,
-    construct_min_global_access_pattern,
-    materialize_shape,
-    identify_optimizable_loads,
-    update_write_dependencies,
     SharedReadMetadata,
+    construct_min_global_access_pattern,
+    has_write_shared_user,
+    identify_optimizable_loads,
+    materialize_shape,
+    update_write_dependencies,
 )
+from .utils.general_utils import is_gather
+from .utils.symbol_utils import subs_idxc
 
 """
 We are given N global gathers that are promoted to shared memory. This function

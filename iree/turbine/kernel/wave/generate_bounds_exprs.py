@@ -4,19 +4,20 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-import torch.fx as fx
 import sympy
+import torch.fx as fx
+
 from ..ops.wave_ops import Read, Write
-from .wave import CapturedTrace
 from .constraints import Constraint, DistributionConstraint
-from .utils.graph_utils import get_custom
 from .utils.general_utils import (
     find_index_bounds,
     get_hardware_constraint,
     is_shared_mem_access,
     remove_global_indexing,
 )
-from .utils.symbol_utils import IndexSymbol, IndexExpr, subs_idxc, safe_subs
+from .utils.graph_utils import get_custom
+from .utils.symbol_utils import IndexExpr, IndexSymbol, safe_subs, subs_idxc
+from .wave import CapturedTrace
 
 
 def _get_max_tile_size(

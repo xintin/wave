@@ -11,43 +11,33 @@ from torch import Tensor
 from torch._subclasses.fake_tensor import FakeTensorMode
 from torch.fx.experimental.symbolic_shapes import ShapeEnv
 
-from ...dynamo.type_conversion import (
-    NativeTypeConverter,
-)
-
+from ...dynamo.type_conversion import NativeTypeConverter
 from ...runtime.op_reg.base import (
     ALL_CUSTOM_OP_REGS,
     AttrArg,
+    CustomOp,
     EmptyOptionalTensorArg,
     IntArg,
-    CustomOp,
     KernelBuilder,
     KernelSelection,
     TensorArg,
     TensorListArg,
 )
-
-from ...support.conversions import (
-    MLIR_TYPE_ASM_TO_TORCH_DTYPE,
-)
-
+from ...support.conversions import MLIR_TYPE_ASM_TO_TORCH_DTYPE
 from ...support.ir_imports import (
     Block,
     FloatAttr,
-    IrType,
     InsertionPoint,
     IntegerAttr,
-    OpResult,
+    IrType,
     Operation,
+    OpResult,
     RankedTensorType,
     StringAttr,
     SymbolTable,
     Value,
 )
-
-from ..rewriter import (
-    Pass,
-)
+from ..rewriter import Pass
 
 
 class ExpandCustomOpsPass(Pass):

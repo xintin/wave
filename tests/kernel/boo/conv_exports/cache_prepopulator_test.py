@@ -4,10 +4,11 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import unittest
-from iree.turbine.kernel.boo.runtime import set_cache_dir, clear_cache
+
+from iree.turbine.kernel.boo.runtime import clear_cache, set_cache_dir
 
 
 class CachePopulatorTest(unittest.TestCase):
@@ -16,9 +17,9 @@ class CachePopulatorTest(unittest.TestCase):
             cache_dir = Path(td)
             set_cache_dir(cache_dir=cache_dir)
 
-            from iree.turbine.kernel.boo.driver.preload import CachePopulator
-            from iree.turbine.kernel.boo.conv_exports.miopen_parser import ConvParser
             from iree.turbine.kernel.boo.conv_exports.conv import ConvSignature
+            from iree.turbine.kernel.boo.conv_exports.miopen_parser import ConvParser
+            from iree.turbine.kernel.boo.driver.preload import CachePopulator
 
             commands = [
                 "convbfp16 -n 128 -c 128 -H 24 -W 48 -k 384 -y 1 -x 1 -p 0 -q 0 -u 1 -v 1 -l 1 -j 1 -m conv -g 1 -F 1 -t 1 --iter 100 --in_layout NHWC --out_layout NHWC --fil_layout NHWC",

@@ -1,10 +1,10 @@
-from .kernel_codegen import KernelSignature
+from typing import Optional
+
+from .._support.indexing import IndexSymbol
+from .._support.location import capture_location
+from .._support.location_config import LocationCaptureConfig
+from .builder import ModuleBuilder
 from .dispatch_codegen import StreamExecutable
-
-from .builder import (
-    ModuleBuilder,
-)
-
 from .ir import (
     ArrayAttr,
     Block,
@@ -25,13 +25,7 @@ from .ir import (
     flow_d,
     func_d,
 )
-
-from .._support.indexing import IndexSymbol
-from .._support.location import capture_location
-from .._support.location_config import LocationCaptureConfig
-from .kernel_codegen import BindingDesc
-
-from typing import Optional
+from .kernel_codegen import BindingDesc, KernelSignature
 
 
 def memref_to_tensor(memrefs: list[IrType]):

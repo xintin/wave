@@ -7,6 +7,14 @@
 """Custom ops for built-in IREE functionality."""
 from typing import cast
 
+from ..runtime.op_reg import (
+    AttrArg,
+    CustomOp,
+    KernelBuilder,
+    KernelSelection,
+    def_library,
+)
+from ..support import debugging
 from ..support.ir_imports import (
     Attribute,
     RankedTensorType,
@@ -15,16 +23,6 @@ from ..support.ir_imports import (
     flow_d,
     tensor_d,
 )
-
-from ..runtime.op_reg import (
-    CustomOp,
-    KernelBuilder,
-    KernelSelection,
-    AttrArg,
-    def_library,
-)
-
-from ..support import debugging
 
 __all__ = [
     "trace",

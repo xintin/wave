@@ -4,12 +4,15 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-import sympy
 import functools
 from typing import Any, Optional
 
+import sympy
 import torch.fx as fx
 
+from ..._support.indexing import IndexExpr, IndexingContext, IndexSequence, IndexSymbol
+from ...compiler.base import ValidationError
+from ...compiler.builder import IRProxyValue
 from ...compiler.ir import (
     Attribute,
     DenseElementsAttr,
@@ -27,31 +30,19 @@ from ...compiler.ir import (
     memref_d,
     vector_d,
 )
-
-from ...compiler.base import ValidationError
 from ...compiler.utils import strides_from_symbolic_shape
-from ...compiler.builder import IRProxyValue
-from ...compiler.vector_codegen import (
-    cast_kernel_buffer,
-    cast_py_literal,
-    cast_vector,
-)
-
-from ...ops.wave_ops import get_custom, read, write, CustomOp
-
-from ..utils.general_utils import get_fastest_index, infer_dim
-from ..utils.symbol_utils import safe_subs, subs_idxc
-
-from ..._support.indexing import IndexingContext, IndexExpr, IndexSequence, IndexSymbol
+from ...compiler.vector_codegen import cast_kernel_buffer, cast_py_literal, cast_vector
 from ...lang.global_symbols import *
 from ...lang.wave_types import IndexMapping
-
+from ...ops.wave_ops import CustomOp, get_custom, read, write
+from ..utils.general_utils import get_fastest_index, infer_dim
+from ..utils.symbol_utils import safe_subs, subs_idxc
 from .emitter import (
     WaveEmitter,
-    handle_op,
     add_emitter_subs,
     gen_sympy_index,
     get_constant_attr,
+    handle_op,
 )
 
 

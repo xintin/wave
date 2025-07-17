@@ -5,8 +5,4 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 
-from .tensor import (
-    enable,
-    TurbineMode,
-    DeviceTensor,
-)
+from .tensor import DeviceTensor, TurbineMode, enable

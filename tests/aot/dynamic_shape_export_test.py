@@ -1,6 +1,5 @@
-import torch
-
 import pytest
+import torch
 
 from iree.turbine.aot import *
 

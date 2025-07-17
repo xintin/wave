@@ -1,14 +1,13 @@
-from typing import Type, TypeVar, cast, ClassVar
-
-from enum import Enum
 from dataclasses import dataclass
+from enum import Enum
+from typing import ClassVar, Type, TypeVar, cast
 
 import torch
 
+from .. import ops
+from .._support.dtype import DataType
 from .._support.indexing import IndexExpr
 from .._support.shaped_type import ShapedDataType
-from .._support.dtype import DataType
-from .. import ops
 
 __all__ = [
     "AddressSpace",

@@ -5,9 +5,9 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 import pytest
-
 import torch
-from iree.turbine.kernel.boo.conv_exports.conv import Mode, ConvSignature
+
+from iree.turbine.kernel.boo.conv_exports.conv import ConvSignature, Mode
 
 
 # Note: Singleton parameters are intentionally included for ease of adding additional configurations to test

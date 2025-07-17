@@ -1,9 +1,10 @@
-from iree.turbine.tools.interpreter import Interpreter
+import pytest
+
 import iree.turbine.kernel.lang as tkl
 import iree.turbine.kernel.wave as tkw
 from iree.turbine.kernel.lang.global_symbols import *
 from iree.turbine.kernel.wave.compile import WaveCompileOptions, wave_compile
-import pytest
+from iree.turbine.tools.interpreter import Interpreter
 
 
 @pytest.mark.xfail(reason="affine.apply is not supported in the interpreter yet")

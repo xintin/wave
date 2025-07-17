@@ -4,10 +4,11 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from ..ops.wave_ops import *
-from .._support.tracing import CapturedTrace
 import torch.fx as fx
+
 from ...support.logging import get_logger
+from .._support.tracing import CapturedTrace
+from ..ops.wave_ops import *
 
 logger = get_logger("turbine.wave.type_inference")
 

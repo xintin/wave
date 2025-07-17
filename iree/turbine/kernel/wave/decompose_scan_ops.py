@@ -22,7 +22,6 @@ from ..ops.wave_ops import (
     ShuffleOp,
     get_custom,
 )
-
 from .constraints import HardwareConstraint
 from .utils.classes import ShuffleMode
 from .utils.graph_utils import DCE

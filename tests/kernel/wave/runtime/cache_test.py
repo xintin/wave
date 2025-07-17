@@ -11,43 +11,36 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 import copy
+import math
+
 import pytest
+import sympy
 import torch
 from torch.testing import assert_close
-import math
+
 import iree.turbine.kernel.lang as tkl
 import iree.turbine.kernel.wave as tkw
-import sympy
-
+from iree.turbine.kernel.lang.global_symbols import *
 from iree.turbine.kernel.wave.cache import (
-    is_cache_enabled,
     get_cache_manager,
+    is_cache_enabled,
     reset_cache_manager,
 )
-from iree.turbine.kernel.lang.global_symbols import *
-from iree.turbine.kernel.wave.utils.run_utils import (
-    set_default_run_config,
-)
-from iree.turbine.kernel.wave.utils.general_utils import (
-    get_default_scheduling_params,
-)
-from iree.turbine.kernel.wave.utils.mma_utils import (
-    get_mfma_load_elems_per_thread,
-    get_mfma_store_elems_per_thread,
-)
-from iree.turbine.kernel.wave.utils.torch_utils import (
-    device_randn,
-    device_zeros,
-)
+from iree.turbine.kernel.wave.compile import WaveCompileOptions, wave_compile
 from iree.turbine.kernel.wave.constraints import Constraint, MMAType
 from iree.turbine.kernel.wave.templates.attention_common import AttentionShape
 from iree.turbine.kernel.wave.templates.vanilla_attention import (
     get_vanilla_attention_kernel,
 )
-from iree.turbine.kernel.wave.compile import WaveCompileOptions, wave_compile
-from ..common.utils import (
-    require_e2e,
+from iree.turbine.kernel.wave.utils.general_utils import get_default_scheduling_params
+from iree.turbine.kernel.wave.utils.mma_utils import (
+    get_mfma_load_elems_per_thread,
+    get_mfma_store_elems_per_thread,
 )
+from iree.turbine.kernel.wave.utils.run_utils import set_default_run_config
+from iree.turbine.kernel.wave.utils.torch_utils import device_randn, device_zeros
+
+from ..common.utils import require_e2e
 
 require_cache = pytest.mark.skipif(
     not is_cache_enabled(), reason="filesystem cache is disabled"

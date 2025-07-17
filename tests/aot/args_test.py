@@ -7,9 +7,7 @@
 import logging
 import unittest
 
-from iree.compiler.ir import (
-    Context,
-)
+from iree.compiler.ir import Context
 
 from iree.turbine.aot import *
 

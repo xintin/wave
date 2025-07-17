@@ -4,28 +4,38 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+import math
+import os
+
 import pytest
 import torch
 from torch.nn import functional as F
-import math
+from torch.testing import assert_close
+
 import iree.turbine.kernel.lang as tkl
 import iree.turbine.kernel.wave as tkw
 from iree.turbine.kernel.lang.global_symbols import *
-from iree.turbine.kernel.wave.utils.general_utils import (
-    get_default_scheduling_params,
-)
-from iree.turbine.kernel.wave.utils.run_utils import (
-    set_default_run_config,
-)
-from iree.turbine.kernel.wave.utils.torch_utils import (
-    device_randn,
-    device_zeros,
-    device_ones,
-)
 from iree.turbine.kernel.wave.compile import WaveCompileOptions, wave_compile
 from iree.turbine.kernel.wave.constraints import MMAType
-import os
-from torch.testing import assert_close
+from iree.turbine.kernel.wave.scheduling.schedule import SchedulingType
+from iree.turbine.kernel.wave.templates.attention_common import AttentionShape
+from iree.turbine.kernel.wave.templates.vanilla_attention import (
+    get_bhsd_attention_kernel,
+    get_bshd_attention_kernel,
+    get_vanilla_attention_kernel,
+)
+from iree.turbine.kernel.wave.utils.general_utils import get_default_scheduling_params
+from iree.turbine.kernel.wave.utils.reference_kernel_utils import (
+    scaled_dot_product_attention_bhsd,
+)
+from iree.turbine.kernel.wave.utils.run_utils import set_default_run_config
+from iree.turbine.kernel.wave.utils.torch_utils import (
+    device_ones,
+    device_randn,
+    device_zeros,
+)
+
+from ..common.shapes import get_test_shapes
 from ..common.utils import (
     dump_generated_mlir,
     enable_scheduling_barriers,
@@ -33,18 +43,6 @@ from ..common.utils import (
     param_bool,
     require_cdna3,
     require_e2e,
-)
-from ..common.shapes import get_test_shapes
-from iree.turbine.kernel.wave.templates.vanilla_attention import (
-    get_vanilla_attention_kernel,
-    get_bshd_attention_kernel,
-    get_bhsd_attention_kernel,
-)
-from iree.turbine.kernel.wave.templates.attention_common import AttentionShape
-from iree.turbine.kernel.wave.scheduling.schedule import SchedulingType
-from iree.turbine.kernel.wave.compile import wave_compile, WaveCompileOptions
-from iree.turbine.kernel.wave.utils.reference_kernel_utils import (
-    scaled_dot_product_attention_bhsd,
 )
 
 

@@ -6,12 +6,12 @@
 
 """Python API for IREE's high-level tensor dialects."""
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
-
 import functools
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import torch
 
+from ....support.conversions import TORCH_DTYPE_TO_IREE_TYPE
 from ....support.ir_imports import (
     IndexType,
     IntegerType,
@@ -22,27 +22,9 @@ from ....support.ir_imports import (
     arith_d,
     flow_d,
 )
-
-from ....support.conversions import (
-    TORCH_DTYPE_TO_IREE_TYPE,
-)
-
-from ..ir_utils import (
-    build_index_value,
-)
-
-from .base import (
-    Intrinsic,
-    current_ir_trace,
-    ShapedTypeDynamicSizeSentinel,
-)
-
-from .primitives import (
-    IrScalar,
-    IrImmediateScalar,
-    IrTensor,
-    IrImmediateTensor,
-)
+from ..ir_utils import build_index_value
+from .base import Intrinsic, ShapedTypeDynamicSizeSentinel, current_ir_trace
+from .primitives import IrImmediateScalar, IrImmediateTensor, IrScalar, IrTensor
 
 BuildableScalarValue = Union[IrScalar, Value]
 BuildableTensorDimDecl = Union[int, Value]
@@ -340,7 +322,4 @@ class IREEEmitter:
 
 
 # Circular imports to resolve typing.
-from .primitives import (
-    IrScalar,
-    IrTensor,
-)
+from .primitives import IrScalar, IrTensor

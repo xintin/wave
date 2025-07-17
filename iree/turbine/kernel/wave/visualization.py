@@ -9,11 +9,13 @@ try:
     import pygraphviz as pgv
 except:
     graphviz_disabled = True
-from torch import fx
-from .scheduling.graph_utils import Edge
-from ..ops.wave_ops import Output, get_custom
-from collections import ChainMap
 import math
+from collections import ChainMap
+
+from torch import fx
+
+from ..ops.wave_ops import Output, get_custom
+from .scheduling.graph_utils import Edge
 
 
 def number_nodes(graph: fx.Graph) -> dict[int, int]:

@@ -9,8 +9,8 @@ def visualize_memory_allocations(
     allocations_data, allocation_offsets, peak_memory_usage, filename
 ):
     try:
-        import matplotlib.pyplot as plt
         import matplotlib.patches as patches
+        import matplotlib.pyplot as plt
         import numpy as np
         import seaborn as sns
 

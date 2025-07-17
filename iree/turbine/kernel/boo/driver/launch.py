@@ -4,10 +4,10 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from ..exports.signature import OpSignature
 from ....runtime import Launchable
-from ..runtime import get_module_asm as generic_get_module_asm
+from ..exports.signature import OpSignature
 from ..runtime import get_launchable as generic_get_launchable
+from ..runtime import get_module_asm as generic_get_module_asm
 
 
 def get_module_asm(

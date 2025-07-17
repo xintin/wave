@@ -4,10 +4,9 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from typing import Dict, Generic, List, Optional, Set, Union, Type, TypeVar, cast
-
 import argparse
 import sys
+from typing import Dict, Generic, List, Optional, Set, Type, TypeVar, Union, cast
 
 from iree.compiler.ir import (
     Block,
@@ -22,10 +21,7 @@ from iree.compiler.ir import (
     StringAttr,
     Value,
 )
-
-from iree.compiler.passmanager import (
-    PassManager,
-)
+from iree.compiler.passmanager import PassManager
 
 from .builder import Builder
 from .merger import Merger

@@ -4,9 +4,10 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-import torch
-from typing import Collection, Iterable
 from os import PathLike
+from typing import Collection, Iterable
+
+import torch
 
 from .conversions import torch_dtyped_shape_to_iree_format
 

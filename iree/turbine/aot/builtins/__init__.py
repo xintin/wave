@@ -4,8 +4,6 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from .globals import *
-from .jittable import jittable
 from ..support.procedural import (
     AbstractBool,
     AbstractF32,
@@ -19,6 +17,8 @@ from ..support.procedural import (
 
 # Export the instantiated IREEEmitter as "IREE"
 from ..support.procedural.iree_emitter import IREEEmitter as _IREEEmitter
+from .globals import *
+from .jittable import jittable
 
 IREE = _IREEEmitter()
 del _IREEEmitter

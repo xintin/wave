@@ -5,37 +5,30 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 import math
+import os
+from typing import Tuple
+
 import pytest
 import torch
-import os
-
 from torch.nn import functional as F
 from torch.testing import assert_close
 
+from iree.turbine.kernel.wave.compile import WaveCompileOptions, wave_compile
 from iree.turbine.kernel.wave.constraints import MMAType
 from iree.turbine.kernel.wave.templates.attention_common import AttentionShape
-from iree.turbine.kernel.wave.utils.general_utils import (
-    get_default_scheduling_params,
+from iree.turbine.kernel.wave.templates.t5_rpe_attention import (
+    get_t5_rpe_attention_kernel,
 )
-from iree.turbine.kernel.wave.utils.run_utils import (
-    set_default_run_config,
-)
+from iree.turbine.kernel.wave.utils.general_utils import get_default_scheduling_params
+from iree.turbine.kernel.wave.utils.run_utils import set_default_run_config
 from iree.turbine.kernel.wave.utils.torch_utils import (
     device_randn,
     device_zeros,
     to_default_device,
 )
-from iree.turbine.kernel.wave.compile import WaveCompileOptions, wave_compile
-from iree.turbine.kernel.wave.templates.t5_rpe_attention import (
-    get_t5_rpe_attention_kernel,
-)
+
 from ..common.shapes import make_shape_param
-from ..common.utils import (
-    require_e2e,
-    require_cdna3,
-    enable_scheduling_barriers,
-)
-from typing import Tuple
+from ..common.utils import enable_scheduling_barriers, require_cdna3, require_e2e
 
 shapes = [
     make_shape_param((128, 128, 128, 128, 128, 128), is_perf=False),

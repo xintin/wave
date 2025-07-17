@@ -18,12 +18,12 @@ Environment variable outputs (via GITHUB_ENV) for GitHub Actions:
     LATEST_IREE_BASE_RUNTIME_VERSION
 """
 
-from pathlib import Path
 import os
 import re
 import subprocess
 import sys
 import textwrap
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent
 REQUIREMENTS_IREE_PINNED_PATH = REPO_ROOT / "requirements-iree-pinned.txt"

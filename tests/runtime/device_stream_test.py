@@ -5,12 +5,12 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 import unittest
-import pytest
 
+import pytest
 import torch
 
-from iree.turbine.runtime.device import get_device_from_torch
 from iree.turbine.ops.conv_fwd import conv_2d_nhwc_fhwc
+from iree.turbine.runtime.device import get_device_from_torch
 
 
 class DeviceStreamTest(unittest.TestCase):

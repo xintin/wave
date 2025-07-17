@@ -4,16 +4,13 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-import pytest
-from iree.turbine.kernel.lang import sym
-from iree.turbine.kernel.wave.utils.general_utils import (
-    delinearize_index,
-)
-from iree.turbine.kernel.wave.utils.mapping_utils import (
-    _simplify_sympy_expr,
-)
-import sympy
 import numpy as np
+import pytest
+import sympy
+
+from iree.turbine.kernel.lang import sym
+from iree.turbine.kernel.wave.utils.general_utils import delinearize_index
+from iree.turbine.kernel.wave.utils.mapping_utils import _simplify_sympy_expr
 
 M = sym.M
 

@@ -4,12 +4,14 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+import math
+from enum import Enum
+
 import torch.fx as fx
+
 from ...ops.wave_ops import get_custom
 from .graph_utils import Edge, sort_graph_by_edge_weight
 from .resources import Operation, get_custom_operation_type
-from enum import Enum
-import math
 
 
 class PrefetchStage(Enum):

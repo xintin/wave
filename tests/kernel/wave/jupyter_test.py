@@ -4,15 +4,17 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from iree.turbine.kernel._support.indexing import sym
-from iree.turbine.kernel._support.dtype import f16, f32
-from iree.turbine.kernel.lang.wave_types import *
-from iree.turbine.kernel.lang.global_symbols import *
-from iree.turbine.kernel.wave.utils.run_utils import set_default_run_config
-import iree.turbine.kernel.wave as tkw
-from iree.turbine.kernel.wave.compile import WaveCompileOptions, wave_compile
-from .common.utils import require_e2e
 import torch
+
+import iree.turbine.kernel.wave as tkw
+from iree.turbine.kernel._support.dtype import f16, f32
+from iree.turbine.kernel._support.indexing import sym
+from iree.turbine.kernel.lang.global_symbols import *
+from iree.turbine.kernel.lang.wave_types import *
+from iree.turbine.kernel.wave.compile import WaveCompileOptions, wave_compile
+from iree.turbine.kernel.wave.utils.run_utils import set_default_run_config
+
+from .common.utils import require_e2e
 
 # Define symbolic dimensions for our matrices
 M = sym.M  # Rows of A and C

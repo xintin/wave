@@ -5,13 +5,14 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 import logging
-import pytest
-import sympy
 import unittest
 
-from iree.turbine.kernel.lang import Memory, Register, sym, f16
-from iree.turbine.kernel.lang.wave_types import AddressSpace
+import pytest
+import sympy
+
+from iree.turbine.kernel.lang import Memory, Register, f16, sym
 from iree.turbine.kernel.lang.kernel_buffer import KernelBufferUsage
+from iree.turbine.kernel.lang.wave_types import AddressSpace
 
 M = sym.M
 N = sym.N

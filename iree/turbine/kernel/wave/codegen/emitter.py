@@ -4,21 +4,22 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from os import environ
-import sympy
-from typing import Any, Callable, ClassVar, Optional, List, Type
-from dataclasses import dataclass
-from collections import namedtuple
 import sys
+from collections import namedtuple
+from dataclasses import dataclass
+from os import environ
+from typing import Any, Callable, ClassVar, List, Optional, Type
+
+import sympy
 import torch.fx as fx
 
+from iree.turbine.aot.support.ir_utils import _is_float_type, _is_integer_like_type
 from iree.turbine.kernel.lang.global_symbols import *
-from iree.turbine.aot.support.ir_utils import (
-    _is_float_type,
-    _is_integer_like_type,
-)
 
-
+from ..._support.indexing import IndexExpr, IndexingContext, xor
+from ..._support.tracing import CapturedTrace
+from ...compiler.base import NDEBUG, CodegenError
+from ...compiler.builder import IRProxyValue
 from ...compiler.ir import (
     AffineExpr,
     AffineMap,
@@ -41,18 +42,11 @@ from ...compiler.ir import (
     gpu_d,
     vector_d,
 )
-
-
-from ..utils.general_utils import get_hardware_constraint
-from ...compiler.builder import IRProxyValue
-from ...compiler.kernel_codegen import BoundKernelSignature, BindingType
-from ..._support.tracing import CapturedTrace
-from ...compiler.base import CodegenError, NDEBUG
-
+from ...compiler.kernel_codegen import BindingType, BoundKernelSignature
 from ...lang.wave_types import IndexSymbol
-from ..constraints import Constraint, TilingConstraint, HardwareConstraint
-from ..._support.indexing import IndexingContext, IndexExpr, xor
 from ..compile_options import WaveCompileOptions
+from ..constraints import Constraint, HardwareConstraint, TilingConstraint
+from ..utils.general_utils import get_hardware_constraint
 from ..utils.symbol_utils import subs_idxc
 
 

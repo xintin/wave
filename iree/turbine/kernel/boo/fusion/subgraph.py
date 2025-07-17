@@ -11,8 +11,8 @@ from torch.fx.graph import Graph
 from torch.fx.graph_module import GraphModule
 from torch.fx.node import Node
 
-from .schema import FusionSchema
 from ....support.logging import aot_logger as logger
+from .schema import FusionSchema
 
 
 class FusedSubgraph(NamedTuple):

@@ -1,6 +1,5 @@
-from typing import Optional, Type, TypeVar
-
 import threading
+from typing import Optional, Type, TypeVar
 
 _tls = threading.local()
 

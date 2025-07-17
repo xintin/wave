@@ -4,7 +4,22 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+from copy import copy, deepcopy
+from enum import Enum
+from typing import Callable, Optional, Sequence
+
+import sympy
+import torch.fx as fx
+
+import iree.turbine.kernel.lang as tkl
+from iree.turbine.kernel._support.dtype import DataType
+
+from ....support.logging import get_logger
+from ..._support.indexing import IndexSequence, IndexSymbol
+from ..._support.tracing import CapturedTrace
+from ...lang.global_symbols import *
 from ...ops.wave_ops import (
+    MMA,
     Allocate,
     AtomicOp,
     BinaryPyOp,
@@ -12,31 +27,27 @@ from ...ops.wave_ops import (
     CustomOp,
     GetResult,
     IterArg,
-    MMA,
-    ScaledMMA,
+    Iterate,
     NestedRegionOp,
     Output,
     Placeholder,
     Read,
     ReduceOp,
+    ScaledMMA,
     SetWavePrio,
     SharedMemoryBarrier,
-    Iterate,
-    Write,
     WorkgroupBarrier,
+    Write,
     get_custom,
 )
 from ..constraints import (
     Constraint,
+    DistributionConstraint,
     HardwareConstraint,
     TilingConstraint,
     WorkgroupConstraint,
-    DistributionConstraint,
 )
 from ..symbolic_constraints import SymbolicAlias
-from ..._support.tracing import CapturedTrace
-from ..._support.indexing import IndexSymbol, IndexSequence
-from ...lang.global_symbols import *
 from ..utils.general_utils import (
     get_hardware_constraint,
     get_largest_index_and_size,
@@ -44,26 +55,9 @@ from ..utils.general_utils import (
     infer_dim,
     partial,
 )
-from ..utils.mma_utils import (
-    get_mma_dimensional_mapping,
-)
-from ..utils.graph_utils import (
-    get_inputs,
-    get_users,
-)
-from ..utils.print_utils import (
-    print_trace,
-    try_apply_pass,
-)
-from ....support.logging import get_logger
-
-from copy import deepcopy, copy
-from enum import Enum
-from iree.turbine.kernel._support.dtype import DataType
-import sympy
-import torch.fx as fx
-from typing import Sequence, Callable, Optional
-import iree.turbine.kernel.lang as tkl
+from ..utils.graph_utils import get_inputs, get_users
+from ..utils.mma_utils import get_mma_dimensional_mapping
+from ..utils.print_utils import print_trace, try_apply_pass
 
 logger = get_logger("turbine.wave.index_sequence_analysis")
 

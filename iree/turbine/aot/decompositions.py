@@ -9,10 +9,10 @@ from typing import Optional
 import torch
 
 from ..dynamo.decompositions import (
-    _current,
-    _extend_context_manager,
     DecompositionOpsList,
     DecompositionTable,
+    _current,
+    _extend_context_manager,
 )
 
 __all__ = [

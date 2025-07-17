@@ -1,7 +1,7 @@
-from typing import cast, Type, ClassVar
+from typing import ClassVar, Type, cast
 
+from .._support.indexing import IndexExpr, IndexingContext
 from .._support.shaped_type import ShapedType
-from .._support.indexing import IndexingContext, IndexExpr
 
 __all__ = [
     "Grid",

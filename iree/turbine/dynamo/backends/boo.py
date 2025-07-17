@@ -1,13 +1,13 @@
-from functorch.compile import make_boxed_func
 import torch
+from functorch.compile import make_boxed_func
 from torch import fx
 from torch._dynamo.backends.common import aot_autograd
 from torch._dynamo.backends.registry import CompilerFn
 
 from iree.turbine.kernel.boo.fusion.apply import fusion_transform
 from iree.turbine.kernel.boo.fusion.schema import (
-    FusionSchema,
     DEFAULT_SUPPORTED_BOO_FUSIONS,
+    FusionSchema,
 )
 
 

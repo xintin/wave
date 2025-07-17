@@ -5,15 +5,17 @@ actual loads/stores/computes to local vectors using PyTorch tensor
 level operations executed as threads over a grid.
 """
 
-from typing import Any, Callable, Type, Optional, Union, List
-import types
-
-from dataclasses import dataclass
 import operator as py_operator
+import types
+from dataclasses import dataclass
+from typing import Any, Callable, List, Optional, Type, Union
 
 import torch.fx as fx
 import torch.utils._pytree as pytree
 
+from .. import lang as tkl
+from .. import ops
+from .._support import dtype
 from .._support.indexing import (
     IndexExpr,
     IndexingContext,
@@ -21,39 +23,17 @@ from .._support.indexing import (
     SymIndex,
     index_expr,
 )
-
-from ..lang.kernel_buffer import KernelBuffer
-
-from .._support import dtype
-
 from .._support.tracing import CapturedTrace
-
-from .. import lang as tkl
-
-from ..lang import (
-    Index,
-)
-
-from .. import ops
-
-from .builder import (
-    IRProxyValue,
-    ScalarBuilder,
-)
-
-from .base import (
-    CodegenError,
-    NDEBUG,
-    ValidationError,
-)
-
+from ..lang import Index
+from ..lang.kernel_buffer import KernelBuffer
+from .base import NDEBUG, CodegenError, ValidationError
+from .builder import IRProxyValue, ScalarBuilder
 from .ir import (
-    AffineMap,
-    Attribute,
     AffineExpr,
+    AffineMap,
     AffineMapAttr,
     ArrayAttr,
-    VectorType,
+    Attribute,
     IndexType,
     InsertionPoint,
     IrType,
@@ -64,14 +44,10 @@ from .ir import (
     VectorType,
     arith_d,
     func_d,
-    vector_d,
     scf_d,
+    vector_d,
 )
-
-from .kernel_codegen import (
-    BoundKernelSignature,
-)
-
+from .kernel_codegen import BoundKernelSignature
 
 ArgTypeUnion = Union[IndexSymbol, Type[KernelBuffer]]
 

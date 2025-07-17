@@ -4,57 +4,54 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-import unittest
 import logging
-from iree.turbine.kernel.wave.scheduling.modulo_scheduling import (
-    ModuloScheduler,
-    EdgeWeight,
-    Edge,
-)
-import torch.fx as fx
-import numpy as np
 import multiprocessing as mp
-from iree.turbine.kernel.wave.visualization import visualize_graph
-from iree.turbine.kernel.wave.scheduling.graph_utils import (
-    find_strongly_connected_components,
-    find_cycles_in_scc,
-    all_pairs_longest_paths,
-)
+import os
+import unittest
+from typing import Dict, List, Tuple
+
+import numpy as np
+import torch.fx as fx
+
 import iree.turbine.kernel as tk
 import iree.turbine.kernel.lang as tkl
 import iree.turbine.kernel.wave as tkw
-from iree.turbine.kernel.lang.global_symbols import *
-from iree.turbine.kernel._support.tracing import CapturedTrace
 from iree.turbine.kernel._support.indexing import IndexingContext
-from iree.turbine.kernel.wave.promotion import promote_placeholders
-from iree.turbine.kernel.wave.hoisting import hoist_loop_invariant_ops
-from iree.turbine.kernel.wave.expansion.expansion import expand_graph, add_get_results
-from iree.turbine.kernel.wave.type_inference import infer_types
-from iree.turbine.kernel.wave.minimize_global_loads import minimize_global_loads
-from iree.turbine.kernel.wave.scheduling.schedule import schedule_graph
-from iree.turbine.kernel.ops.wave_ops import get_custom
+from iree.turbine.kernel._support.tracing import CapturedTrace
+from iree.turbine.kernel.lang.global_symbols import *
+from iree.turbine.kernel.ops.wave_ops import MMA, IterArg, Read, Write, get_custom
 from iree.turbine.kernel.wave.analysis.index_sequence_analysis import (
     set_node_indices,
     set_post_expansion_indices,
 )
-from iree.turbine.kernel.wave.utils.graph_utils import initialize_iter_args
-from typing import Tuple, List, Dict
-from iree.turbine.kernel.wave.scheduling.verifier import (
-    ScheduleValidator,
+from iree.turbine.kernel.wave.expansion.expansion import add_get_results, expand_graph
+from iree.turbine.kernel.wave.hoisting import hoist_loop_invariant_ops
+from iree.turbine.kernel.wave.minimize_global_loads import minimize_global_loads
+from iree.turbine.kernel.wave.promotion import promote_placeholders
+from iree.turbine.kernel.wave.scheduling.graph_utils import (
+    all_pairs_longest_paths,
+    find_cycles_in_scc,
+    find_strongly_connected_components,
 )
+from iree.turbine.kernel.wave.scheduling.modulo_scheduling import (
+    Edge,
+    EdgeWeight,
+    ModuloScheduler,
+)
+from iree.turbine.kernel.wave.scheduling.resources import (
+    Operation,
+    resource_reservation_table,
+)
+from iree.turbine.kernel.wave.scheduling.schedule import schedule_graph
+from iree.turbine.kernel.wave.scheduling.verifier import ScheduleValidator
+from iree.turbine.kernel.wave.type_inference import infer_types
+from iree.turbine.kernel.wave.utils.general_utils import get_default_scheduling_params
+from iree.turbine.kernel.wave.utils.graph_utils import initialize_iter_args
 from iree.turbine.kernel.wave.utils.print_utils import (
     load_schedule,
     parse_node_specs_from_schedule_file,
 )
-import os
-from iree.turbine.kernel.wave.scheduling.resources import (
-    resource_reservation_table,
-    Operation,
-)
-from iree.turbine.kernel.wave.utils.general_utils import (
-    get_default_scheduling_params,
-)
-from iree.turbine.kernel.ops.wave_ops import Read, Write, MMA, IterArg
+from iree.turbine.kernel.wave.visualization import visualize_graph
 
 # Map node types from schedule file to custom operation classes
 NODE_TYPE_TO_CUSTOM_OP = {

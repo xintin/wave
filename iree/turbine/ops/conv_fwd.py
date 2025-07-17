@@ -5,20 +5,11 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 from typing import Tuple, no_type_check
+
 import torch
 
-from ..support.ir_imports import (
-    RankedTensorType,
-    IrType,
-)
-
-from ..runtime.op_reg import (
-    CustomOp,
-    KernelBuilder,
-    KernelSelection,
-    impl_helper,
-)
-
+from ..runtime.op_reg import CustomOp, KernelBuilder, KernelSelection, impl_helper
+from ..support.ir_imports import IrType, RankedTensorType
 
 _templates = impl_helper.JinjaTemplateLoader(__name__)
 

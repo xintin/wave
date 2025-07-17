@@ -1,44 +1,46 @@
-import torch
+import datetime
 import json
 import logging
-import datetime
 import random
 import sqlite3
-import pandas as pd
+from dataclasses import asdict, dataclass
+from enum import Enum
 from pathlib import Path
-from typing import Dict, Tuple, Optional, List
-from dataclasses import dataclass, asdict
-from iree.turbine.kernel.wave.utils.general_utils import get_default_scheduling_params
-from iree.turbine.kernel.wave.utils.run_utils import set_default_run_config
-from iree.turbine.kernel.wave.utils.torch_utils import device_randn, device_zeros
+from typing import Dict, List, Optional, Tuple
+
+import numpy as np
+import pandas as pd
+import torch
+import torch.fx as fx
+
 from iree.turbine.kernel.wave.compile import WaveCompileOptions, wave_compile
 from iree.turbine.kernel.wave.constraints import MMAType
-from iree.turbine.kernel.wave.templates.vanilla_attention import (
-    get_vanilla_attention_kernel,
-)
-from iree.turbine.kernel.wave.templates.attention_common import AttentionShape
 from iree.turbine.kernel.wave.scheduling.optimize_schedule import (
-    ScheduleOptimizer,
     OptimizationAlgorithm,
     OptimizationResult,
+    ScheduleOptimizer,
 )
+from iree.turbine.kernel.wave.scheduling.resources import (
+    Operation,
+    get_custom_operation_type,
+)
+from iree.turbine.kernel.wave.scheduling.schedule import SchedulingType
 from iree.turbine.kernel.wave.scheduling.verifier import (
     ScheduleValidator as ScheduleModifier,
 )
-from iree.turbine.kernel.wave.scheduling.schedule import SchedulingType
-from enum import Enum
-import torch.fx as fx
-import numpy as np
-from iree.turbine.kernel.wave.utils.print_utils import load_schedule, dump_schedule
-from iree.turbine.kernel.wave.scheduling.resources import (
-    get_custom_operation_type,
-    Operation,
+from iree.turbine.kernel.wave.templates.attention_common import AttentionShape
+from iree.turbine.kernel.wave.templates.vanilla_attention import (
+    get_vanilla_attention_kernel,
 )
 from iree.turbine.kernel.wave.tuner.utils import (
-    latency_to_us,
-    format_latency_us,
     enum_to_str,
+    format_latency_us,
+    latency_to_us,
 )
+from iree.turbine.kernel.wave.utils.general_utils import get_default_scheduling_params
+from iree.turbine.kernel.wave.utils.print_utils import dump_schedule, load_schedule
+from iree.turbine.kernel.wave.utils.run_utils import set_default_run_config
+from iree.turbine.kernel.wave.utils.torch_utils import device_randn, device_zeros
 
 try:
     from rpdTracerControl import rpdTracerControl

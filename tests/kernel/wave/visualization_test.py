@@ -5,23 +5,25 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 import logging
-from typing import Callable
-import unittest
 import os
+import unittest
+from typing import Callable
+
 import pytest
+
 import iree.turbine.kernel as tk
 import iree.turbine.kernel.lang as tkl
 import iree.turbine.kernel.wave as tkw
-from iree.turbine.kernel.wave.expansion.expansion import expand_graph, add_get_results
-from iree.turbine.kernel.wave.type_inference import infer_types
 from iree.turbine.kernel._support.indexing import IndexingContext
 from iree.turbine.kernel.lang.global_symbols import *
-from iree.turbine.kernel.wave.visualization import visualize_graph
 from iree.turbine.kernel.wave.analysis.index_sequence_analysis import (
     set_node_indices,
     set_post_expansion_indices,
 )
+from iree.turbine.kernel.wave.expansion.expansion import add_get_results, expand_graph
+from iree.turbine.kernel.wave.type_inference import infer_types
 from iree.turbine.kernel.wave.utils.graph_utils import initialize_iter_args
+from iree.turbine.kernel.wave.visualization import visualize_graph
 
 
 def run(func: Callable[[], None]) -> Callable[[], None]:

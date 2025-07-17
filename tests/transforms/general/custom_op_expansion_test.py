@@ -5,23 +5,19 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 import logging
-from pathlib import Path
 import unittest
+from pathlib import Path
 
-from iree.turbine.transforms.general.custom_op_expansion import ExpandCustomOpsPass
 from iree.turbine.runtime.op_reg import (
-    def_library,
     CustomOp,
     KernelBuilder,
     KernelSelection,
+    def_library,
 )
+from iree.turbine.support.ir_imports import Context, Module
+from iree.turbine.transforms.general.custom_op_expansion import ExpandCustomOpsPass
 
 # import to regiser custom ops
-
-from iree.turbine.support.ir_imports import (
-    Context,
-    Module,
-)
 
 
 class PassTest(unittest.TestCase):

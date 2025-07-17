@@ -1,9 +1,11 @@
 import argparse
-import torch
-from ..support.logging import get_logger
 import re
 from typing import Callable
+
 import numpy as np
+import torch
+
+from ..support.logging import get_logger
 
 logger = get_logger("turbine.wave.interpreter")
 

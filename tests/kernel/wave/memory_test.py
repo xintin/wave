@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 import unittest
+
 from iree.turbine.kernel.wave.memory_analysis.solver import (
     determine_allocations_offsets,
 )

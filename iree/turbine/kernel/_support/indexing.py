@@ -1,12 +1,10 @@
-from typing import Any, ClassVar, Optional, Type, TypeVar, Union, TypeAlias
-
 from abc import ABC
 from dataclasses import dataclass
+from typing import Any, ClassVar, Optional, Type, TypeAlias, TypeVar, Union
 
 import sympy
 
-from . import context
-from . import dtype
+from . import context, dtype
 from .shaped_type import ShapedType
 
 __all__ = [

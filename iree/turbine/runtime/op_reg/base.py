@@ -8,18 +8,18 @@
 dispatcher.
 """
 
-from typing import Any, Callable, Optional, Sequence, Type, Union, cast
-
-from abc import ABC, abstractmethod
 import functools
 import logging
 import re
 import textwrap
 import threading
+from abc import ABC, abstractmethod
+from typing import Any, Callable, Optional, Sequence, Type, Union, cast
 
 import torch
 from torch import Tensor
 
+from ...support.conversions import TORCH_DTYPE_TO_IREE_TYPE_ASM
 from ...support.ir_imports import (
     Block,
     Context,
@@ -27,21 +27,16 @@ from ...support.ir_imports import (
     IndexType,
     InsertionPoint,
     IntegerAttr,
+    IrType,
     Location,
     StringAttr,
     SymbolTable,
-    IrType,
     Value,
     arith_d,
     builtin_d,
     func_d,
 )
-
 from ...support.logging import runtime_logger as logger
-
-from ...support.conversions import (
-    TORCH_DTYPE_TO_IREE_TYPE_ASM,
-)
 
 __all__ = [
     "ArgDescriptor",
@@ -995,9 +990,7 @@ def _get_meta_impl(op: CustomOp):
 def _create_impl_trampoline(op: CustomOp):
     # Import lazily when an implementation trampoline is requested to avoid
     # circular dependency between base objects and eager runtime goo.
-    from .eager import (
-        eager_dispatch,
-    )
+    from .eager import eager_dispatch
 
     def handler(*args):
         eager_override = op.eager_execute(*args)

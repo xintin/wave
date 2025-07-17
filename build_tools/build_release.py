@@ -11,13 +11,12 @@
 See docs/releasing.md for usage.
 """
 
-from pathlib import Path
 import argparse
 import os
 import shlex
 import subprocess
 import sys
-
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 WHEEL_DIR = REPO_ROOT / "wheelhouse"

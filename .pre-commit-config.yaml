@@ -1,12 +1,8 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
+#
+# Fix trivial whitespace, line endings, YAML, large files
 repos:
--   repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.3
-    hooks:
-    -   id: ruff
-        args: [--fix, --unsafe-fixes,  --select=F401,I001]
-        exclude: '.*__init__\.py$'
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
@@ -14,7 +10,25 @@ repos:
     -   id: end-of-file-fixer
     -   id: check-yaml
     -   id: check-added-large-files
+# Sort imports in black’s style
+-   repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+    -   id: isort
+        args:
+        -   --profile
+        -   black
+# Enforce code formatting
 -   repo: https://github.com/psf/black
     rev: 25.1.0
     hooks:
     -   id: black
+# Remove any unused imports
+-   repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.3
+    hooks:
+    -   id: ruff
+        args:
+        -   --fix
+        -   --select=F401  # only unused-import checks
+        exclude: '.__init__\.py$'  # exclude __init__.py files

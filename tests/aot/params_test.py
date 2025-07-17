@@ -5,21 +5,21 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 import logging
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 import torch
 import torch.nn as nn
 
 from iree.turbine.aot import (
-    export,
-    externalize_module_parameters,
-    save_module_parameters,
     DeviceTensorTrait,
     ExternalTensorTrait,
     ParameterArchive,
     ParameterArchiveBuilder,
+    export,
+    externalize_module_parameters,
+    save_module_parameters,
 )
 
 

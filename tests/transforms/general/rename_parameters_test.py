@@ -8,10 +8,7 @@
 import logging
 import unittest
 
-from iree.compiler.ir import (
-    Context,
-    Operation,
-)
+from iree.compiler.ir import Context, Operation
 
 from iree.turbine.transforms.general import rename_parameters
 

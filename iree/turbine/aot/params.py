@@ -4,25 +4,17 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from typing import Iterator, List, Optional, Set, Tuple, Union
-
 import json
-from pathlib import Path
 import warnings
+from pathlib import Path
+from typing import Iterator, List, Optional, Set, Tuple, Union
 
 import numpy as np
 import torch
 import torch.nn as nn
+from iree.runtime import ParameterIndex, ParameterIndexEntry
 
-from iree.runtime import (
-    ParameterIndex,
-    ParameterIndexEntry,
-)
-
-from .tensor_traits import (
-    ExternalTensorTrait,
-)
-
+from .tensor_traits import ExternalTensorTrait
 
 __all__ = [
     "externalize_module_parameters",

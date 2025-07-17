@@ -3,8 +3,8 @@ import typing
 if typing.TYPE_CHECKING:
     from ..lang.types import Index, Vector
 
-from .base import define_op
 from .._support.dtype import DataType
+from .base import define_op
 
 __all__ = [
     "kernel_buffer_getitem",

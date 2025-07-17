@@ -4,14 +4,13 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-import unittest
 import tempfile
+import unittest
 from pathlib import Path
-import pytest
 
+import pytest
 import torch
 
-from iree.turbine.kernel.boo.ops import enable_backward, disable_backward
 from iree.turbine.kernel.boo.modeling import (
     BooConv1d,
     BooConv2d,
@@ -19,10 +18,8 @@ from iree.turbine.kernel.boo.modeling import (
     replace_conv2d_with_boo_conv,
     replace_convs_with_boo,
 )
-from iree.turbine.kernel.boo.runtime import (
-    set_cache_dir,
-    LaunchableRuntimeCache,
-)
+from iree.turbine.kernel.boo.ops import disable_backward, enable_backward
+from iree.turbine.kernel.boo.runtime import LaunchableRuntimeCache, set_cache_dir
 
 
 @pytest.fixture(scope="class")

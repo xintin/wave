@@ -4,36 +4,31 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+import os
+
 import pytest
 import torch
+
 from iree.turbine.kernel.lang.global_symbols import *
-from iree.turbine.kernel.wave.utils.general_utils import (
-    get_default_scheduling_params,
-)
-from iree.turbine.kernel.wave.utils.run_utils import (
-    set_default_run_config,
-)
-from iree.turbine.kernel.wave.utils.torch_utils import (
-    device_zeros,
-    quantized_tensor,
-)
 from iree.turbine.kernel.wave.compile import WaveCompileOptions, wave_compile
 from iree.turbine.kernel.wave.constraints import MMAType
-import os
-from ..common.utils import (
-    require_e2e,
-    require_cdna3,
-    enable_scheduling_barriers,
-    dump_generated_mlir,
-    param_bool,
-)
-from ..common.shapes import get_test_shapes
+from iree.turbine.kernel.wave.scheduling.schedule import SchedulingType
+from iree.turbine.kernel.wave.templates.attention_common import AttentionShape
 from iree.turbine.kernel.wave.templates.quantized_attention import (
     get_brevitas_pertensor_fp8_attention_kernel,
 )
-from iree.turbine.kernel.wave.templates.attention_common import AttentionShape
-from iree.turbine.kernel.wave.scheduling.schedule import SchedulingType
-from iree.turbine.kernel.wave.compile import wave_compile, WaveCompileOptions
+from iree.turbine.kernel.wave.utils.general_utils import get_default_scheduling_params
+from iree.turbine.kernel.wave.utils.run_utils import set_default_run_config
+from iree.turbine.kernel.wave.utils.torch_utils import device_zeros, quantized_tensor
+
+from ..common.shapes import get_test_shapes
+from ..common.utils import (
+    dump_generated_mlir,
+    enable_scheduling_barriers,
+    param_bool,
+    require_cdna3,
+    require_e2e,
+)
 
 
 @require_e2e

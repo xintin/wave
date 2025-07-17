@@ -4,20 +4,19 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-import unittest
 import tempfile
-import pytest
-
-from typing import Sequence
+import unittest
 from pathlib import Path
+from typing import Sequence
 
+import pytest
 import torch
 from torch import fx
 from torch._dynamo.testing import EagerAndRecordGraphs
-from torch.profiler import profile, ProfilerActivity
+from torch.profiler import ProfilerActivity, profile
 
 from iree.turbine.dynamo.backends import boo
-from iree.turbine.kernel.boo.fusion import OpFusionSpec, FusionSchema
+from iree.turbine.kernel.boo.fusion import FusionSchema, OpFusionSpec
 from iree.turbine.kernel.boo.runtime import set_cache_dir
 
 

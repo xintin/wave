@@ -16,10 +16,9 @@ except ImportError as e:
     )
 
 import torch
-from torch.profiler import profile, ProfilerActivity
-
 import torch.optim as optim
 import torchvision.transforms as transforms
+from torch.profiler import ProfilerActivity, profile
 from torch.utils.data import DataLoader
 
 from iree.turbine.kernel.boo.modeling import replace_conv2d_with_boo_conv

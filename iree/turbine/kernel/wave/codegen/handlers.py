@@ -5,15 +5,29 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 import copy
-import operator
-import sympy
 import math
+import operator
 from typing import Any, Callable, Sequence
+
+import sympy
 import torch.fx as fx
 import torch.utils._pytree as pytree
 
+from iree.turbine.aot.support.ir_utils import (
+    _is_float_type,
+    _is_integer_like_type,
+    _is_signed_or_signless_type,
+    get_conversion_op,
+)
 from iree.turbine.kernel._support.shaped_type import ShapedType
 
+# TK infrastructure imports.
+from iree.turbine.kernel.lang.global_symbols import *
+
+# Indexing imports.
+from ..._support.indexing import IndexExpr, IndexingContext, IndexSequence, index_symbol
+from ...compiler.base import CodegenError, ValidationError
+from ...compiler.builder import IRProxyValue
 from ...compiler.ir import (
     Attribute,
     DenseElementsAttr,
@@ -30,29 +44,27 @@ from ...compiler.ir import (
     amdgpu_d,
     arith_d,
     gpu_d,
+    llvm_d,
     math_d,
     memref_d,
     rocdl_d,
     scf_d,
     vector_d,
-    llvm_d,
 )
-from iree.turbine.aot.support.ir_utils import (
-    _is_float_type,
-    _is_integer_like_type,
-    _is_signed_or_signless_type,
-    get_conversion_op,
+from ...compiler.vector_codegen import (
+    cast_py_literal,
+    cast_py_value,
+    cast_scalar,
+    cast_vector,
 )
-
-# TK infrastructure imports.
-from iree.turbine.kernel.lang.global_symbols import *
 from ...ops.wave_ops import (
     abs,
     allocate,
     apply_expr,
+    atan2,
     atomic_min,
-    broadcast,
     bitcast,
+    broadcast,
     cast,
     cbrt,
     conditional,
@@ -68,65 +80,51 @@ from ...ops.wave_ops import (
     gt,
     iterate,
     le,
-    log10,
     log2,
+    log10,
     lt,
     maximum,
     minimum,
-    atan2,
     mma,
     ne,
-    scaled_mma,
     permute,
     powf,
     reciprocal,
     register,
-    scalar,
     reshape,
     roundeven,
-    sin,
+    scalar,
+    scaled_mma,
     scheduling_barrier,
     scheduling_group_barrier,
-    self_index,
     select,
-    set_wave_prio,
+    self_index,
     set_symbol,
+    set_wave_prio,
     shared_memory_barrier,
     shuffle,
+    sin,
+    softsign,
     sqrt,
     tanh,
     tanh_approx,
     workgroup_barrier,
-    softsign,
 )
-from ...compiler.base import CodegenError, ValidationError
-from ...compiler.builder import IRProxyValue
-from ...compiler.vector_codegen import (
-    cast_py_literal,
-    cast_py_value,
-    cast_vector,
-    cast_scalar,
-)
-from ..constraints import HardwareConstraint, GenericDot
+from ..compile_options import WaveCompileOptions
+from ..constraints import GenericDot, HardwareConstraint
+from ..scheduling.resources import get_scheduling_mask
 from ..utils.classes import ShuffleMode
 from ..utils.general_utils import get_fastest_index
 from ..utils.mapping_utils import transform_index_on_mapping
 from ..utils.symbol_utils import subs_idxc
-from ..compile_options import WaveCompileOptions
-
-# Indexing imports.
-from ..._support.indexing import IndexingContext, IndexExpr, IndexSequence, index_symbol
-from ..scheduling.resources import get_scheduling_mask
-
 from .emitter import (
     WaveEmitter,
-    handle_op,
-    get_type_or_element_type,
     add_emitter_subs,
     gen_sympy_index,
     get_constant_attr,
+    get_type_or_element_type,
+    handle_op,
 )
-
 
 ###############################################################################
 # Memory Ops

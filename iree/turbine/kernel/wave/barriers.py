@@ -4,12 +4,14 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from .utils.graph_utils import is_reduction_subgraph, is_barrier_between
-from .._support.tracing import CapturedTrace
-from ..ops.wave_ops import get_custom, Read, SharedMemoryBarrier, Write, NestedRegionOp
-from ..lang.global_symbols import SHARED_ADDRESS_SPACE
-import torch.fx as fx
 from typing import Optional
+
+import torch.fx as fx
+
+from .._support.tracing import CapturedTrace
+from ..lang.global_symbols import SHARED_ADDRESS_SPACE
+from ..ops.wave_ops import NestedRegionOp, Read, SharedMemoryBarrier, Write, get_custom
+from .utils.graph_utils import is_barrier_between, is_reduction_subgraph
 
 
 def add_shared_memory_barriers(

@@ -1,12 +1,12 @@
+import argparse
+import logging
 import os
 import sys
-import argparse
 
 from testutils import evaluate_all
 
 # magic: makes importing this module work in the testsuite
 
-import logging
 
 log = logging.getLogger("turbine-test")
 logging.basicConfig(level=logging.INFO)

@@ -6,11 +6,12 @@
 
 import logging
 import unittest
+
 import torch
 import torch.nn as nn
 
-from iree.turbine import aot
 import iree.turbine.ops._jinja_test_ops as ops
+from iree.turbine import aot
 
 
 class CustomLinearTrailingOptional(nn.Module):

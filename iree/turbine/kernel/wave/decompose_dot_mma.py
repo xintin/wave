@@ -4,15 +4,14 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from .._support.tracing import CapturedTrace
-from .constraints import (
-    Constraint,
-    GenericDot,
-)
-import torch.fx as fx
-from .utils.general_utils import get_hardware_constraint
-from ..ops.wave_ops import get_custom, MMA, Add, Mul, Sum, CastOp
 from copy import copy
+
+import torch.fx as fx
+
+from .._support.tracing import CapturedTrace
+from ..ops.wave_ops import MMA, Add, CastOp, Mul, Sum, get_custom
+from .constraints import Constraint, GenericDot
+from .utils.general_utils import get_hardware_constraint
 
 
 def decompose_dot_mma(trace: CapturedTrace, constraints: list[Constraint]):

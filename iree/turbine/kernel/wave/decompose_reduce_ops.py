@@ -4,17 +4,17 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from ..wave.constraints import (
-    Constraint,
-    HardwareConstraint,
-    WaveConstraint,
-    WorkgroupConstraint,
-    TilingConstraint,
-)
-from .._support.tracing import CapturedTrace
+import math
+from typing import Callable
+
+import torch.fx as fx
+
+import iree.turbine.kernel.lang as tkl
+
 from .._support.indexing import IndexSequence, IndexSymbol
+from .._support.tracing import CapturedTrace
+from ..lang.global_symbols import *
 from ..ops.wave_ops import (
-    get_custom,
     Add,
     Allocate,
     Conditional,
@@ -29,17 +29,19 @@ from ..ops.wave_ops import (
     ReduceOp,
     ShuffleOp,
     Write,
+    get_custom,
 )
-from ..lang.global_symbols import *
-
-from .utils.symbol_utils import subs_idxc, safe_subs
-from .utils.graph_utils import DCE, get_outer_node
-from .utils.general_utils import all_equal, delinearize_index
+from ..wave.constraints import (
+    Constraint,
+    HardwareConstraint,
+    TilingConstraint,
+    WaveConstraint,
+    WorkgroupConstraint,
+)
 from .utils.classes import ShuffleMode
-import torch.fx as fx
-import math
-from typing import Callable
-import iree.turbine.kernel.lang as tkl
+from .utils.general_utils import all_equal, delinearize_index
+from .utils.graph_utils import DCE, get_outer_node
+from .utils.symbol_utils import safe_subs, subs_idxc
 
 TKW_COMBINER = {"sum": Add, "max": Maximum, "min": Minimum}
 IDENTITY = {"add": 0.0, "maximum": -1e6, "minimum": 1e6}

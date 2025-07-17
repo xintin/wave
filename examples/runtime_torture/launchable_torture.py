@@ -5,18 +5,15 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 import argparse
-from contextlib import contextmanager
 import sys
+from contextlib import contextmanager
 from time import perf_counter
 
 import torch
 import torch.nn as nn
 
 import iree.turbine.aot as aot
-
-from iree.turbine.runtime import (
-    Launchable,
-)
+from iree.turbine.runtime import Launchable
 
 
 @contextmanager

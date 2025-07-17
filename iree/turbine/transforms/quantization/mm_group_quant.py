@@ -6,11 +6,8 @@
 
 from typing import Optional
 
-from iree.compiler.ir import (
-    InsertionPoint,
-    Operation,
-    Type as IrType,
-)
+from iree.compiler.ir import InsertionPoint, Operation
+from iree.compiler.ir import Type as IrType
 
 from ..rewriter import *
 

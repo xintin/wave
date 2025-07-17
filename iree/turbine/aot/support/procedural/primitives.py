@@ -8,34 +8,13 @@
 # Live types during runtime of a procedure trace. User code will
 # operate on instances of these.
 
-from typing import (
-    Dict,
-    List,
-    Optional,
-    Sequence,
-)
+from typing import Dict, List, Optional, Sequence
 
 import torch
 
-from ....support.ir_imports import (
-    F32Type,
-    IrType,
-    RankedTensorType,
-    Value,
-    arith_d,
-)
-
-from ..ir_utils import (
-    build_tensor_dim_value,
-    _is_float_type,
-    _is_integer_like_type,
-)
-
-from .base import (
-    Intrinsic,
-    IrTrace,
-    current_ir_trace,
-)
+from ....support.ir_imports import F32Type, IrType, RankedTensorType, Value, arith_d
+from ..ir_utils import _is_float_type, _is_integer_like_type, build_tensor_dim_value
+from .base import Intrinsic, IrTrace, current_ir_trace
 
 ###############################################################################
 # Tensors and scalars

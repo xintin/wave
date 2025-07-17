@@ -6,18 +6,12 @@
 
 from typing import List, Optional, Sequence
 
+from iree.compiler.dialects import func as func_d
+from iree.compiler.ir import Context, RankedTensorType
+from iree.compiler.ir import Type as IrType
+from iree.compiler.ir import Value
+
 from ..dynamo import type_conversion
-
-from iree.compiler.ir import (
-    Context,
-    RankedTensorType,
-    Type as IrType,
-    Value,
-)
-
-from iree.compiler.dialects import (
-    func as func_d,
-)
 
 __all__ = [
     "Builder",

@@ -4,10 +4,11 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+from typing import Any, Optional
+
 import iree.turbine.kernel.lang as tkl
 import iree.turbine.kernel.wave as tkw
 from iree.turbine.kernel._support.dtype import DataType
-from typing import Any, Optional
 from iree.turbine.kernel.lang.global_symbols import *
 
 

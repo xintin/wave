@@ -4,41 +4,37 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from enum import Enum
-
 import math
 from dataclasses import dataclass
+from enum import Enum
+
 import torch.fx as fx
 from torch.utils import _pytree as pytree
+
 import iree.turbine.kernel.lang as tkl
 
-from ..compiler.kernel_codegen import filter_fx_graph
-from .constraints import (
-    Constraint,
-    get_constrained_shape,
-)
 from .._support.tracing import CapturedTrace
+from ..compiler.kernel_codegen import filter_fx_graph
+from ..lang.global_symbols import *
 from ..ops.wave_ops import (
-    get_custom,
+    MMA,
     Conditional,
     CustomOp,
     Ge,
     Iterate,
     Lt,
-    MMA,
     NewScalar,
-    WorkgroupBarrier,
     SchedulingBarrier,
-    SharedMemoryBarrier,
     SetWavePrio,
+    SharedMemoryBarrier,
+    WorkgroupBarrier,
     Write,
+    get_custom,
 )
-from ..lang.global_symbols import *
-
+from .constraints import Constraint, get_constrained_shape
 from .scheduling.schedule_enums import SchedulingType
 from .utils.general_utils import get_hardware_constraint
 from .utils.symbol_utils import subs_idxc
-
 
 ##############################################################
 # General graph helper functions

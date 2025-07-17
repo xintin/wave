@@ -4,16 +4,15 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+import inspect
+import types
+import typing
+from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Callable
 
-from abc import abstractmethod, ABC
-from pathlib import Path
-import typing
-import types
-
-import inspect
-
 from iree.build.executor import ActionConcurrency, BuildAction, BuildContext, BuildFile
+
 from iree.turbine.aot.exporter import ExportOutput
 
 __all__ = [

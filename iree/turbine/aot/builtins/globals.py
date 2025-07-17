@@ -8,26 +8,16 @@
 from typing import Any, Optional
 
 import torch.nn as nn
+from torch.utils._pytree import TreeSpec, tree_flatten, tree_map
 
+from ..support.ir_utils import GlobalAttributes, NameMapCallback
 from ..support.procedural import (
-    AbstractTypedef,
     Abstractifiable,
+    AbstractTypedef,
     GlobalsDef,
     TreeAbstractifiable,
     abstractify_single_value,
 )
-
-from ..support.ir_utils import (
-    NameMapCallback,
-    GlobalAttributes,
-)
-
-from torch.utils._pytree import (
-    TreeSpec,
-    tree_flatten,
-    tree_map,
-)
-
 
 __all__ = [
     "export_global",

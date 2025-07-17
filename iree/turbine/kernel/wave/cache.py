@@ -6,28 +6,27 @@
 
 
 import copy
+import functools
 import glob
 import hashlib
 import inspect
 import json
 import os
 import shutil
-import threading
 import tempfile
-
+import threading
 from collections import OrderedDict, deque
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
-import functools
 from typing import Callable, Optional
 
 from iree.turbine.kernel.lang.kernel_buffer import KernelBufferMeta
 
-from .constraints import Constraint, TilingConstraint, WaveConstraint
 from ..compiler.kernel_codegen import KernelBufferUsage
 from ..lang.wave_types import IndexMapping
-from .utils.classes import KernelLaunchInfo
 from .compile_options import WaveCompileOptions
+from .constraints import Constraint, TilingConstraint, WaveConstraint
+from .utils.classes import KernelLaunchInfo
 
 default_cache_base_dir = Path.home() / ".wave"
 CACHE_BASE_DIR = Path(os.environ.get("WAVE_CACHE_DIR", default_cache_base_dir))

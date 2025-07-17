@@ -4,22 +4,22 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+import copy
+import functools
 import inspect
 import types
-import functools
-import copy
-import torch
 from typing import Any, Callable, Optional, TypeAlias
-from .constraints import Constraint
 
 import numpy as np
+import torch
 from sympy import Symbol
 from sympy.core.expr import Expr
-from .._support.shaped_type import ShapedType
 
 from .. import lang as tkl
 from .. import wave as tkw
+from .._support.shaped_type import ShapedType
 from ..wave import IndexMapping
+from .constraints import Constraint
 
 
 def wave_sim(constraints: Optional[list[Constraint]] = None):

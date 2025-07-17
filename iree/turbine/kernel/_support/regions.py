@@ -1,10 +1,5 @@
-from typing import (
-    Optional,
-    List,
-    Dict,
-    Tuple,
-)
 import contextlib
+from typing import Dict, List, Optional, Tuple
 
 import torch.fx as fx
 import torch.utils._pytree as pytree

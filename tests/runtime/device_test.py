@@ -5,25 +5,18 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 import logging
-import unittest
 import threading
+import unittest
 import warnings
 
 import torch
-
 from iree.runtime import HalElementType
 
 # Public API imports.
-from iree.turbine.runtime import (
-    Device,
-)
+from iree.turbine.runtime import Device
 
 # Internals.
-from iree.turbine.runtime.device import (
-    _CURRENT_THREAD,
-    get_device_from_torch,
-)
-
+from iree.turbine.runtime.device import _CURRENT_THREAD, get_device_from_torch
 from iree.turbine.support.exceptions import *
 
 

@@ -8,13 +8,11 @@ import logging
 import unittest
 
 import torch
+import torch._dynamo.config
+import torchvision.datasets as datasets
+import torchvision.transforms as transforms
 from torch import nn
 from torch.utils.data import DataLoader
-import torchvision.transforms as transforms
-import torchvision.datasets as datasets
-
-
-import torch._dynamo.config
 
 torch._dynamo.config.dynamic_shapes = (
     False  # TODO: https://github.com/nod-ai/SHARK-ModelDev/issues/93

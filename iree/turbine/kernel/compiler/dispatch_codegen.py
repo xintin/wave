@@ -7,16 +7,10 @@ embedding and generating the calls/dispatches.
 
 from typing import Any, Callable, Optional
 
-from .._support.indexing import IndexSymbol, IndexExpr
-
-from .base import (
-    ValidationError,
-)
-
-from .builder import (
-    ModuleBuilder,
-)
-
+from .._support.indexing import IndexExpr, IndexSymbol
+from ..lang.grid import Grid
+from .base import ValidationError
+from .builder import ModuleBuilder
 from .ir import (
     Block,
     DictAttr,
@@ -33,15 +27,12 @@ from .ir import (
     iree_codegen_d,
     stream_d,
 )
-
 from .kernel_codegen import (
     BindingDesc,
     BindingType,
     BoundKernelSignature,
     KernelSignature,
 )
-
-from ..lang.grid import Grid
 
 
 class StreamExecutable:

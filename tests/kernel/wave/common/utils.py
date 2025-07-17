@@ -4,11 +4,11 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-import pytest
 import os
-from iree.turbine.kernel.wave.utils.run_utils import (
-    get_default_arch,
-)
+
+import pytest
+
+from iree.turbine.kernel.wave.utils.run_utils import get_default_arch
 
 require_e2e = pytest.mark.require_e2e
 expensive_test = pytest.mark.expensive_test

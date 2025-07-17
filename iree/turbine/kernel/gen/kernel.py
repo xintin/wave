@@ -7,39 +7,23 @@
 """Custom op registeration for TK"""
 
 import inspect
+from typing import Any, Callable
 
 import torch
 
-from typing import Callable, Any
-
-from ..lang.kernel_buffer import is_kernel_buffer_meta_derived
-
-from ..lang import (
-    InputBuffer,
-    OutputBuffer,
-    Grid,
-    IndexExpr,
-)
-
-from .thread import LaunchableThread
-
-from ..compiler.ir import (
-    SymbolRefAttr,
-    ArrayAttr,
-    flow_d,
-    IrType,
-)
-
 from ...runtime.op_reg import (
-    def_library,
     CustomOp,
     KernelBuilder,
     KernelSelection,
     TensorArg,
+    def_library,
 )
-
-from .._support.tracing import AOTLaunchContext
 from .._support.indexing import IndexingContext
+from .._support.tracing import AOTLaunchContext
+from ..compiler.ir import ArrayAttr, IrType, SymbolRefAttr, flow_d
+from ..lang import Grid, IndexExpr, InputBuffer, OutputBuffer
+from ..lang.kernel_buffer import is_kernel_buffer_meta_derived
+from .thread import LaunchableThread
 
 TK_LIBRARY = def_library("tk")
 

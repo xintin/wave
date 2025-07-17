@@ -5,26 +5,24 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 import functools
-from typing import Optional
 from dataclasses import dataclass
+from typing import Optional
+
+import torch
 from iree.runtime import (
-    asdevicearray,
-    create_hal_module,
+    DeviceArray,
     HalBuffer,
     HalBufferView,
-    HalFence,
     HalElementType,
-    DeviceArray,
+    HalFence,
     VmContext,
     VmInstance,
     VmModule,
     VmVariantList,
+    asdevicearray,
+    create_hal_module,
 )
-
-import torch
-from torch import (
-    from_numpy as torch_from_numpy,
-)
+from torch import from_numpy as torch_from_numpy
 
 from ..runtime.device import Device, DeviceState
 

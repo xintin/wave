@@ -4,17 +4,17 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-import torch
-from typing import Sequence, TypeVar
-from pathlib import Path
 import argparse
-import json
 import csv
+import json
+from pathlib import Path
+from typing import Sequence, TypeVar
 
+import torch
 
-from iree.turbine.kernel.boo.exports.parser import OpCLIParser
 from iree.turbine.kernel.boo.driver.launch import get_launchable
 from iree.turbine.kernel.boo.driver.utils import load_commands
+from iree.turbine.kernel.boo.exports.parser import OpCLIParser
 
 
 # TODO: it would be better not to have string-based dictionaries flying around...

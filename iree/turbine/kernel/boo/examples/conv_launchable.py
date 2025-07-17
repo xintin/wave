@@ -1,10 +1,9 @@
-import torch
-from iree.turbine.kernel.boo.conv_exports import (
-    ConvSignature,
-    get_launchable,
-)
-from iree.turbine.kernel.boo.runtime import clear_cache as clear_cache_dir
 from time import time
+
+import torch
+
+from iree.turbine.kernel.boo.conv_exports import ConvSignature, get_launchable
+from iree.turbine.kernel.boo.runtime import clear_cache as clear_cache_dir
 from iree.turbine.support.logging import runtime_logger as logger
 
 # run this script with the env variable: TURBINE_DEBUG="log_level=DEBUG"

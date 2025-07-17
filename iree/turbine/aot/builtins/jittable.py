@@ -9,24 +9,17 @@
 
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple, Union
 
-
 import torch
-from torch._decomp import get_decompositions
 import torch._dynamo as dynamo
-from torch.fx import (
-    GraphModule,
-)
-from torch.utils._pytree import (
-    tree_flatten,
-    tree_unflatten,
-)
-
 from iree.compiler.extras.fx_importer import (
-    GraphNodeImporter,
     FxImporter,
     FxImporterHooks,
+    GraphNodeImporter,
     InputInfo,
 )
+from torch._decomp import get_decompositions
+from torch.fx import GraphModule
+from torch.utils._pytree import tree_flatten, tree_unflatten
 
 from ...support.ir_imports import (
     FlatSymbolRefAttr,
@@ -39,18 +32,10 @@ from ...support.ir_imports import (
     func_d,
     util_d,
 )
-
 from ...support.logging import aot_logger as logger
-
 from ..decompositions import current_aot_decompositions
-from ..passes import (
-    functorch_functionalize,
-)
-
-from ..support.ir_utils import (
-    ModuleBuilder,
-)
-
+from ..passes import functorch_functionalize
+from ..support.ir_utils import ModuleBuilder
 from ..support.procedural import (
     CallableIntrinsic,
     IrImmediateTensor,

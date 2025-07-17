@@ -4,37 +4,27 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from typing import Any, Callable
 from collections.abc import Sequence
+from typing import Any, Callable
 
 import numpy as np
 import torch
+from iree.compiler.extras.fx_importer import TORCH_DTYPE_TO_MLIR_TYPE_ASM
+from iree.runtime import HalElementType
 
-from iree.runtime import (
-    HalElementType,
-)
-
-from iree.compiler.extras.fx_importer import (
-    TORCH_DTYPE_TO_MLIR_TYPE_ASM,
-)
-
-from .exceptions import (
-    UnknownDTypeError,
-)
-
+from .exceptions import UnknownDTypeError
 from .ir_imports import (
-    Float8E4M3FNUZType,
     BF16Type,
     ComplexType,
     F16Type,
     F32Type,
     F64Type,
-    IntegerType,
-    IrType,
     Float8E4M3FNType,
     Float8E4M3FNUZType,
-    Float8E5M2Type,
     Float8E5M2FNUZType,
+    Float8E5M2Type,
+    IntegerType,
+    IrType,
 )
 
 # We need the inverse of the TORCH_DTYPE_TO_MLIR_TYPE_ASM table.

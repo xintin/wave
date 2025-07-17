@@ -4,10 +4,6 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from ..support.ir_imports import (
-    RankedTensorType,
-)
-
 from ..runtime.op_reg import (
     CustomOp,
     KernelBuilder,
@@ -15,6 +11,7 @@ from ..runtime.op_reg import (
     def_library,
     impl_helper,
 )
+from ..support.ir_imports import RankedTensorType
 
 __all__ = [
     "trace",

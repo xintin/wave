@@ -7,31 +7,14 @@
 
 # Concrete tracer for running buildable code.
 
-from typing import (
-    Any,
-    Callable,
-    List,
-    Sequence,
-)
+from typing import Any, Callable, List, Sequence
 
-from torch.utils._pytree import (
-    tree_flatten,
-    tree_unflatten,
-    treespec_dumps,
-)
+from torch.utils._pytree import tree_flatten, tree_unflatten, treespec_dumps
 
-from ....support.ir_imports import (
-    DictAttr,
-    Location,
-    StringAttr,
-    Value,
-    func_d,
-)
-
+from ....support.ir_imports import DictAttr, Location, StringAttr, Value, func_d
 from ....support.logging import aot_logger as logger
-
+from ...tensor_traits import DeviceAffinity
 from ..ir_utils import ModuleBuilder, attributes_from_argument_device_affinities
-
 from .base import (
     AbstractIntrinsic,
     Intrinsic,
@@ -39,12 +22,7 @@ from .base import (
     ProcedureTraceError,
     new_ir_trace_scope,
 )
-
-from .globals import (
-    LiveGlobalCollectionProxy,
-)
-
-from ...tensor_traits import DeviceAffinity
+from .globals import LiveGlobalCollectionProxy
 
 ###############################################################################
 # Concrete procedure building IrTracer.

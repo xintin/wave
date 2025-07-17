@@ -18,13 +18,10 @@ Typical usage:
 ```
 """
 
-from typing import Sequence
-
-from abc import ABC, abstractmethod
 import logging
 import textwrap
-
-from ...support.logging import runtime_logger as logger
+from abc import ABC, abstractmethod
+from typing import Sequence
 
 from ...support.ir_imports import (
     FlatSymbolRefAttr,
@@ -35,13 +32,9 @@ from ...support.ir_imports import (
     TypeAttr,
     Value,
 )
-
+from ...support.logging import runtime_logger as logger
 from ...transforms.merger import Merger
-
-from .base import (
-    KernelBuilder,
-)
-
+from .base import KernelBuilder
 
 __all__ = [
     "TemplateLoader",

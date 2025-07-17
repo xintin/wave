@@ -9,13 +9,13 @@
 # and writes the corresponding `X.Y.ZrcYYYYMMDD` version identifier to
 # `version_local.json`.
 
-from datetime import datetime
-from packaging.version import Version
-from pathlib import Path
 import argparse
 import json
 import subprocess
+from datetime import datetime
+from pathlib import Path
 
+from packaging.version import Version
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--write-json", action="store_true")

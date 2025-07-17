@@ -5,12 +5,12 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 import hashlib
+import logging
 import os
 from pathlib import Path
-import logging
 
 from ..support.debugging import flags
-from ..support.logging import get_logger, DefaultFormatter
+from ..support.logging import DefaultFormatter, get_logger
 
 logger = get_logger("turbine.runtime")
 

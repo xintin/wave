@@ -8,9 +8,7 @@ import iree.turbine.kernel.lang as tkl
 import iree.turbine.kernel.wave as tkw
 from iree.turbine.kernel.lang.global_symbols import *
 from iree.turbine.kernel.wave.constraints import MMAType
-from iree.turbine.kernel.wave.utils.general_utils import (
-    get_default_scheduling_params,
-)
+from iree.turbine.kernel.wave.utils.general_utils import get_default_scheduling_params
 
 
 def get_gemm_kernel(

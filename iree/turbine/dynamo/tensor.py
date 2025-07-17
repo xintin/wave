@@ -10,34 +10,16 @@ This implementation is adapted from a variety of sources, most notably the subcl
 zoo: https://github.com/albanD/subclass_zoo/blob/main/new_device.py
 """
 
+import atexit
+import functools
+from types import BuiltinFunctionType
 from typing import Optional, Sequence
 
-import functools
-import atexit
 import numpy as np
-from types import BuiltinFunctionType
-
 import torch
 import torch._dynamo as dynamo
-from torch.overrides import TorchFunctionMode
-
-from ..runtime.device import (
-    Device,
-    DeviceState,
-)
-
-from ..support.conversions import (
-    dtype_to_element_type,
-    torch_dtype_to_numpy,
-)
-
-from .executor import EagerSpecializedExecutable
-
-from ..support import (
-    ApiSequencingError,
-    UnknownDTypeError,
-)
-
+from iree.compiler.api import Output, Session
+from iree.compiler.extras.fx_importer import FxImporter
 from iree.runtime import (
     HalBuffer,
     HalBufferView,
@@ -46,10 +28,12 @@ from iree.runtime import (
     HalFence,
     VmModule,
 )
+from torch.overrides import TorchFunctionMode
 
-from iree.compiler.api import Session, Output
-
-from iree.compiler.extras.fx_importer import FxImporter
+from ..runtime.device import Device, DeviceState
+from ..support import ApiSequencingError, UnknownDTypeError
+from ..support.conversions import dtype_to_element_type, torch_dtype_to_numpy
+from .executor import EagerSpecializedExecutable
 
 DEFAULT_COMPILER_FLAGS = ("--iree-input-type=torch",)
 

@@ -1,6 +1,8 @@
-from typing import Dict, List, Optional, Tuple, Callable, TypeAlias
+from typing import Callable, Dict, List, Optional, Tuple, TypeAlias
+
 import numpy as np
 import torch.fx as fx
+
 from .graph_utils import Edge
 
 Schedule: TypeAlias = Dict[fx.Node, int]

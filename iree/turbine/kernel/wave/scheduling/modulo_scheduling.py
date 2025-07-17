@@ -4,20 +4,22 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+import math
+from typing import Callable
+
+import numpy as np
 import torch.fx as fx
+
 from ....support.logging import get_logger
 from .graph_utils import (
     Edge,
-    find_strongly_connected_components,
-    find_cycles_in_scc,
-    all_pairs_longest_paths_unevaluated,
     all_pairs_longest_paths_evaluated,
+    all_pairs_longest_paths_unevaluated,
+    find_cycles_in_scc,
+    find_strongly_connected_components,
     topological_sort,
     topological_sort_nodes,
 )
-from typing import Callable
-import numpy as np
-import math
 
 logger = get_logger("turbine.wave.modulo_scheduling")
 

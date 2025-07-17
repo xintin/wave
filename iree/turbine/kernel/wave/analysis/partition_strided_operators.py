@@ -4,9 +4,17 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from ..constraints import (
-    Constraint,
-)
+from copy import deepcopy
+from itertools import groupby
+from operator import itemgetter
+
+import numpy as np
+import sympy
+import torch.fx as fx
+
+from ....support.logging import get_logger
+from ..._support.indexing import IndexSequence, IndexSymbol
+from ..._support.tracing import CapturedTrace
 from ...lang.global_symbols import *
 from ...ops.wave_ops import (
     CustomOp,
@@ -17,24 +25,10 @@ from ...ops.wave_ops import (
     Write,
     get_custom,
 )
-from ..._support.indexing import IndexSequence, IndexSymbol
-from ..._support.tracing import CapturedTrace
-from ....support.logging import get_logger
-from ..utils.general_utils import (
-    all_equal,
-)
-from ..utils.mma_utils import (
-    simplify_index,
-)
-from ..utils.symbol_utils import (
-    subs_idxc,
-)
-from copy import deepcopy
-from itertools import groupby
-from operator import itemgetter
-import torch.fx as fx
-import numpy as np
-import sympy
+from ..constraints import Constraint
+from ..utils.general_utils import all_equal
+from ..utils.mma_utils import simplify_index
+from ..utils.symbol_utils import subs_idxc
 
 logger = get_logger("turbine.wave.partition_strided_operators")
 

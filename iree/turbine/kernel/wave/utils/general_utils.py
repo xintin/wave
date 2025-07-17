@@ -5,16 +5,17 @@
 
 import functools
 import glob
-import iree.turbine.kernel.lang as tkl
 import os
-import sympy
-import torch
 from typing import Any, Callable, Optional
 
+import sympy
+import torch
+
+import iree.turbine.kernel.lang as tkl
 
 from ..._support.indexing import IndexExpr, IndexSequence, IndexSymbol
 from ...lang.global_symbols import *
-from ...ops.wave_ops import CustomOp, Read, Iterate, Write
+from ...ops.wave_ops import CustomOp, Iterate, Read, Write
 from ..assumptions import Assumption
 from ..constraints import (
     Constraint,
@@ -24,7 +25,6 @@ from ..constraints import (
     WorkgroupConstraint,
 )
 from .symbol_utils import get_min_expr, safe_subs, subs_idxc
-
 
 # TODO: Monkey-patching f16 support, need to fix in iree.
 

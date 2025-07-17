@@ -1,28 +1,22 @@
-import torch
 import pytest
+import torch
 
 import iree.turbine.kernel.lang as tkl
 import iree.turbine.kernel.wave as tkw
+from iree.turbine.kernel.lang.global_symbols import *
 from iree.turbine.kernel.wave.compile import WaveCompileOptions, wave_compile
+from iree.turbine.kernel.wave.constraints import ScaledMMAType
 from iree.turbine.kernel.wave.scheduling.schedule_enums import SchedulingType
-from iree.turbine.kernel.wave.utils.run_utils import (
-    set_default_run_config,
-)
+from iree.turbine.kernel.wave.utils.general_utils import get_default_scheduling_params
+from iree.turbine.kernel.wave.utils.run_utils import set_default_run_config
 from iree.turbine.kernel.wave.utils.torch_utils import (
-    device_randn,
     device_randint,
+    device_randn,
     device_tensor,
     device_zeros,
 )
-from iree.turbine.kernel.lang.global_symbols import *
-from iree.turbine.kernel.wave.utils.general_utils import (
-    get_default_scheduling_params,
-)
-from iree.turbine.kernel.wave.constraints import (
-    ScaledMMAType,
-)
 
-from .common.utils import require_e2e, require_cdna4
+from .common.utils import require_cdna4, require_e2e
 
 # Note this is specified by the HW and cannot be changed.
 SCALE_GROUP_SIZE = 32

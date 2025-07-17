@@ -4,8 +4,4 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from . import iree
-from . import _jinja_test_ops
-from . import _str_format_test_ops
-from . import conv_fwd
-from . import insert_slice
+from . import _jinja_test_ops, _str_format_test_ops, conv_fwd, insert_slice, iree

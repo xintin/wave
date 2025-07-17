@@ -1,5 +1,6 @@
-from .._support.indexing import index_symbol
 import sympy
+
+from .._support.indexing import index_symbol
 
 # Global symbols used throughout the code.
 

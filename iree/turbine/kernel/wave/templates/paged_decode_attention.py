@@ -4,6 +4,14 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+import math
+from collections import namedtuple
+from enum import Enum
+from typing import Optional
+
+import sympy
+import torch
+
 import iree.turbine.kernel.lang as tkl
 import iree.turbine.kernel.wave as tkw
 from iree.turbine.kernel.lang.global_symbols import *
@@ -13,12 +21,6 @@ from iree.turbine.kernel.wave.utils.general_utils import (
     clamp,
     torch_dtype_to_wave,
 )
-import sympy
-from enum import Enum
-from collections import namedtuple
-import math
-from typing import Optional
-import torch
 
 paged_decode_attention_shape = namedtuple(
     "paged_decode_attention_shape",

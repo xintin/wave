@@ -1,16 +1,12 @@
-from ...ops.wave_ops import (
-    Iterate,
-    IterArg,
-    Write,
-    GetResult,
-    get_custom,
-)
-import torch.fx as fx
+import random
 from collections import defaultdict
+from typing import Optional
+
+import torch.fx as fx
+
 from ....support.logging import get_logger
 from ...lang.global_symbols import SHARED_ADDRESS_SPACE
-import random
-from typing import Optional
+from ...ops.wave_ops import GetResult, IterArg, Iterate, Write, get_custom
 
 logger = get_logger("turbine.wave.scheduling.loop_reconstruction_utils")
 

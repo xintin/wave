@@ -8,9 +8,9 @@ import logging
 import unittest
 
 import torch
+
 import iree.turbine.kernel as tk
 import iree.turbine.kernel.lang as tkl
-
 
 M = tk.lang.sym.M
 K = tk.lang.sym.K

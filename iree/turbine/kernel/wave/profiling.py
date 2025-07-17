@@ -5,15 +5,16 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 import json
-import ml_dtypes
-import numpy
 import subprocess
 import tempfile
 from collections import namedtuple
 from pathlib import Path
 
-import torch
 import iree.runtime
+import ml_dtypes
+import numpy
+import torch
+
 from ...support.conversions import TORCH_DTYPE_TO_SIGNED_MLIR_TYPE_ASM
 from .compile_options import WaveCompileOptions
 

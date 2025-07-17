@@ -1,8 +1,7 @@
 """Support for defining the op library and dispatch."""
 
-from typing import Type, TypeVar
-
 import functools
+from typing import Type, TypeVar
 
 from .._support import context
 

@@ -1,8 +1,5 @@
 from .. import ops
-
-from .._support.tracing import (
-    BaseContext,
-)
+from .._support.tracing import BaseContext
 
 __all__ = [
     "is_debug",

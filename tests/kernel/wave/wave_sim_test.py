@@ -6,10 +6,11 @@
 
 import pytest
 import torch
+from torch.testing import assert_close
+
 import iree.turbine.kernel.lang as tkl
 import iree.turbine.kernel.wave as tkw
 from iree.turbine.kernel.wave.wave_sim import wave_sim
-from torch.testing import assert_close
 
 
 def test_eltwise():

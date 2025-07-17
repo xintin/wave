@@ -1,6 +1,7 @@
-from typing import Optional
-from .._support.indexing import IndexSymbol, IndexingContext
 from math import prod
+from typing import Optional
+
+from .._support.indexing import IndexingContext, IndexSymbol
 
 
 def strides_from_symbolic_shape(

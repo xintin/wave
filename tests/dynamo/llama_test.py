@@ -5,11 +5,6 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 import logging
-
-
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# This software may be used and distributed according to the terms of the Llama 2 Community License Agreement.
-
 import math
 import unittest
 from dataclasses import dataclass
@@ -18,6 +13,9 @@ from typing import Optional, Tuple
 import torch
 import torch.nn.functional as F
 from torch import nn
+
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# This software may be used and distributed according to the terms of the Llama 2 Community License Agreement.
 
 
 @dataclass

@@ -5,15 +5,17 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 import logging
-import pytest
 import unittest
+
+import pytest
 from sympy import ceiling
+
 from iree.turbine.kernel.lang import sym
 from iree.turbine.kernel.wave.constraints import (
-    WorkgroupConstraint,
-    get_grid_shape,
     TilingConstraint,
     WaveConstraint,
+    WorkgroupConstraint,
+    get_grid_shape,
 )
 
 M = sym.M

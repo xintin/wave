@@ -4,12 +4,13 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from .._support.tracing import CapturedTrace
-from ..ops.wave_ops import AtomicOp, Read, Write, get_custom
-from ..lang.global_symbols import *
-from .utils.general_utils import remove_global_indexing, is_shared_mem_access
-from .constraints import Constraint
 import torch.fx as fx
+
+from .._support.tracing import CapturedTrace
+from ..lang.global_symbols import *
+from ..ops.wave_ops import AtomicOp, Read, Write, get_custom
+from .constraints import Constraint
+from .utils.general_utils import is_shared_mem_access, remove_global_indexing
 
 
 def apply_shared_memory_indexing_corrections(

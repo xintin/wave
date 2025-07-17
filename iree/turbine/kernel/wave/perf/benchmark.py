@@ -6,14 +6,17 @@
 
 import argparse
 import json
-import torch
-import iree.turbine.kernel.wave.nn as wave_nn
 from typing import Callable
 
+import torch
+
+import iree.turbine.kernel.wave.nn as wave_nn
+
 try:
-    from rpdTracerControl import rpdTracerControl
     import sqlite3
+
     import pandas as pd
+    from rpdTracerControl import rpdTracerControl
 except ImportError:
     print("rpdTraceControl not found, skipping profiling")
     exit(1)

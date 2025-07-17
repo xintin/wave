@@ -5,15 +5,13 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 import contextlib
-import torch
-from torch.profiler import profile, ProfilerActivity
 from functools import partial
 
+import torch
+from torch.profiler import ProfilerActivity, profile
+
 from iree.turbine.dynamo.backends import boo
-from iree.turbine.kernel.boo.fusion import (
-    FusionSchema,
-    OpFusionSpec,
-)
+from iree.turbine.kernel.boo.fusion import FusionSchema, OpFusionSpec
 
 
 class SampleModel(torch.nn.Module):

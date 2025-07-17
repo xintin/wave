@@ -5,23 +5,16 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 from __future__ import annotations
+
+import iree.turbine.kernel.lang as tkl
+
+from ..._support.indexing import IndexSymbol, xor
 from ..._support.tracing import CapturedTrace
-from ..._support.indexing import (
-    IndexSymbol,
-    xor,
-)
 from ...compiler.base import CodegenError
 from ...lang.global_symbols import SHARED_ADDRESS_SPACE
 from ...lang.wave_types import IndexMapping
-from ...ops.wave_ops import (
-    get_custom,
-    Read,
-    Write,
-    CustomOp,
-    Iterate,
-)
+from ...ops.wave_ops import CustomOp, Iterate, Read, Write, get_custom
 from ..utils.mapping_utils import get_dict_with_updated_key
-import iree.turbine.kernel.lang as tkl
 
 
 def multi_buffer(trace: CapturedTrace):

@@ -1,11 +1,9 @@
+from sympy import ceiling
+
 import iree.turbine.kernel.lang as tkl
 import iree.turbine.kernel.wave as tkw
 from iree.turbine.kernel.lang.global_symbols import *
-from iree.turbine.kernel.wave.utils.general_utils import (
-    get_default_scheduling_params,
-)
-from sympy import ceiling
-from iree.turbine.kernel.lang.global_symbols import *
+from iree.turbine.kernel.wave.utils.general_utils import get_default_scheduling_params
 
 
 # This function provides a GEMM kernel where the workgroups executing the kernel are re-arranged

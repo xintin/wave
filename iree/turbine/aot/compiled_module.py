@@ -5,19 +5,16 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from typing import Any, Callable, Dict, Generator, Optional, Tuple, Union
-
 import enum
 import inspect
 import logging
-from pathlib import Path
 import re
-import weakref
 import sys
+import weakref
+from pathlib import Path
+from typing import Any, Callable, Dict, Generator, Optional, Tuple, Union
 
 from torch.export import ExportedProgram
-
-from . import builtins
 
 from ..support.ir_imports import (
     Context,
@@ -30,22 +27,11 @@ from ..support.ir_imports import (
 )
 from ..support.logging import aot_logger as logger
 from ..transforms.general.custom_op_expansion import ExpandCustomOpsPass
-
-from .support.procedural import (
-    GlobalsDef,
-    ProcedureTrace,
-    current_ir_trace,
-)
-
+from . import builtins
+from .support.ir_utils import ModuleBuilder, ModuleBuilderOptions
+from .support.procedural import GlobalsDef, ProcedureTrace, current_ir_trace
 from .support.procedural.exported_program import import_exported_program
-
-from .support.ir_utils import (
-    ModuleBuilder,
-    ModuleBuilderOptions,
-)
-
 from .tensor_traits import DeviceAffinity
-
 
 __all__ = [
     "CompiledModule",

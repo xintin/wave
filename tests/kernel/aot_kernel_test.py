@@ -8,9 +8,10 @@ import re
 import unittest
 
 import torch
-from iree.turbine.aot import export
+
 import iree.turbine.kernel as tk
 import iree.turbine.kernel.lang as tkl
+from iree.turbine.aot import export
 
 
 def export_softmax_kernel():

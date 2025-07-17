@@ -8,40 +8,14 @@ from dataclasses import dataclass
 from timeit import default_timer
 from typing import Any, Optional
 
-from iree.compiler.api import (
-    Session,
-    Source,
-    Output,
-)
+from iree.compiler.api import Output, Session, Source
+from iree.runtime import VmContext, VmFunction, VmModule
 
-from iree.runtime import (
-    VmContext,
-    VmFunction,
-    VmModule,
-)
-
-from ...support.exceptions import (
-    GeneralError,
-)
-
-from ...support.ir_imports import (
-    Attribute,
-    Location,
-    PassManager,
-    SymbolTable,
-)
-
-
-from ..device import (
-    Device,
-)
-
+from ...support.exceptions import GeneralError
+from ...support.ir_imports import Attribute, Location, PassManager, SymbolTable
+from ..device import Device
 from ..tracing import tracer
-
-from .base import (
-    FreeFuncKernelBuilder,
-    KernelSelection,
-)
+from .base import FreeFuncKernelBuilder, KernelSelection
 
 
 @dataclass(slots=True)

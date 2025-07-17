@@ -4,39 +4,38 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+import json
+import os
+
 import pytest
 import torch
+from torch.testing import assert_close
+
 import iree.turbine.kernel.lang as tkl
 import iree.turbine.kernel.wave as tkw
 from iree.turbine.kernel.lang.global_symbols import *
+from iree.turbine.kernel.wave.compile import WaveCompileOptions, wave_compile
+from iree.turbine.kernel.wave.constraints import GenericDot, MMAOperand, MMAType
 from iree.turbine.kernel.wave.iree_utils import generate_iree_ref
-from iree.turbine.kernel.wave.utils.general_utils import (
-    get_default_scheduling_params,
-)
-from iree.turbine.kernel.wave.utils.run_utils import (
-    set_default_run_config,
-)
+from iree.turbine.kernel.wave.scheduling.schedule import SchedulingType
+from iree.turbine.kernel.wave.templates.gemm import get_gemm_kernel
+from iree.turbine.kernel.wave.utils.general_utils import get_default_scheduling_params
+from iree.turbine.kernel.wave.utils.run_utils import set_default_run_config
 from iree.turbine.kernel.wave.utils.torch_utils import (
-    device_randn,
     device_randint,
+    device_randn,
     device_zeros,
 )
-from iree.turbine.kernel.wave.scheduling.schedule import SchedulingType
-from iree.turbine.kernel.wave.compile import WaveCompileOptions, wave_compile
+
 from .common.utils import (
-    require_e2e,
+    dump_generated_mlir,
+    enable_scheduling_barriers,
+    param_bool,
+    perf_test,
     require_cdna2,
     require_cdna3,
-    perf_test,
-    enable_scheduling_barriers,
-    dump_generated_mlir,
-    param_bool,
+    require_e2e,
 )
-from iree.turbine.kernel.wave.constraints import MMAType, MMAOperand, GenericDot
-from iree.turbine.kernel.wave.templates.gemm import get_gemm_kernel
-import os
-import json
-from torch.testing import assert_close
 
 # Add test shapes for validation and performance testing.
 default_test_shapes = {}

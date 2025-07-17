@@ -6,13 +6,11 @@
 
 import torch
 from torch import nn
-from ..common.utils import (
-    require_e2e,
-    require_cdna3,
-)
+
 import iree.turbine.kernel.wave.nn as wave_nn
 from iree.turbine.kernel.wave.utils.general_utils import torch_dtype_range
-from ..common.utils import require_e2e
+
+from ..common.utils import require_cdna3, require_e2e
 
 
 class RefQuantLinear(nn.Module):

@@ -1,28 +1,18 @@
-from typing import (
-    Any,
-    ClassVar,
-    Iterable,
-    Optional,
-    Type,
-    TypeAlias,
-    TypeVar,
-    Sequence,
-)
+from itertools import chain
+from typing import Any, ClassVar, Iterable, Optional, Sequence, Type, TypeAlias, TypeVar
 
+from sympy import Symbol
+from sympy.core.expr import Expr
+from typing_extensions import Self
+
+from .._support.dtype import DataType
+from .._support.indexing import IndexExpr, IndexSymbol, index_symbol
 from .kernel_buffer import (
     AddressSpace,
     KernelBufferMeta,
     KernelBufferUsage,
     MemoryLayout,
 )
-from .._support.dtype import DataType
-from .._support.indexing import IndexExpr, IndexSymbol, index_symbol
-
-from sympy import Symbol
-from sympy.core.expr import Expr
-from typing_extensions import Self
-
-from itertools import chain
 
 __all__ = [
     "IndexMapping",

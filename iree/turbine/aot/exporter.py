@@ -4,34 +4,20 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from typing import overload, Any, Dict, List, Optional, Sequence, Tuple, Type, Union
 import io
-from pathlib import Path
 import platform
 import warnings
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Type, Union, overload
 
 import torch
+from iree.compiler.api import Output, Session, Source
 
-from iree.compiler.api import (
-    Session,
-    Source,
-    Output,
-)
-
-from ..support.ir_imports import (
-    Context,
-    Operation,
-)
-
-from .builtins import *
-from .compiled_module import (
-    CompiledModule,
-    ModuleBuilderOptions,
-    ImportPhase,
-)
-from .fx_programs import FxPrograms
+from ..support.ir_imports import Context, Operation
 from . import decompositions
-
+from .builtins import *
+from .compiled_module import CompiledModule, ImportPhase, ModuleBuilderOptions
+from .fx_programs import FxPrograms
 from .tensor_traits import DeviceAffinity
 
 __all__ = [

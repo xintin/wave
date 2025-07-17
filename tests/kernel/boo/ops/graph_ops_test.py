@@ -4,15 +4,14 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-import unittest
 import tempfile
-
+import unittest
 from pathlib import Path
 
 import torch
 
 from iree.turbine.kernel.boo.ops import get_custom_graph_op
-from iree.turbine.kernel.boo.runtime import set_cache_dir, LaunchableRuntimeCache
+from iree.turbine.kernel.boo.runtime import LaunchableRuntimeCache, set_cache_dir
 
 
 class SampleModule(torch.nn.Module):

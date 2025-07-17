@@ -1,12 +1,10 @@
-from typing import Tuple
 import typing
+from typing import Tuple
 
 if typing.TYPE_CHECKING:
     from ..lang.types import Vector
 
-from .base import (
-    define_op,
-)
+from .base import define_op
 
 __all__ = [
     "exp2",

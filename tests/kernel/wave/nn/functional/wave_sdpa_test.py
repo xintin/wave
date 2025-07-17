@@ -8,13 +8,11 @@ import torch
 from torch.testing import assert_close
 
 import iree.turbine.kernel.wave.nn as wave_nn
-from ...common.utils import (
-    require_e2e,
-    require_cdna3,
-)
 from iree.turbine.kernel.wave.utils.reference_kernel_utils import (
     scaled_dot_product_attention_bhsd,
 )
+
+from ...common.utils import require_cdna3, require_e2e
 
 
 @require_e2e

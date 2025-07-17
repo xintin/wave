@@ -3,15 +3,18 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-import torch
 import functools
+from itertools import chain
+from typing import Any, Callable, Optional
+from warnings import warn
+
 import iree.runtime as rt
-from typing import Callable, Optional, Any
+import torch
+
+from iree.turbine.kernel.lang import IndexSymbol
+
 from ..compile_options import WaveCompileOptions
 from ..profiling import benchmark_module
-from itertools import chain
-from warnings import warn
-from iree.turbine.kernel.lang import IndexSymbol
 
 # Cache for the system context and vm function.
 RUNTIME_CACHE: dict[str, tuple[rt.SystemContext, rt.VmFunction]] = {}

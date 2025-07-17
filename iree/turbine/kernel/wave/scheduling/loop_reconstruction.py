@@ -1,34 +1,36 @@
-from ..constraints import Constraint
+from collections import defaultdict, deque
+from enum import Enum
+
+import torch.fx as fx
+
+from ....support.logging import get_logger
 from ..._support.indexing import IndexSymbol
 from ..._support.tracing import CapturedTrace
 from ...ops.wave_ops import (
-    Iterate,
-    IterArg,
-    Placeholder,
-    Output,
-    GetResult,
-    get_custom,
-    SchedulingGroupBarrier,
     MMA,
-    ScaledMMA,
+    GetResult,
+    IterArg,
+    Iterate,
     NewRegister,
+    Output,
+    Placeholder,
+    ScaledMMA,
+    SchedulingGroupBarrier,
+    get_custom,
 )
+from ..constraints import Constraint
 from ..utils.general_utils import get_induction_variable
 from ..utils.graph_utils import replace_uses_in
-import torch.fx as fx
-from collections import deque, defaultdict
-from ..visualization import visualize_mapped_graphs, visualize_graph
-from ....support.logging import get_logger
+from ..visualization import visualize_graph, visualize_mapped_graphs
 from .loop_reconstruction_utils import (
     ArgumentContext,
-    create_fill_stage_schedule,
     create_drain_stage_schedule,
+    create_fill_stage_schedule,
+    interleave_instructions,
     liveness_analysis,
     partition_graph_by_stage,
-    interleave_instructions,
 )
 from .resources import get_custom_operation_type
-from enum import Enum
 
 logger = get_logger("turbine.wave.scheduling.loop_reconstruction")
 

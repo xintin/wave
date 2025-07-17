@@ -7,14 +7,11 @@
 import logging
 import unittest
 
-from iree.compiler.ir import (
-    Context,
-)
-
-from iree.turbine.aot import *
-
 import torch
 import torch.nn as nn
+from iree.compiler.ir import Context
+
+from iree.turbine.aot import *
 
 
 class SimpleParams(nn.Module):

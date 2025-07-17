@@ -4,36 +4,36 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+import inspect
+import logging
+import warnings
+from itertools import chain
+
+# Others
+from typing import Any, Callable, Optional, Sequence, get_type_hints
+
+import sympy
+import torch.fx as fx
+
 # Lang, compiler, ops, constraints
 from sympy.utilities.lambdify import lambdastr
-from itertools import chain
+
 import iree.turbine.kernel.lang as tkl
-from ..compiler import builder, dispatch_codegen, kernel_codegen
-from ..lang import Grid
-from ..lang.global_symbols import *
-from ..ops import wave_ops
-from ..ops.wave_ops import Iterate, CustomOp, get_custom
-from .._support.indexing import IndexingContext, IndexExpr, index_symbol
-from .symbolic_constraints import SymbolicAlias
+
+from .._support.indexing import IndexExpr, IndexingContext, index_symbol
+from .._support.location_config import LocationCaptureConfig
 from .._support.tracing import (
     CapturedTrace,
     CompiledContext,
     KernelRegionGraph,
     Launchable,
 )
-from .._support.location_config import LocationCaptureConfig
-from .cache import get_temp_binary_dir
+from ..compiler import builder, dispatch_codegen, kernel_codegen
 from ..compiler.ir import Context, Module, Operation
-from .codegen import WaveEmitter
-from .constraints import (
-    Constraint,
-    HardwareConstraint,
-    TilingConstraint,
-    WaveConstraint,
-    WorkgroupConstraint,
-    ReorderingConstraint,
-    get_grid_shape,
-)
+from ..lang import Grid, Memory, SymbolBind
+from ..lang.global_symbols import *
+from ..ops import wave_ops
+from ..ops.wave_ops import CustomOp, Iterate, get_custom
 
 # Passes
 from .analysis.index_sequence_analysis import (
@@ -45,49 +45,51 @@ from .analysis.partition_strided_operators import (
     partition_strided_operators,
 )
 from .barriers import add_shared_memory_barriers
+from .cache import get_temp_binary_dir
 from .codegen import WaveEmitter
 from .compile_options import WaveCompileOptions
-from .decompose_reduce_ops import decompose_reduce_ops
-from .decompose_vmma_ops import decompose_vmma_ops
-from .decompose_scan_ops import decompose_scan_ops
+from .constraints import (
+    Constraint,
+    HardwareConstraint,
+    ReorderingConstraint,
+    TilingConstraint,
+    WaveConstraint,
+    WorkgroupConstraint,
+    get_grid_shape,
+)
 from .decompose_dot_mma import decompose_dot_mma
-from .expansion.expansion import expand_graph, add_get_results
+from .decompose_reduce_ops import decompose_reduce_ops
+from .decompose_scan_ops import decompose_scan_ops
+from .decompose_vmma_ops import decompose_vmma_ops
+from .expansion.expansion import add_get_results, expand_graph
+from .generate_bounds_exprs import generate_bounds_exprs
 from .global_to_shared_gathers import global_to_shared_gathers
 from .hoisting import hoist_loop_invariant_ops
-from .minimize_global_loads import minimize_global_loads
-from .promotion import promote_placeholders, compute_shared_memory_usage
-from .schedule_reordering import schedule_reordering
 from .memory_analysis.minimize_shared_allocs import minimize_shared_allocs
+from .minimize_global_loads import minimize_global_loads
+from .promotion import compute_shared_memory_usage, promote_placeholders
+from .schedule_reordering import schedule_reordering
 from .scheduling.schedule import schedule_graph
-from .type_inference import infer_types
 from .shared_memory_indexing import apply_shared_memory_indexing_corrections
-from .generate_bounds_exprs import generate_bounds_exprs
-from .workgroup_reordering import reorder_workgroups
-
-# Utils
-from .utils.symbol_utils import subs_idxc, safe_subs
-from .utils.print_utils import print_trace, try_apply_pass
-from .utils.graph_utils import (
-    remove_chained_extractslice,
-    remove_chained_getresult,
-    initialize_iter_args,
-)
+from .symbolic_constraints import SymbolicAlias
+from .type_inference import infer_types
 from .utils.compile_utils import canonicalize_module
 from .utils.general_utils import (
     delinearize_index,
-    partial,
     get_hardware_constraint,
+    partial,
     remove_files_with_extension,
 )
+from .utils.graph_utils import (
+    initialize_iter_args,
+    remove_chained_extractslice,
+    remove_chained_getresult,
+)
+from .utils.print_utils import print_trace, try_apply_pass
 
-# Others
-from typing import Any, Callable, Optional, Sequence, get_type_hints
-import torch.fx as fx
-import inspect
-import sympy
-import warnings
-from ..lang import SymbolBind, Memory
-import logging
+# Utils
+from .utils.symbol_utils import safe_subs, subs_idxc
+from .workgroup_reordering import reorder_workgroups
 
 logger = logging.getLogger(__name__)
 
@@ -120,8 +122,9 @@ def _warn_iree_is_too_old():
     _warned = True
 
     try:
-        from packaging.version import Version
         from importlib.metadata import version
+
+        from packaging.version import Version
 
         iree_compiler_ver = Version(version("iree-base-compiler"))
         iree_runtime_ver = Version(version("iree-base-runtime"))

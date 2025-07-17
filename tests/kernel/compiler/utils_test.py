@@ -1,8 +1,9 @@
 import logging
 import unittest
-from iree.turbine.kernel.lang import sym
+
 from iree.turbine.kernel._support.indexing import IndexingContext
 from iree.turbine.kernel.compiler.utils import strides_from_symbolic_shape
+from iree.turbine.kernel.lang import sym
 
 
 class UtilsTest(unittest.TestCase):

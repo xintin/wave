@@ -4,9 +4,7 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from . import gen
-from . import lang
-from . import wave
+from . import gen, lang, wave
 
 
 # Helpers that are good to have in the global scope.

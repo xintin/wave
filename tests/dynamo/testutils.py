@@ -6,15 +6,13 @@
 
 from typing import List
 
-from iree.compiler.extras.fx_importer import FxImporter
 import torch
-from torch._dynamo.backends.common import aot_autograd
-from torch.fx.experimental.proxy_tensor import make_fx
+from iree.compiler.extras.fx_importer import FxImporter
 from torch._decomp import get_decompositions
+from torch._dynamo.backends.common import aot_autograd
 from torch.func import functionalize
-from torch.fx import (
-    GraphModule,
-)
+from torch.fx import GraphModule
+from torch.fx.experimental.proxy_tensor import make_fx
 
 
 def create_backend(decompose_ops: List[torch._ops.OpOverloadPacket] = None):

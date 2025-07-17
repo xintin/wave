@@ -5,16 +5,9 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from typing import (
-    Any,
-    Callable,
-    List,
-    Optional,
-    Sequence,
-)
-
-from contextlib import contextmanager
 import threading
+from contextlib import contextmanager
+from typing import Any, Callable, List, Optional, Sequence
 
 import torch
 from torch.utils._pytree import tree_map
@@ -30,11 +23,7 @@ from ....support.ir_imports import (
     ShapedType,
     Value,
 )
-
-from ..ir_utils import (
-    FunctionBuilder,
-    ModuleBuilder,
-)
+from ..ir_utils import FunctionBuilder, ModuleBuilder
 
 ShapedTypeDynamicSizeSentinel = ShapedType.get_dynamic_size()
 _thread_state = threading.local()
@@ -257,7 +246,4 @@ def abstractify(tree):
 
 
 # Circular iports.
-from .primitives import (
-    IrImmediateScalar,
-    IrImmediateTensor,
-)
+from .primitives import IrImmediateScalar, IrImmediateTensor

@@ -7,10 +7,8 @@
 import logging
 import unittest
 
-from iree.compiler.ir import (
-    Context,
-    Type as IrType,
-)
+from iree.compiler.ir import Context
+from iree.compiler.ir import Type as IrType
 
 import iree.turbine.dynamo.type_conversion as tc
 

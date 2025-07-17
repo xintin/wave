@@ -4,35 +4,33 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from ..wave.constraints import (
-    Constraint,
-    HardwareConstraint,
-    WorkgroupConstraint,
-    TilingConstraint,
-)
-from .._support.tracing import CapturedTrace
-from .._support.indexing import IndexSequence, IndexSymbol, IndexExpr
-from ..ops.wave_ops import Read, Write, get_custom
-from ..lang.global_symbols import *
-from .utils.general_utils import (
-    delinearize_index,
-    ceildiv,
-    infer_dim,
-    is_shared_read,
-    get_fastest_index,
-)
-from .utils.graph_utils import (
-    DCE,
-)
-from .utils.symbol_utils import (
-    subs_idxc,
-)
-from math import prod
-import torch.fx as fx
 from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass
+from math import prod
+
+import torch.fx as fx
+
+from .._support.indexing import IndexExpr, IndexSequence, IndexSymbol
+from .._support.tracing import CapturedTrace
+from ..lang.global_symbols import *
 from ..lang.wave_types import IndexMapping
+from ..ops.wave_ops import Read, Write, get_custom
+from ..wave.constraints import (
+    Constraint,
+    HardwareConstraint,
+    TilingConstraint,
+    WorkgroupConstraint,
+)
+from .utils.general_utils import (
+    ceildiv,
+    delinearize_index,
+    get_fastest_index,
+    infer_dim,
+    is_shared_read,
+)
+from .utils.graph_utils import DCE
+from .utils.symbol_utils import subs_idxc
 
 
 @dataclass

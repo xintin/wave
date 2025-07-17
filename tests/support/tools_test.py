@@ -4,9 +4,11 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-import torch
-from iree.turbine.support.tools import iree_tool_prepare_input_args
 from pathlib import Path
+
+import torch
+
+from iree.turbine.support.tools import iree_tool_prepare_input_args
 
 
 def test_iree_tool_prepare_input_args(tmp_path: Path):

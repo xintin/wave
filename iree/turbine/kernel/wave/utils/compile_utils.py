@@ -3,27 +3,27 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+from typing import Dict, List, Optional
+
 from iree.compiler import compile_str
-from ...compiler.ir import (
-    builtin_d,
-    InsertionPoint,
-    Location,
-    Operation,
-    transform_d,
-    UnitAttr,
-    Module,
-    StringAttr,
-)
-from iree.compiler.dialects.transform import vector as vt
-from iree.compiler.dialects.transform import (
-    interpreter as transform_interpreter,
-    any_op_t,
-)
 from iree.compiler.dialects import (
     _structured_transform_ops_gen as structured_transform_ops,
 )
+from iree.compiler.dialects.transform import any_op_t
+from iree.compiler.dialects.transform import interpreter as transform_interpreter
+from iree.compiler.dialects.transform import vector as vt
+
+from ...compiler.ir import (
+    InsertionPoint,
+    Location,
+    Module,
+    Operation,
+    StringAttr,
+    UnitAttr,
+    builtin_d,
+    transform_d,
+)
 from ..compile_options import WaveCompileOptions
-from typing import Dict, Optional, List
 
 
 def compile_to_vmfb(

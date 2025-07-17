@@ -9,10 +9,7 @@ import unittest
 
 import torch
 import torch.nn as nn
-
-from iree.compiler.ir import (
-    Context,
-)
+from iree.compiler.ir import Context
 
 from iree.turbine.aot import *
 from iree.turbine.aot.builtins import *

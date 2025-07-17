@@ -5,50 +5,45 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 import math
+import os
+from dataclasses import replace
+from enum import Enum
+
 import pytest
 import torch
 from torch.nn import functional as F
-from dataclasses import replace
+from torch.testing import assert_close
 
 from iree.turbine.kernel.lang.global_symbols import *
-from iree.turbine.kernel.wave.utils.general_utils import (
-    get_default_scheduling_params,
-)
-from iree.turbine.kernel.wave.utils.run_utils import (
-    set_default_run_config,
-)
-from iree.turbine.kernel.wave.utils.torch_utils import (
-    device_randn,
-    device_zeros,
-    device_empty,
-    device_arange,
-    device_randint,
-    device_full,
-)
 from iree.turbine.kernel.wave.compile import WaveCompileOptions, wave_compile
 from iree.turbine.kernel.wave.constraints import MMAType
+from iree.turbine.kernel.wave.scheduling.schedule import SchedulingType
+from iree.turbine.kernel.wave.templates.attention_common import AttentionShape
 from iree.turbine.kernel.wave.templates.extend_attention import (
     get_extend_attention_kernel,
 )
 from iree.turbine.kernel.wave.templates.extend_attention_rpe import (
     get_extend_attention_rpe_kernel,
 )
-from iree.turbine.kernel.wave.templates.attention_common import (
-    AttentionShape,
+from iree.turbine.kernel.wave.utils.general_utils import get_default_scheduling_params
+from iree.turbine.kernel.wave.utils.run_utils import set_default_run_config
+from iree.turbine.kernel.wave.utils.torch_utils import (
+    device_arange,
+    device_empty,
+    device_full,
+    device_randint,
+    device_randn,
+    device_zeros,
 )
-from iree.turbine.kernel.wave.scheduling.schedule import SchedulingType
-import os
-from enum import Enum
-from torch.testing import assert_close
 
+from ..common.shapes import construct_test_name, get_test_shapes
 from ..common.utils import (
-    require_e2e,
-    require_cdna3,
-    enable_scheduling_barriers,
     dump_generated_mlir,
+    enable_scheduling_barriers,
     param_bool,
+    require_cdna3,
+    require_e2e,
 )
-from ..common.shapes import get_test_shapes, construct_test_name
 
 
 def t5_rpe_masked_cond(

@@ -4,14 +4,16 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+import sympy
+import torch.fx as fx
+
+from iree.turbine.kernel._support.tracing import CapturedTrace
+
+from ...support.logging import get_logger
+from ..lang.global_symbols import *
+from ..ops.wave_ops import *
 from .constraints import Constraint
 from .utils.general_utils import get_induction_variable
-from ...support.logging import get_logger
-from iree.turbine.kernel._support.tracing import CapturedTrace
-import torch.fx as fx
-from ..ops.wave_ops import *
-from ..lang.global_symbols import *
-import sympy
 
 logger = get_logger("turbine.wave.hoisting")
 

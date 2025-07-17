@@ -4,26 +4,16 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 from typing import Optional
-from ..._support.tracing import CapturedTrace
-from ..._support.indexing import IndexExpr, IndexSymbol, IndexSequence
-from ...lang.global_symbols import *
-from ...ops.wave_ops import (
-    CustomOp,
-    Reshape,
-    MMA,
-    ScaledMMA,
-    get_custom,
-)
-from ..constraints import (
-    HardwareConstraint,
-    MMAType,
-    ScaledMMAType,
-    MMAOperand,
-)
+
 import torch.fx as fx
 
-from .symbol_utils import subs_idxc
+from ..._support.indexing import IndexExpr, IndexSequence, IndexSymbol
+from ..._support.tracing import CapturedTrace
+from ...lang.global_symbols import *
+from ...ops.wave_ops import MMA, CustomOp, Reshape, ScaledMMA, get_custom
+from ..constraints import HardwareConstraint, MMAOperand, MMAType, ScaledMMAType
 from .graph_utils import capture_backward_slice
+from .symbol_utils import subs_idxc
 
 
 def is_reshape_needed(

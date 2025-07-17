@@ -4,24 +4,17 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+import logging
 import tempfile
 import unittest
-import logging
 from io import StringIO
-
 from pathlib import Path
-from parameterized import parameterized_class
 
 import torch
+from parameterized import parameterized_class
 
-from iree.turbine.aot.params import (
-    ParameterArchiveBuilder,
-)
-
-from iree.turbine.runtime import (
-    Launchable,
-)
-
+from iree.turbine.aot.params import ParameterArchiveBuilder
+from iree.turbine.runtime import Launchable
 from iree.turbine.support.logging import runtime_logger as logger
 
 MLIR_NO_PARAMS_ASM = r"""

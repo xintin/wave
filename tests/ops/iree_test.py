@@ -5,12 +5,13 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 import logging
-import unittest
+import os
 import tempfile
+import unittest
+
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
-import os
 
 import iree.turbine.aot as aot
 import iree.turbine.ops as ops

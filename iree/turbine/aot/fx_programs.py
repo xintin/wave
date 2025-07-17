@@ -10,21 +10,18 @@ This uses the `torch.export` machinery. However, it provides some extra
 services for handling multiple modules, save/load, and state management.
 """
 
+import functools
 import json
 import os
 from pathlib import Path
-from typing import Any, Optional, Union
-from .compiled_module import ExportTargetDef
-
-import functools
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import torch
 import torch.nn as nn
 
+from .compiled_module import ExportTargetDef
 from .decompositions import current_aot_decompositions
 from .tensor_traits import DeviceAffinity
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .compiled_module import ExportTargetDef

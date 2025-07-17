@@ -7,11 +7,9 @@
 from typing import Any, Callable
 
 import torch
-from torch.fx import (
-    GraphModule,
-)
-from torch.fx.experimental import proxy_tensor
 from torch._subclasses.fake_tensor import unset_fake_temporarily
+from torch.fx import GraphModule
+from torch.fx.experimental import proxy_tensor
 from torch.utils import _pytree as pytree
 
 

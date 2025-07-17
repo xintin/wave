@@ -5,8 +5,8 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 
-from iree.build import *
 import pytest
+from iree.build import *
 
 
 @pytest.mark.skip(reason="Hangs")

@@ -4,52 +4,49 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from ..._support.tracing import CapturedTrace
+import itertools
+import math
+from copy import deepcopy
+from dataclasses import dataclass
+from typing import Any, Sequence
+
+from torch import fx
+
+from ....support.logging import get_logger
 from ..._support.dtype import DataType
-from typing import Sequence, Any
-from ..constraints import (
-    Constraint,
-)
+from ..._support.indexing import IndexingContext, IndexSymbol
+from ..._support.tracing import CapturedTrace
 from ...ops.wave_ops import (
-    Allocate,
-    CustomOp,
-    Conditional,
-    get_custom,
-    Output,
-    Write,
-    Iterate,
-    ReduceOp,
-    IterArg,
-    Reshape,
-    GetResult,
     MMA,
+    Allocate,
+    Conditional,
+    CustomOp,
+    GetResult,
+    IterArg,
+    Iterate,
+    Output,
+    ReduceOp,
+    Reshape,
     ScaledMMA,
     SetSymbol,
+    Write,
+    get_custom,
 )
-from ..._support.indexing import IndexingContext, IndexSymbol
-import itertools
-from torch import fx
-from dataclasses import dataclass
+from ..constraints import Constraint
+from ..utils.graph_utils import get_inputs, get_users
 from .expansion_utils import (
-    get_dim_scaling,
-    flatten_list,
-    get_indexed_dims,
-    is_expandable,
-    get_expanded_name,
-    compute_strides,
     ExpansionMetadata,
+    compute_strides,
+    flatten_list,
+    get_dim_scaling,
+    get_expanded_name,
+    get_indexed_dims,
     get_reshape_dim_queries,
+    is_expandable,
     remove_original_nodes,
-    remove_unused_registers,
     remove_unused_iter_args,
+    remove_unused_registers,
 )
-from ..utils.graph_utils import (
-    get_users,
-    get_inputs,
-)
-from ....support.logging import get_logger
-from copy import deepcopy
-import math
 
 logger = get_logger("turbine.wave.expansion")
 

@@ -9,10 +9,11 @@ This pass will add a specified dictionary as an iree.reflection attribute to a m
 """
 
 
+from iree.compiler.ir import DictAttr
+
 from iree.turbine.support.ir_imports import *
 
 from ..rewriter import *
-from iree.compiler.ir import DictAttr
 
 
 def value_to_attr(value):

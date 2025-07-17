@@ -4,37 +4,27 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+import math
+import os
+from typing import List
+
 import pytest
 import torch
-import math
+from torch.testing import assert_close
+
 from iree.turbine.kernel.lang.global_symbols import *
-from iree.turbine.kernel.wave.utils.general_utils import (
-    get_default_scheduling_params,
-)
-from iree.turbine.kernel.wave.utils.run_utils import (
-    set_default_run_config,
-)
-from iree.turbine.kernel.wave.utils.torch_utils import (
-    device_randn,
-    device_zeros,
-)
 from iree.turbine.kernel.wave.compile import WaveCompileOptions, wave_compile
 from iree.turbine.kernel.wave.constraints import MMAType
+from iree.turbine.kernel.wave.scheduling.schedule import SchedulingType
+from iree.turbine.kernel.wave.templates.attention_common import AttentionShape
 from iree.turbine.kernel.wave.templates.prefill_attention import (
     get_prefill_attention_kernel,
 )
-from iree.turbine.kernel.wave.templates.attention_common import (
-    AttentionShape,
-)
-from iree.turbine.kernel.wave.scheduling.schedule import SchedulingType
-import os
-from torch.testing import assert_close
-from ..common.utils import (
-    require_e2e,
-    require_cdna3,
-    enable_scheduling_barriers,
-)
-from typing import List
+from iree.turbine.kernel.wave.utils.general_utils import get_default_scheduling_params
+from iree.turbine.kernel.wave.utils.run_utils import set_default_run_config
+from iree.turbine.kernel.wave.utils.torch_utils import device_randn, device_zeros
+
+from ..common.utils import enable_scheduling_barriers, require_cdna3, require_e2e
 
 # Reference paged attention implementation from vLLM and sglang.
 # (NUM_Q_HEADS, NUM_KV_HEADS, HEAD_SIZE, HEAD_SIZE_KV, SEQ_LENS)

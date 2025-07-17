@@ -4,38 +4,34 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from ..constraints import Constraint
+import os
+
+import torch.fx as fx
+
+from ....support.logging import get_logger
 from ..._support.tracing import CapturedTrace
-from ...ops.wave_ops import Iterate, IterArg, get_custom, CustomOp
-from .multi_buffering import multi_buffer
+from ...ops.wave_ops import CustomOp, IterArg, Iterate, get_custom
+from ..constraints import Constraint
+from ..utils.general_utils import (
+    evaluate_with_assumptions,
+    get_assumptions,
+    get_tiling_constraint,
+)
+from ..utils.graph_utils import erase_graph, graph_copy, update_sort_keys
+from ..utils.print_utils import dump_schedule, load_schedule
+from ..utils.symbol_utils import subs_idxc
+from ..visualization import visualize_edges, visualize_graph, visualize_schedule
+from .graph_utils import Edge, create_scheduling_edges
+from .loop_reconstruction import construct_pipelined_loop
 from .modulo_scheduling import ModuloScheduler
+from .multi_buffering import multi_buffer
 from .prefetch_scheduling import PrefetchScheduler
-from .graph_utils import create_scheduling_edges, Edge
 from .resources import (
-    get_available_resources,
     annotate_resource_usage,
+    get_available_resources,
     get_resource_names,
 )
 from .schedule_enums import SchedulingType
-from ..visualization import visualize_edges, visualize_graph, visualize_schedule
-from .loop_reconstruction import construct_pipelined_loop
-from ..utils.graph_utils import (
-    graph_copy,
-    erase_graph,
-    update_sort_keys,
-)
-from ..utils.general_utils import (
-    get_tiling_constraint,
-    get_assumptions,
-    evaluate_with_assumptions,
-)
-from ..utils.symbol_utils import (
-    subs_idxc,
-)
-from ..utils.print_utils import dump_schedule, load_schedule
-import torch.fx as fx
-from ....support.logging import get_logger
-import os
 
 logger = get_logger("turbine.wave.scheduling.schedule")
 

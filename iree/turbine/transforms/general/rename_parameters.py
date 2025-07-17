@@ -15,15 +15,10 @@ By default, no attributes are touched unless:
 * rename_callback= returns a change
 """
 
+import re
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
-import re
-
-from iree.compiler.ir import (
-    Attribute,
-    Operation,
-    StringAttr,
-)
+from iree.compiler.ir import Attribute, Operation, StringAttr
 
 from ..rewriter import *
 

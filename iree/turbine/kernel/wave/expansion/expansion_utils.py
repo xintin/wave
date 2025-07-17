@@ -4,35 +4,35 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+import itertools
+import logging
+from typing import Any, Sequence
+
+from iree.turbine.kernel._support.dtype import DataType
+from iree.turbine.kernel.wave.utils.general_utils import ceildiv
+
+from ..._support.indexing import IndexingContext, IndexSymbol
 from ..._support.tracing import CapturedTrace
-from typing import Sequence, Any
+from ...lang.global_symbols import SHARED_ADDRESS_SPACE
+from ...ops.wave_ops import (
+    CustomOp,
+    IterArg,
+    NewRegister,
+    Placeholder,
+    Read,
+    ReduceOp,
+    Reshape,
+    Write,
+    get_custom,
+)
 from ..constraints import (
     Constraint,
     HardwareConstraint,
-    WorkgroupConstraint,
     TilingConstraint,
+    WorkgroupConstraint,
 )
-from ..._support.indexing import IndexingContext, IndexSymbol
-from ...ops.wave_ops import (
-    get_custom,
-    CustomOp,
-    Placeholder,
-    IterArg,
-    Read,
-    Write,
-    Reshape,
-    NewRegister,
-    ReduceOp,
-)
-from ...lang.global_symbols import SHARED_ADDRESS_SPACE
-import itertools
-from iree.turbine.kernel._support.dtype import DataType
-from iree.turbine.kernel.wave.utils.general_utils import ceildiv
 from ..utils.general_utils import infer_dim
-from ..utils.graph_utils import (
-    get_inputs,
-)
-import logging
+from ..utils.graph_utils import get_inputs
 
 logger = logging.getLogger(__name__)
 

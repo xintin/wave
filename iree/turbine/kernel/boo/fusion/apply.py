@@ -9,12 +9,10 @@ from collections.abc import Sequence
 from torch import fx
 
 from iree.turbine.kernel.boo.ops.graph import get_custom_graph_op
-from .schema import FusionSchema
-from .subgraph import (
-    FusedSubgraph,
-    extract_fusion_subgraph_modules,
-)
+
 from ....support.logging import aot_logger as logger
+from .schema import FusionSchema
+from .subgraph import FusedSubgraph, extract_fusion_subgraph_modules
 
 __all__ = [
     "fusion_transform",

@@ -5,17 +5,12 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from typing import Any, Dict, List, Optional
-
 import inspect
 import math
+from typing import Any, Dict, List, Optional
 
 import torch
-
-from torch.utils._pytree import (
-    tree_flatten,
-    tree_unflatten,
-)
+from torch.utils._pytree import tree_flatten, tree_unflatten
 
 try:
     from torch.utils._pytree import treespec_pprint
@@ -30,11 +25,7 @@ from iree.compiler.extras.fx_importer import (
     InputInfo,
 )
 
-from ....support.logging import aot_logger as logger
-
 from ....support.ir_imports import (
-    func_d,
-    util_d,
     FlatSymbolRefAttr,
     FunctionType,
     IrType,
@@ -42,38 +33,21 @@ from ....support.ir_imports import (
     StringAttr,
     TypeAttr,
     Value,
+    func_d,
+    util_d,
 )
-
-from ...tensor_traits import (
-    DeviceAffinity,
-    ExternalTensorTrait,
-)
-
+from ....support.logging import aot_logger as logger
+from ...tensor_traits import DeviceAffinity, ExternalTensorTrait
 from ..ir_utils import (
-    attributes_from_argument_device_affinities,
     GlobalAttributes,
     ModuleBuilder,
+    attributes_from_argument_device_affinities,
     update_func_op_argument_attributes,
 )
-
-from .base import (
-    CallableIntrinsic,
-)
-
-from .globals import (
-    GlobalsDef,
-    MaterializedGlobal,
-)
-
-from .primitives import (
-    IrImmediateTensor,
-    IrTensor,
-)
-
-from .tracer import (
-    IrTrace,
-)
-
+from .base import CallableIntrinsic
+from .globals import GlobalsDef, MaterializedGlobal
+from .primitives import IrImmediateTensor, IrTensor
+from .tracer import IrTrace
 
 # Limit of tensor volumes. Over this limit, otherwise uncategorized tensor
 # constants will be emitted out-of-line. Under the limit, inline.

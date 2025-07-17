@@ -10,43 +10,15 @@ from timeit import default_timer
 from typing import Optional
 
 import torch
+from iree.runtime import HalBufferView, HalElementType, VmRef, VmVariantList
 
-from iree.runtime import (
-    HalBufferView,
-    HalElementType,
-    VmRef,
-    VmVariantList,
-)
-
-from ...support.exceptions import (
-    UnsupportedTypeError,
-)
-
-from ...support.logging import (
-    runtime_logger as logger,
-)
-
-from ..device import (
-    Device,
-    lookup_device_from_torch,
-)
-
+from ...support.exceptions import UnsupportedTypeError
+from ...support.logging import runtime_logger as logger
+from ..device import Device, lookup_device_from_torch
+from ..invoke import invoke_vm_function
 from ..tracing import tracer
-
-from .base import (
-    AttrArg,
-    IntArg,
-    KernelSelection,
-)
-
-from .compiler import (
-    compile_standalone_kernel,
-    KernelCompileConfig,
-)
-
-from ..invoke import (
-    invoke_vm_function,
-)
+from .base import AttrArg, IntArg, KernelSelection
+from .compiler import KernelCompileConfig, compile_standalone_kernel
 
 __all__ = [
     "eager_dispatch",

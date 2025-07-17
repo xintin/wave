@@ -1,9 +1,8 @@
+import functools
+import inspect
 from typing import Optional
 
 from torch import Tensor
-
-import functools
-import inspect
 
 
 def signature_matcher(f=None, *, arity: Optional[int] = None, original_name: str = ""):

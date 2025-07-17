@@ -15,9 +15,10 @@
 #   ./promote_whl_from_rc_to_final.py /path/to/file.whl --delete-old-wheel
 
 import argparse
+from pathlib import Path
+
 from change_wheel_version import change_wheel_version
 from packaging.version import Version
-from pathlib import Path
 from pkginfo import Wheel
 
 

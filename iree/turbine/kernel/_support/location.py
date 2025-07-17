@@ -4,11 +4,13 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from iree.compiler.ir import Location, Context
-from typing import Optional, List, Union
-import sys
 import inspect
+import sys
 from dataclasses import dataclass
+from typing import List, Optional, Union
+
+from iree.compiler.ir import Context, Location
+
 from .location_config import LocationCaptureConfig, LocationCaptureLevel
 
 

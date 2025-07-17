@@ -10,9 +10,10 @@ import unittest
 import numpy as np
 import torch
 
+from iree.turbine.dynamo import DeviceTensor, TurbineMode
+
 # Public API imports.
 from iree.turbine.runtime import Device
-from iree.turbine.dynamo import TurbineMode, DeviceTensor
 
 
 class TensorTest(unittest.TestCase):

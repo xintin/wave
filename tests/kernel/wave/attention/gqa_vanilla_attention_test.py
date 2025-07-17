@@ -4,39 +4,37 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+import os
+
 import pytest
 import torch
+from torch.testing import assert_close
+
 from iree.turbine.kernel.lang.global_symbols import *
-from iree.turbine.kernel.wave.utils.general_utils import (
-    get_default_scheduling_params,
+from iree.turbine.kernel.wave.compile import WaveCompileOptions, wave_compile
+from iree.turbine.kernel.wave.constraints import MMAType
+from iree.turbine.kernel.wave.scheduling.schedule import SchedulingType
+from iree.turbine.kernel.wave.templates.attention_common import AttentionShape
+from iree.turbine.kernel.wave.templates.gqa_vanilla_attention import (
+    get_gqa_bshd_attention_kernel,
 )
-from iree.turbine.kernel.wave.utils.run_utils import (
-    set_default_run_config,
+from iree.turbine.kernel.wave.utils.general_utils import get_default_scheduling_params
+from iree.turbine.kernel.wave.utils.reference_kernel_utils import (
+    scaled_dot_product_attention_bhsd,
 )
+from iree.turbine.kernel.wave.utils.run_utils import set_default_run_config
 from iree.turbine.kernel.wave.utils.torch_utils import (
     device_randn,
     device_zeros,
     quantized_tensor,
 )
-from iree.turbine.kernel.wave.compile import WaveCompileOptions, wave_compile
-from iree.turbine.kernel.wave.constraints import MMAType
-import os
-from torch.testing import assert_close
+
+from ..common.shapes import get_test_shapes
 from ..common.utils import (
     enable_scheduling_barriers,
     param_bool,
-    require_e2e,
     require_cdna3,
-)
-from ..common.shapes import get_test_shapes
-from iree.turbine.kernel.wave.templates.gqa_vanilla_attention import (
-    get_gqa_bshd_attention_kernel,
-)
-from iree.turbine.kernel.wave.templates.attention_common import AttentionShape
-from iree.turbine.kernel.wave.scheduling.schedule import SchedulingType
-from iree.turbine.kernel.wave.compile import wave_compile, WaveCompileOptions
-from iree.turbine.kernel.wave.utils.reference_kernel_utils import (
-    scaled_dot_product_attention_bhsd,
+    require_e2e,
 )
 
 

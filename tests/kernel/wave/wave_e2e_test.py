@@ -23,9 +23,7 @@ from iree.turbine.kernel.wave.utils.general_utils import (
     check_leaks,
     get_default_scheduling_params,
 )
-from iree.turbine.kernel.wave.utils.run_utils import (
-    set_default_run_config,
-)
+from iree.turbine.kernel.wave.utils.run_utils import set_default_run_config
 from iree.turbine.kernel.wave.utils.torch_utils import (
     device_arange,
     device_ones,
@@ -37,14 +35,8 @@ from iree.turbine.kernel.wave.utils.torch_utils import (
 )
 from iree.turbine.kernel.wave.wave_sim import wave_sim
 
-from .common.utils import (
-    param_bool,
-    perf_test,
-    require_cdna3,
-    require_e2e,
-)
 from .common.shapes import get_test_shapes as get_common_test_shape
-
+from .common.utils import param_bool, perf_test, require_cdna3, require_e2e
 
 default_test_shapes = [
     (1, 27),

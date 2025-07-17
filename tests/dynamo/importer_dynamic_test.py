@@ -10,25 +10,15 @@ import unittest
 
 import torch
 import torch._dynamo as dynamo
+from iree.compiler.api import Session
 
 # from torch._export.constraints import constrain_as_size, constrain_as_value
 from iree.compiler.extras.fx_importer import FxImporter
-import torch
-import torch._dynamo as dynamo
-from torch.fx.experimental.proxy_tensor import make_fx
+from iree.compiler.passmanager import PassManager
 from torch._decomp import get_decompositions
 from torch.func import functionalize
-from torch.fx import (
-    GraphModule,
-)
-from iree.compiler.api import (
-    Session,
-)
-
-from iree.compiler.passmanager import (
-    PassManager,
-)
-
+from torch.fx import GraphModule
+from torch.fx.experimental.proxy_tensor import make_fx
 
 DEFAULT_COMPILER_FLAGS = (
     # Enable asynchronous calling convention.

@@ -5,26 +5,19 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from typing import Callable, Dict, Optional, Sequence, Tuple
-
-from dataclasses import dataclass
-from pathlib import Path
 import tempfile
-from itertools import zip_longest
+from dataclasses import dataclass
 from functools import partial
+from itertools import zip_longest
+from pathlib import Path
+from typing import Callable, Dict, Optional, Sequence, Tuple
 
 import numpy as np
 import torch
+from iree.compiler.extras.fx_importer import ContextCache, RefTracker
 
-from iree.compiler.extras.fx_importer import (
-    ContextCache,
-    RefTracker,
-)
-
-from ...dynamo.type_conversion import (
-    NativeTypeConverter,
-)
-
+from ...dynamo.type_conversion import NativeTypeConverter
+from ...support.conversions import TORCH_DTYPE_TO_IREE_TYPE
 from ...support.ir_imports import (
     ArrayAttr,
     Attribute,
@@ -36,13 +29,13 @@ from ...support.ir_imports import (
     F16Type,
     F32Type,
     F64Type,
+    Float4E2M1FNType,
+    Float6E2M3FNType,
     Float8E4M3FNType,
     Float8E4M3FNUZType,
-    Float8E5M2Type,
     Float8E5M2FNUZType,
+    Float8E5M2Type,
     Float8E8M0FNUType,
-    Float6E2M3FNType,
-    Float4E2M1FNType,
     FloatAttr,
     FunctionType,
     IndexType,
@@ -63,18 +56,8 @@ from ...support.ir_imports import (
     func_d,
     tensor_d,
 )
-
-from ...support.conversions import (
-    TORCH_DTYPE_TO_IREE_TYPE,
-)
-
 from ...support.logging import aot_logger as logger
-
-from ..tensor_traits import (
-    DeviceAffinity,
-    DeviceTensorTrait,
-    ExternalTensorTrait,
-)
+from ..tensor_traits import DeviceAffinity, DeviceTensorTrait, ExternalTensorTrait
 
 ###############################################################################
 # Configuration

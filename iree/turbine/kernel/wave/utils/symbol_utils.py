@@ -3,9 +3,11 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from ..._support.indexing import IndexExpr, IndexingContext, IndexSymbol, IndexSequence
 from typing import Any, Optional
+
 import sympy
+
+from ..._support.indexing import IndexExpr, IndexingContext, IndexSequence, IndexSymbol
 
 
 def safe_subs(

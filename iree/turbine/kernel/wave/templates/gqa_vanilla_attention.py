@@ -4,18 +4,19 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+import math
+from typing import Optional
+
+import sympy
+import torch
+
 import iree.turbine.kernel.lang as tkl
 import iree.turbine.kernel.wave as tkw
 from iree.turbine.kernel.lang.global_symbols import *
 from iree.turbine.kernel.wave.constraints import MMAType
-from iree.turbine.kernel.wave.utils.general_utils import (
-    torch_dtype_to_wave,
-)
+from iree.turbine.kernel.wave.utils.general_utils import torch_dtype_to_wave
+
 from .attention_common import *
-import math
-import torch
-from typing import Optional
-import sympy
 
 
 def get_gqa_bshd_attention_kernel(

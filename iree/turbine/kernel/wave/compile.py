@@ -1,24 +1,25 @@
+import glob
+from copy import copy
 from typing import Any, Optional
 
 import torch
-import glob
-from copy import copy
+
+from iree.turbine.kernel._support.context import pop, push
+from iree.turbine.kernel.lang import IndexSymbol
+
 from .._support.indexing import IndexingContext
 from .._support.location_config import LocationCaptureLevel
-from ..compiler import kernel_codegen, host_codegen
-from .compile_options import WaveCompileOptions
-from .water import water_leak_in_bounds_check
-
+from ..compiler import host_codegen, kernel_codegen
 from .cache import (
     get_cache_base_dir,
     get_cache_manager,
     get_temp_binary_dir,
     is_cache_enabled,
 )
+from .compile_options import WaveCompileOptions
 from .utils.compile_utils import compile_to_vmfb
-from .utils.run_utils import invoke_vmfb, _write_file
-from iree.turbine.kernel._support.context import push, pop
-from iree.turbine.kernel.lang import IndexSymbol
+from .utils.run_utils import _write_file, invoke_vmfb
+from .water import water_leak_in_bounds_check
 
 
 class WaveKernel:

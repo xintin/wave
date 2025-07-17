@@ -4,13 +4,14 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-import gc
 import argparse
-from typing import Callable, Sequence
+import gc
 import os
 import random
 import shlex
 import statistics
+from typing import Callable, Sequence
+
 import torch
 
 # NOTE: must not import anything form iree.turbine here because that *may*
@@ -190,11 +191,11 @@ TRACY_PORT = str(random.randint(40_000, 50_000))
 
 def trace_gpu(func: Callable[[], str]) -> tuple[dict[str, list[int]], str]:
     """Profile 'func' under Tracy, and return the GPU zone execution times."""
-    from multiprocessing import Process, Queue
     import os
     import subprocess
-    from subprocess import Popen
     import sys
+    from multiprocessing import Process, Queue
+    from subprocess import Popen
     from tempfile import TemporaryDirectory
 
     with TemporaryDirectory() as temp_dir:

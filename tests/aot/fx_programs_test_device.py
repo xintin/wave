@@ -8,11 +8,7 @@ import unittest
 
 import torch
 
-from iree.turbine.aot import (
-    DeviceAffinity,
-    export,
-    FxProgramsBuilder,
-)
+from iree.turbine.aot import DeviceAffinity, FxProgramsBuilder, export
 
 
 class FxProgramsTestDevice(unittest.TestCase):

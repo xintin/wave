@@ -1,19 +1,10 @@
-from typing import (
-    Any,
-    List,
-    Tuple,
-    Optional,
-    Callable,
-    Tuple,
-)
 import typing
+from typing import Any, Callable, List, Optional, Tuple
 
 if typing.TYPE_CHECKING:
     from ..lang.types import Index
 
-from .base import (
-    define_op,
-)
+from .base import define_op
 
 __all__ = [
     "for_loop",

@@ -6,13 +6,10 @@
 
 import logging
 import unittest
+
 import pytest
-
 import torch
-
-from iree.compiler.ir import (
-    Context,
-)
+from iree.compiler.ir import Context
 
 from iree.turbine.aot import *
 

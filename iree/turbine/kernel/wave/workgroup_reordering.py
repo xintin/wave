@@ -4,10 +4,10 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from .._support.tracing import CapturedTrace
 from .._support.indexing import *
-from ..ops.wave_ops import *
+from .._support.tracing import CapturedTrace
 from ..lang.global_symbols import *
+from ..ops.wave_ops import *
 from .constraints import *
 from .utils.symbol_utils import *
 

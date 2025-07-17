@@ -4,23 +4,14 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from ..wave.constraints import (
-    Constraint,
-    HardwareConstraint,
-    MMAType,
-    MMAOperand,
-)
-from .._support.tracing import CapturedTrace
-from ..ops.wave_ops import (
-    get_custom,
-    MMA,
-    Reshape,
-)
-from ..lang.global_symbols import *
-
 import copy
+
 import sympy
 
+from .._support.tracing import CapturedTrace
+from ..lang.global_symbols import *
+from ..ops.wave_ops import MMA, Reshape, get_custom
+from ..wave.constraints import Constraint, HardwareConstraint, MMAOperand, MMAType
 
 VMMA_TO_NATIVE_MAP = {
     MMAType.F32_16x16x32_K8_F16: MMAType.F32_16x16x16_F16,

@@ -4,26 +4,26 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from typing import Any, Sequence
-import sys
-import subprocess
 import os
+import subprocess
+import sys
+from typing import Any, Sequence
+
 from ..compiler.ir import (
-    stream_d,
+    Attribute,
+    BlockArgument,
+    FunctionType,
+    InsertionPoint,
+    IntegerType,
+    MemRefType,
+    Module,
+    Operation,
+    TypeAttr,
+    WalkResult,
     gpu_d,
     llvm_d,
     memref_d,
-    Attribute,
-    Operation,
-    InsertionPoint,
-    IntegerType,
-    WalkResult,
-    MemRefType,
-    Module,
-    FunctionType,
-    BlockArgument,
-    TypeAttr,
-    Operation,
+    stream_d,
 )
 
 

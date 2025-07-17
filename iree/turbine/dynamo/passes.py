@@ -1,8 +1,9 @@
+from typing import List, Mapping, Optional
+
 import torch
-from torch.fx.experimental.proxy_tensor import make_fx
 from torch._decomp import get_decompositions
 from torch.func import functionalize
-from typing import List, Optional, Mapping
+from torch.fx.experimental.proxy_tensor import make_fx
 
 from .decompositions import DEFAULT_DECOMPOSITIONS
 

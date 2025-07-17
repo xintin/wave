@@ -7,9 +7,7 @@
 import logging
 import unittest
 
-from iree.turbine.kernel.lang import (
-    Index,
-)
+from iree.turbine.kernel.lang import Index
 
 
 class IndexTypeTest(unittest.TestCase):

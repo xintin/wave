@@ -4,23 +4,16 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from typing import (
-    Any,
-    List,
-    NamedTuple,
-    Optional,
-    Union,
-)
-
-from enum import IntEnum
 import math
+from enum import IntEnum
+from typing import Any, List, NamedTuple, Optional, Union
 
 import torch
 
-from .utils import Permutation
-from ..exports.signature import OpSignature
 from ....ops.conv_fwd import conv_2d_nhwc_fhwc, generic_conv
 from ....ops.insert_slice import insert_slice
+from ..exports.signature import OpSignature
+from .utils import Permutation
 
 __all__ = [
     "Mode",

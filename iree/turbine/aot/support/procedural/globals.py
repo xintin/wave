@@ -7,45 +7,16 @@
 
 # Global references in a module.
 
-from typing import (
-    Any,
-    Generator,
-    Sequence,
-    Tuple,
-)
+from typing import Any, Generator, Sequence, Tuple
 
 import torch
+from torch.utils._pytree import TreeSpec, tree_unflatten
 
-from torch.utils._pytree import (
-    TreeSpec,
-    tree_unflatten,
-)
-
-from ....support.ir_imports import (
-    IrType,
-    Operation,
-    Value,
-    util_d,
-)
-
+from ....support.ir_imports import IrType, Operation, Value, util_d
 from ....support.logging import aot_logger as logger
-
-from ..ir_utils import (
-    GlobalAttributes,
-    ModuleBuilder,
-)
-
-from .base import (
-    AbstractScalar,
-    AbstractTensor,
-    IrTrace,
-    current_ir_trace,
-)
-
-from .primitives import (
-    IrScalar,
-    IrTensor,
-)
+from ..ir_utils import GlobalAttributes, ModuleBuilder
+from .base import AbstractScalar, AbstractTensor, IrTrace, current_ir_trace
+from .primitives import IrScalar, IrTensor
 
 ###############################################################################
 # Globals

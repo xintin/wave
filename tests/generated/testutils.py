@@ -1,17 +1,17 @@
-import time
-import types
+import logging
+import multiprocessing
 import os
 import re
-import sys
-from functools import partial
-import multiprocessing
-from multiprocessing.pool import ThreadPool
 import signal
-import logging
-from tqdm import *
+import sys
+import time
+import types
+from functools import partial
+from multiprocessing.pool import ThreadPool
 
-from stats import Stats, ErrorAggregatorDict
 from evaluate import evaluate_importer
+from stats import ErrorAggregatorDict, Stats
+from tqdm import *
 
 log = logging.getLogger("turbine-test")
 

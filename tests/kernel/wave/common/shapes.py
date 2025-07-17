@@ -3,12 +3,12 @@
 # Licensed under the Apache License v2.0 with LLVM Exceptions.
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-import pytest
 from typing import Sequence
+
+import pytest
+
 from iree.turbine.kernel.wave.constraints import MMAType
-from iree.turbine.kernel.wave.templates.attention_common import (
-    AttentionShape,
-)
+from iree.turbine.kernel.wave.templates.attention_common import AttentionShape
 
 # List of all test shapes for end to end tests.
 _e2e_test_shapes = {}

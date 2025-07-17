@@ -7,5 +7,5 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 from .conv import *
-from .utils import *
 from .preload import *
+from .utils import *

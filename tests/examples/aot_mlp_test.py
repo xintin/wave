@@ -5,10 +5,10 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 import logging
-from pathlib import Path
-import sys
 import subprocess
+import sys
 import unittest
+from pathlib import Path
 
 REPO_DIR = Path(__file__).resolve().parent.parent.parent
 

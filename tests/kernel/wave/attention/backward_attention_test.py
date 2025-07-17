@@ -4,35 +4,31 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+import math
+
 import pytest
 import torch
-import math
+from torch.testing import assert_close
+
 import iree.turbine.kernel.lang as tkl
 import iree.turbine.kernel.wave as tkw
 from iree.turbine.kernel.lang.global_symbols import *
+from iree.turbine.kernel.wave.compile import WaveCompileOptions, wave_compile
+from iree.turbine.kernel.wave.constraints import MMAType
+from iree.turbine.kernel.wave.utils.general_utils import get_default_scheduling_params
 from iree.turbine.kernel.wave.utils.mma_utils import (
     get_mfma_load_elems_per_thread,
     get_mfma_store_elems_per_thread,
 )
-from iree.turbine.kernel.wave.utils.general_utils import (
-    get_default_scheduling_params,
-)
-from iree.turbine.kernel.wave.utils.run_utils import (
-    set_default_run_config,
-)
-from iree.turbine.kernel.wave.utils.torch_utils import (
-    device_randn,
-    device_zeros,
-)
-from iree.turbine.kernel.wave.compile import WaveCompileOptions, wave_compile
-from iree.turbine.kernel.wave.constraints import MMAType
+from iree.turbine.kernel.wave.utils.run_utils import set_default_run_config
+from iree.turbine.kernel.wave.utils.torch_utils import device_randn, device_zeros
+
 from ..common.utils import (
     dump_generated_mlir,
     enable_scheduling_barriers,
     expensive_test,
     require_e2e,
 )
-from torch.testing import assert_close
 
 # batch, q_seq_len, v_head_dim, qk_head_dim, kv_seq_len
 shapes_16x16x16 = [
