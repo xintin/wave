@@ -30,16 +30,25 @@ from ..ops.wave_ops import (
     MMA,
     NewScalar,
     WorkgroupBarrier,
+    ScaledMMA,
     SchedulingBarrier,
     SharedMemoryBarrier,
     SetWavePrio,
+    Read,
     Write,
 )
 from ..lang.global_symbols import *
 
 from .scheduling.schedule_enums import SchedulingType
-from .utils.general_utils import get_hardware_constraint
+from .utils.general_utils import (
+    get_hardware_constraint,
+    is_shared_read,
+    flatten_list,
+    topological_sort_with_dependencies,
+)
 from .utils.symbol_utils import subs_idxc
+from collections import deque
+from typing import Iterable
 
 
 ##############################################################
@@ -53,13 +62,26 @@ Values: 0xAB where:
   * 0 = No reordering
   * 1 = Reordering w/o Ping Pong
   * 2 = Ping Pong reordering
-* B enumerates different strategy that share the same 0xA* bits.
+* B = Bitwidth:
+    * 0 = 4 bits
+    * 1 = 8 bits
+    * 2 = 16 bits
+* C = Type of MMA.
+    * 0 = MMA
+    * 1 = ScaledMMA
+* D enumerates different strategy that share the same 0xAB* bits.
 """
 
 
 class SchedReorderStrategy(Enum):
     NONE = 0x00
-    TWO_PP_CLUSTER = 0x20
+    TWO_PP_CLUSTER = 0x220
+    MXFP4_PP_CLUSTER = 0x101
+
+
+def is_pingpong_strategy(strategy):
+    """Convert enum value to hex string and checks A-bit"""
+    return int(hex(strategy.value)[2]) == 2
 
 
 """
@@ -72,15 +94,74 @@ class CompatibleBlockSize:
     block_m: int
     block_n: int
     block_k: int
+    bitwidth: int
+    mma_type: type
 
 
-twoPPConfig = CompatibleBlockSize(128, 256, 64)
+twoPPConfig = CompatibleBlockSize(128, 256, 64, 16, MMA)
+MXFP4PPConfig = CompatibleBlockSize(256, 128, 256, 4, ScaledMMA)
+
+
+class InsertionMode(Enum):
+    BEFORE = 0
+    AFTER = 1
+
+
+class InsertionPoint(object):
+    """
+    Helper class to keep track of movements/insertion of ops into very
+    precise/specific locations before or after an another op
+    (referred here as "anchor op".)
+    """
+
+    def __init__(
+        self, mode: InsertionMode, op: fx.Node, anchor_op: fx.Node | Iterable[fx.Node]
+    ):
+        # Initialize insertion mode.
+        if not isinstance(mode, InsertionMode):
+            raise ValueError("Unexpected insetion mode.")
+        self.mode = mode
+
+        # Initialize source location.
+        if isinstance(anchor_op, fx.Node):
+            self.anchor_op = anchor_op
+        elif isinstance(anchor_op, Iterable):
+            if mode == InsertionMode.AFTER:
+                self.anchor_op = flatten_list(anchor_op)[-1]
+            else:
+                self.anchor_op = flatten_list(anchor_op)[0]
+        else:
+            raise ValueError("Unexpected src type")
+
+        if not isinstance(op, fx.Node):
+            raise ValueError("Unexpected op type.")
+        self.op = op
+
+    @property
+    def graph(self):
+        return self.anchor_op.graph
+
+
+def insert_op_after(op, anchor_op):
+    return InsertionPoint(InsertionMode.AFTER, op, anchor_op)
+
+
+def insert_op_before(op, anchor_op):
+    return InsertionPoint(InsertionMode.BEFORE, op, anchor_op)
 
 
 def get_graph_node(custom: CustomOp, graph: fx.Graph) -> fx.Node:
     custom.add_to_graph(graph)
     custom = custom.fx_node
     return custom
+
+
+def get_mma_bitwidth(mma_node):
+    lhs_dtype = get_custom(mma_node).lhs_type.dtype
+    rhs_dtype = get_custom(mma_node).rhs_type.dtype
+    if lhs_dtype != rhs_dtype:
+        raise NotImplementedError("Not expecting mixed lhs/rhs dtype.")
+    return lhs_dtype.bitwidth()
 
 
 def get_mma_tile_size(mma_nodes, constraints):
@@ -121,13 +202,30 @@ def schedule_nodes_to_graph(graph, node_map, nodes):
         node_map[node] = new_node.fx_node
 
 
+def insert_scheduling_nodes(reordered_original_nodes, insertion_points):
+    """
+    This function helps output a new list/order of nodes with scheduling
+    nodes inserted in precise locations specified by insertion_points.
+    """
+    reordered_nodes = reordered_original_nodes.copy()
+    for insertion_point in insertion_points:
+        if insertion_point.mode == InsertionMode.BEFORE:
+            insert_index = reordered_nodes.index(insertion_point.anchor_op)
+        elif insertion_point.mode == InsertionMode.AFTER:
+            insert_index = reordered_nodes.index(insertion_point.anchor_op) + 1
+        else:
+            raise ValueError("Invalid InsertionMode found!")
+        reordered_nodes.insert(insert_index, insertion_point.op)
+    return reordered_nodes
+
+
 def reorder_graph(graph, clusters):
     node_list = list(graph.nodes)
     prune_duplicates = lambda x: list(dict.fromkeys(x))
     # This lambda filters away scheduling ops generated in this pass
     # such as SetWavePrio, WorkgroupBarrier, SchedulingBarriers.
     prune_reordering_nodes = lambda x: [
-        x for x in flattened_cluster if x.graph == graph
+        x for x in flattened_cluster if not isinstance(x, InsertionPoint)
     ]
 
     flattened_cluster, _ = pytree.tree_flatten(clusters)
@@ -145,8 +243,17 @@ def reorder_graph(graph, clusters):
     # Slice node_list to get post cluster nodes
     post_cluster_nodes = [x for x in node_list if x > latest_cluster_node]
 
+    # Exhaustive clustered nodes
+    exhaustive_cluster_nodes = [
+        x for x in node_list if x >= earliest_cluster_node and x <= latest_cluster_node
+    ]
+
+    reordered_original_nodes = topological_sort_with_dependencies(
+        original_cluster_nodes, exhaustive_cluster_nodes, pre_cluster_nodes
+    )
+
     total_reordered_node = (
-        len(pre_cluster_nodes) + len(ordered_cluster) + len(post_cluster_nodes)
+        len(pre_cluster_nodes) + len(reordered_original_nodes) + len(post_cluster_nodes)
     )
 
     # Reorederd should have same number of nodes with original.
@@ -156,11 +263,21 @@ def reorder_graph(graph, clusters):
     if len(node_list) != total_reordered_node:
         return None
 
+    insertion_points = [
+        node for node in flattened_cluster if isinstance(node, InsertionPoint)
+    ]
+
+    # Insertion of scheduling nodes specified in this pass.
+    # e.g set_wave_prio, wg_barrier, shared_memory_barrier.
+    reordered_nodes = insert_scheduling_nodes(
+        reordered_original_nodes, insertion_points
+    )
+
     # Schedule pre-cluster, cluster, and post-cluster nodes in new graph.
     reordered_graph = fx.Graph()
     node_map = {}
     schedule_nodes_to_graph(reordered_graph, node_map, pre_cluster_nodes)
-    schedule_nodes_to_graph(reordered_graph, node_map, flattened_cluster)
+    schedule_nodes_to_graph(reordered_graph, node_map, reordered_nodes)
     schedule_nodes_to_graph(reordered_graph, node_map, post_cluster_nodes)
 
     return reordered_graph
@@ -195,6 +312,46 @@ def slice_mma(mma_nodes, lhs_nodes, rhs_nodes, num_slice):
         sliced_lhs_nodes[slice_id].append(lhs_node)
         sliced_rhs_nodes[slice_id].append(rhs_node)
     return sliced_mma_nodes, sliced_lhs_nodes, sliced_rhs_nodes
+
+
+def slice_scale_mma(
+    mma_nodes, lhs_nodes, rhs_nodes, lhs_scale_nodes, rhs_scale_nodes, num_slice
+):
+    sliced_mma_nodes = [[] for _ in range(num_slice)]
+    sliced_lhs_nodes = [[] for _ in range(num_slice)]
+    sliced_rhs_nodes = [[] for _ in range(num_slice)]
+    sliced_lhs_scale_nodes = [[] for _ in range(num_slice)]
+    sliced_rhs_scale_nodes = [[] for _ in range(num_slice)]
+
+    reduction_dim = get_custom(mma_nodes[0]).reduction_dim
+    reduction_dim_ids = set(
+        [get_custom(node).expanded_dims[reduction_dim] for node in mma_nodes]
+    )
+
+    # Checking that MMAs is valid.
+    reduction_expand_size = len(reduction_dim_ids)
+    assert reduction_expand_size >= num_slice and reduction_expand_size % num_slice == 0
+    assert all(x in reduction_dim_ids for x in range(reduction_expand_size))
+
+    size_of_slice = reduction_expand_size // num_slice
+    for mma_node, lhs_node, rhs_node, lhs_scale_node, rhs_scale_node in zip(
+        mma_nodes, lhs_nodes, rhs_nodes, lhs_scale_nodes, rhs_scale_nodes
+    ):
+        custom = get_custom(mma_node)
+        k_id = custom.expanded_dims[reduction_dim]
+        slice_id = k_id // size_of_slice
+        sliced_mma_nodes[slice_id].append(mma_node)
+        sliced_lhs_nodes[slice_id].append(lhs_node)
+        sliced_rhs_nodes[slice_id].append(rhs_node)
+        sliced_lhs_scale_nodes[slice_id].append(lhs_scale_node)
+        sliced_rhs_scale_nodes[slice_id].append(rhs_scale_node)
+    return (
+        sliced_mma_nodes,
+        sliced_lhs_nodes,
+        sliced_rhs_nodes,
+        sliced_lhs_scale_nodes,
+        sliced_rhs_scale_nodes,
+    )
 
 
 def insert_cond_barrier(cond_reg, trace, graph):
@@ -242,7 +399,7 @@ def add_conditional_barriers_to_loop(custom_iterate, trace, hardware_constraint)
     return
 
 
-def insert_prefetch_loop_barriers(custom_iterate, clusters):
+def insert_prefetch_loop_barriers(custom_iterate, cluster_graph, clusters):
     """
     This function manually inserts first barrier right before for loop, and
     the barrier inside the loop close to the end of the loop. This ordering
@@ -252,10 +409,10 @@ def insert_prefetch_loop_barriers(custom_iterate, clusters):
     graph = custom_iterate.graph
     with graph.inserting_before(custom_iterate.fx_node):
         SharedMemoryBarrier().add_to_graph(graph)
-    cluster_graph = clusters[-1].graph
     # TODO: Replace this with just lgmkcnt or change lowering of
     # SharedMemoryBarrier to only do lgmkcnt w/os sbarrier
-    clusters.append(SharedMemoryBarrier().add_to_graph(cluster_graph))
+    with cluster_graph.inserting_before(cluster_graph.output_node()):
+        clusters.append(SharedMemoryBarrier().add_to_graph(cluster_graph))
     return
 
 
@@ -264,16 +421,28 @@ def insert_prefetch_loop_barriers(custom_iterate, clusters):
 ##############################################################
 
 
-def select_reorder_strategy(mTile, nTile, kTile, hardware_constraint):
+def is_compatible_strategy(mTile, nTile, kTile, mma_bitwidth, mma_type, strategy):
+    return (
+        mTile % strategy.block_m == 0
+        and nTile % strategy.block_n == 0
+        and kTile % strategy.block_k == 0
+        and mma_bitwidth == strategy.bitwidth
+        and mma_type == strategy.mma_type
+    )
+
+
+def select_reorder_strategy(
+    mma_type, mTile, nTile, kTile, mma_bitwidth, hardware_constraint
+):
     flat_wave_count = math.prod(hardware_constraint.waves_per_block)
     if flat_wave_count != 8:
         return SchedReorderStrategy.NONE
-    if (
-        mTile % twoPPConfig.block_m == 0
-        and nTile % twoPPConfig.block_n == 0
-        and kTile % twoPPConfig.block_k == 0
-    ):
+    if is_compatible_strategy(mTile, nTile, kTile, mma_bitwidth, mma_type, twoPPConfig):
         return SchedReorderStrategy.TWO_PP_CLUSTER
+    elif is_compatible_strategy(
+        mTile, nTile, kTile, mma_bitwidth, mma_type, MXFP4PPConfig
+    ):
+        return SchedReorderStrategy.MXFP4_PP_CLUSTER
     else:
         return SchedReorderStrategy.NONE
 
@@ -301,37 +470,135 @@ def transform_two_PP_clusters(
     # 1st cluster interleaved local and global reads.
     clusters.append(sliced_local_load_lhs[0])
     clusters.append(sliced_local_load_rhs[0])
-    clusters.append(SchedulingBarrier([]).add_to_graph(tmp_graph))
+    clusters.append(
+        insert_op_after(
+            SchedulingBarrier([]).add_to_graph(tmp_graph), sliced_local_load_rhs[0]
+        )
+    )
 
     clusters.append(global_load_lhs)
-    clusters.append(SchedulingBarrier([]).add_to_graph(tmp_graph))
+    clusters.append(
+        insert_op_after(SchedulingBarrier([]).add_to_graph(tmp_graph), global_load_lhs)
+    )
 
     clusters.append(sliced_local_load_lhs[1])
     clusters.append(sliced_local_load_rhs[1])
-    clusters.append(SchedulingBarrier([]).add_to_graph(tmp_graph))
+    clusters.append(
+        insert_op_after(
+            SchedulingBarrier([]).add_to_graph(tmp_graph), sliced_local_load_rhs[1]
+        )
+    )
 
     clusters.append(global_load_rhs)
-    clusters.append(WorkgroupBarrier().add_to_graph(tmp_graph))
-    clusters.append(SchedulingBarrier([]).add_to_graph(tmp_graph))
+    clusters.append(
+        insert_op_after(WorkgroupBarrier().add_to_graph(tmp_graph), global_load_rhs)
+    )
+    clusters.append(
+        insert_op_after(SchedulingBarrier([]).add_to_graph(tmp_graph), clusters[-1].op)
+    )
 
     # 2nd cluster mma_slice[0].
-    clusters.append(SetWavePrio(1).add_to_graph(tmp_graph))
+    clusters.append(
+        insert_op_before(SetWavePrio(1).add_to_graph(tmp_graph), sliced_mma_nodes[0])
+    )
     clusters.append(sliced_mma_nodes[0])
-    clusters.append(SetWavePrio(0).add_to_graph(tmp_graph))
-    clusters.append(WorkgroupBarrier().add_to_graph(tmp_graph))
-    clusters.append(SchedulingBarrier([]).add_to_graph(tmp_graph))
+    clusters.append(
+        insert_op_after(SetWavePrio(0).add_to_graph(tmp_graph), sliced_mma_nodes[0])
+    )
+    clusters.append(
+        insert_op_after(WorkgroupBarrier().add_to_graph(tmp_graph), clusters[-1].op)
+    )
+    clusters.append(
+        insert_op_after(SchedulingBarrier([]).add_to_graph(tmp_graph), clusters[-1].op)
+    )
 
     # 3rd cluster local writes.
     clusters.append(local_write_lhs)
     clusters.append(local_write_rhs)
-    clusters.append(WorkgroupBarrier().add_to_graph(tmp_graph))
-    clusters.append(SchedulingBarrier([]).add_to_graph(tmp_graph))
+    clusters.append(
+        insert_op_after(WorkgroupBarrier().add_to_graph(tmp_graph), local_write_rhs)
+    )
+    clusters.append(
+        insert_op_after(SchedulingBarrier([]).add_to_graph(tmp_graph), clusters[-1].op)
+    )
 
     # 4th cluster mma_slice[1].
-    clusters.append(SetWavePrio(1).add_to_graph(tmp_graph))
+    clusters.append(
+        insert_op_before(SetWavePrio(1).add_to_graph(tmp_graph), sliced_mma_nodes[1])
+    )
     clusters.append(sliced_mma_nodes[1])
-    clusters.append(SetWavePrio(0).add_to_graph(tmp_graph))
-    clusters.append(SchedulingBarrier([]).add_to_graph(tmp_graph))
+    clusters.append(
+        insert_op_after(SetWavePrio(0).add_to_graph(tmp_graph), sliced_mma_nodes[1])
+    )
+    clusters.append(
+        insert_op_after(SchedulingBarrier([]).add_to_graph(tmp_graph), clusters[-1].op)
+    )
+
+    return clusters
+
+
+def transform_MXFP4_PP_clusters(
+    mma_nodes,
+    local_load_lhs,
+    local_load_rhs,
+    global_load_lhs,
+    global_load_rhs,
+    local_write_lhs,
+    local_write_rhs,
+    local_load_lhs_scale,
+    local_load_rhs_scale,
+    global_load_lhs_scale,
+    global_load_rhs_scale,
+    local_write_lhs_scale,
+    local_write_rhs_scale,
+):
+    num_slices = 2
+    (
+        sliced_mma_nodes,
+        sliced_local_load_lhs,
+        sliced_local_load_rhs,
+        sliced_local_load_lhs_scale,
+        sliced_local_load_rhs_scale,
+    ) = slice_scale_mma(
+        mma_nodes,
+        local_load_lhs,
+        local_load_rhs,
+        local_load_lhs_scale,
+        local_load_rhs_scale,
+        num_slice=num_slices,
+    )
+
+    # Check that we have valid slice size for local_loads and mmas.
+    assert len(sliced_mma_nodes) == len(sliced_local_load_rhs)
+    assert len(sliced_mma_nodes) == len(sliced_local_load_lhs)
+    assert len(sliced_mma_nodes) == len(sliced_local_load_lhs_scale)
+    assert len(sliced_mma_nodes) == len(sliced_local_load_rhs_scale)
+    assert len(sliced_mma_nodes) == num_slices
+
+    clusters = []
+
+    clusters.append(global_load_rhs_scale)
+    clusters.append(sliced_local_load_rhs_scale[0])
+    clusters.append(sliced_local_load_rhs_scale[1])
+
+    clusters.append(global_load_lhs_scale)
+    clusters.append(sliced_local_load_lhs_scale[0])
+    clusters.append(sliced_local_load_lhs_scale[1])
+
+    clusters.append(global_load_rhs)
+    clusters.append(sliced_local_load_rhs[0])
+    clusters.append(sliced_local_load_rhs[1])
+
+    clusters.append(global_load_lhs)
+    clusters.append(sliced_local_load_lhs[0])
+    clusters.append(sliced_local_load_lhs[1])
+
+    clusters.append(sliced_mma_nodes[0])
+    clusters.append(sliced_mma_nodes[1])
+    clusters.append(local_write_lhs_scale)
+    clusters.append(local_write_rhs_scale)
+    clusters.append(local_write_lhs)
+    clusters.append(local_write_rhs)
 
     return clusters
 
@@ -341,14 +608,48 @@ def transform_two_PP_clusters(
 ##############################################################
 
 
+def get_closest_local_load(node: fx.Node):
+    workqueue = deque([node])
+    seen = set()
+    can_extend = lambda x: isinstance(x, fx.Node) and x not in seen
+    while workqueue:
+        cur_node = workqueue.pop()
+        if is_shared_read(get_custom(cur_node)):
+            return cur_node
+        child_nodes = [arg_node for arg_node in cur_node.args if can_extend(arg_node)]
+
+        # Update ancestor and seen tracker, and workqueue with new child nodes.
+        seen.update(child_nodes)
+        workqueue.extend(child_nodes)
+    return None
+
+
 def get_local_loads(mma_nodes):
     local_load_lhs = []
     local_load_rhs = []
     for mma_node in mma_nodes:
         custom = get_custom(mma_node)
-        local_load_lhs.append(custom.lhs)
-        local_load_rhs.append(custom.rhs)
+        lhs = get_closest_local_load(custom.lhs)
+        rhs = get_closest_local_load(custom.rhs)
+        if lhs == None or rhs == None:
+            return None, None
+        local_load_lhs.append(lhs)
+        local_load_rhs.append(rhs)
     return local_load_lhs, local_load_rhs
+
+
+def get_scale_local_loads(mma_nodes):
+    local_load_lhs_scale = []
+    local_load_rhs_scale = []
+    for mma_node in mma_nodes:
+        custom = get_custom(mma_node)
+        lhs_scale = get_closest_local_load(custom.lhs_scale)
+        rhs_scale = get_closest_local_load(custom.rhs_scale)
+        if lhs_scale == None or rhs_scale == None:
+            return None, None
+        local_load_lhs_scale.append(lhs_scale)
+        local_load_rhs_scale.append(rhs_scale)
+    return local_load_lhs_scale, local_load_rhs_scale
 
 
 def get_local_writes(local_loads):
@@ -398,23 +699,49 @@ def schedule_reordering(
         # Get MMA nodes inside a for op, who's reduction dim is being tiled in the for op.
         mma_nodes = filter_fx_graph(
             graph,
-            lambda node: isinstance(get_custom(node), MMA)
+            lambda node: isinstance(get_custom(node), (MMA, ScaledMMA))
             and get_custom(node).reduction_dim == iteration_dim,
         )
         # Early exit if no MMA found.
         if not mma_nodes:
             continue
+
+        mma_types = set([type(get_custom(mma_node)) for mma_node in mma_nodes])
+        # Only handle single MMA per kernel and need to have same type.s
+        if len(mma_types) != 1:
+            continue
+        mma_type = mma_types.pop()
         local_load_lhs, local_load_rhs = get_local_loads(mma_nodes)
+        # Early exit if cannot find either local loads
+        if not local_load_lhs or not local_load_rhs:
+            continue
         local_write_lhs = get_local_writes(local_load_lhs)
         local_write_rhs = get_local_writes(local_load_rhs)
         global_load_lhs = get_global_loads(local_write_lhs)
         global_load_rhs = get_global_loads(local_write_rhs)
 
+        local_load_lhs_scale = None
+        local_load_rhs_scale = None
+        local_write_lhs_scale = None
+        local_write_lhs_scale = None
+        global_load_lhs_scale = None
+        global_load_rhs_scale = None
+        if mma_type == ScaledMMA:
+            local_load_lhs_scale, local_load_rhs_scale = get_scale_local_loads(
+                mma_nodes
+            )
+            local_write_lhs_scale = get_local_writes(local_load_lhs_scale)
+            local_write_rhs_scale = get_local_writes(local_load_rhs_scale)
+            global_load_lhs_scale = get_global_loads(local_write_lhs_scale)
+            global_load_rhs_scale = get_global_loads(local_write_rhs_scale)
+
         # Heuristic to select reorder strategy.
         mTile, nTile, kTile = get_mma_tile_size(mma_nodes, constraints)
+        mma_bitwidth = get_mma_bitwidth(mma_nodes[0])
         reorder_strategy = select_reorder_strategy(
-            mTile, nTile, kTile, hardware_constraint
+            mma_type, mTile, nTile, kTile, mma_bitwidth, hardware_constraint
         )
+
         # Cannot find a suitable transform, early exit.
         if reorder_strategy == SchedReorderStrategy.NONE:
             continue
@@ -428,7 +755,24 @@ def schedule_reordering(
                 local_write_lhs,
                 local_write_rhs,
             )
-            insert_prefetch_loop_barriers(custom_iterate, clusters)
+            insert_prefetch_loop_barriers(custom_iterate, graph, clusters)
+        elif reorder_strategy == SchedReorderStrategy.MXFP4_PP_CLUSTER:
+            clusters = transform_MXFP4_PP_clusters(
+                mma_nodes,
+                local_load_lhs,
+                local_load_rhs,
+                global_load_lhs,
+                global_load_rhs,
+                local_write_lhs,
+                local_write_rhs,
+                local_load_lhs_scale,
+                local_load_rhs_scale,
+                global_load_lhs_scale,
+                global_load_rhs_scale,
+                local_write_lhs_scale,
+                local_write_rhs_scale,
+            )
+            clusters = flatten_list(clusters)
         else:
             raise ValueError("Unhandled SchedReorderStrategy case.")
         reordered_graph = reorder_graph(graph, clusters)
@@ -440,4 +784,5 @@ def schedule_reordering(
         trace.add_subgraph(reordered_subgraph_name, reordered_graph)
         trace.get_root_graph().subgraphs[reordered_subgraph_name] = reordered_graph
         custom_iterate.update_arg("subgraph_name", reordered_subgraph_name)
-        add_conditional_barriers_to_loop(custom_iterate, trace, hardware_constraint)
+        if is_pingpong_strategy(reorder_strategy):
+            add_conditional_barriers_to_loop(custom_iterate, trace, hardware_constraint)
