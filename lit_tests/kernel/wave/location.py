@@ -1,16 +1,14 @@
 # RUN: python %s | FileCheck %s
 
-import pytest
-import iree.turbine.kernel as tk
 import iree.turbine.kernel.lang as tkl
 import iree.turbine.kernel.wave as tkw
-from iree.turbine.kernel.wave.compile import WaveCompileOptions, wave_compile
-from iree.turbine.kernel.wave.utils.general_utils import (
-    run_test,
-)
 from iree.turbine.kernel._support.location_config import (
     LocationCaptureConfig,
     LocationCaptureLevel,
+)
+from iree.turbine.kernel.wave.compile import WaveCompileOptions, wave_compile
+from iree.turbine.kernel.wave.utils.general_utils import (
+    run_test,
 )
 
 M = tkl.sym.M
