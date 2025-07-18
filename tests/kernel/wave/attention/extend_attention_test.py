@@ -10,7 +10,6 @@ import torch
 from torch.nn import functional as F
 from dataclasses import replace
 
-import iree.turbine.kernel as tk
 from iree.turbine.kernel.lang.global_symbols import *
 from iree.turbine.kernel.wave.utils.general_utils import (
     get_default_scheduling_params,
@@ -34,14 +33,10 @@ from iree.turbine.kernel.wave.templates.extend_attention import (
 from iree.turbine.kernel.wave.templates.extend_attention_rpe import (
     get_extend_attention_rpe_kernel,
 )
-from iree.turbine.kernel.wave.templates.prefill_attention import (
-    get_prefill_attention_kernel,
-)
 from iree.turbine.kernel.wave.templates.attention_common import (
     AttentionShape,
 )
 from iree.turbine.kernel.wave.scheduling.schedule import SchedulingType
-import os
 from enum import Enum
 from torch.testing import assert_close
 
@@ -52,9 +47,7 @@ from ..common.utils import (
     dump_generated_mlir,
     param_bool,
 )
-from ..common.shapes import get_test_shapes, construct_test_name
-from torch.nn.attention.flex_attention import flex_attention
-from torch.nn.attention.flex_attention import create_block_mask
+from ..common.shapes import get_test_shapes
 
 
 def t5_rpe_masked_cond(
@@ -339,7 +332,8 @@ def testExtendAttention(
     use_wave_runtime: bool,
     use_custom_mask: bool,
     mfma_variant: MMAType,
-    request,
+    run_bench,
+    perf_filename_tk,
 ):
     if is_causal and use_custom_mask:
         pytest.skip(
@@ -396,11 +390,6 @@ def testExtendAttention(
         use_custom_mask=use_custom_mask,
     )
     hyperparams.update(get_default_scheduling_params())
-    run_bench = request.config.getoption("--runperf")
-    dump_perf = request.config.getoption("--dump-perf-files-path")
-    perf_filename = construct_test_name(
-        "wave_extend_attention", mfma_variant, is_causal, shape
-    )
     options = WaveCompileOptions(
         subs=hyperparams,
         canonicalize=True,
@@ -412,9 +401,7 @@ def testExtendAttention(
         use_buffer_store_ops=use_buffer_ops,
         benchmark_batch_size=1000,
         benchmark_repetitions=3,
-        benchmark_results_file=(
-            os.path.join(dump_perf, perf_filename) if dump_perf else None
-        ),
+        benchmark_results_file=perf_filename_tk,
         dump_intermediates="./inter",
         gpu_native_math_precision=True,
         wave_runtime=(True if use_wave_runtime else False),
@@ -497,7 +484,8 @@ def testExtendRpeAttention(
     enable_scheduling: SchedulingType,
     is_causal: bool,
     mfma_variant: MMAType,
-    request,
+    run_bench,
+    perf_filename_tk,
 ):
     assert shape.num_query_heads % shape.num_kv_heads == 0
     (
@@ -550,11 +538,6 @@ def testExtendRpeAttention(
         max_rpe_context_length=max_rpe_context_length,
     )
     hyperparams.update(get_default_scheduling_params())
-    run_bench = request.config.getoption("--runperf")
-    dump_perf = request.config.getoption("--dump-perf-files-path")
-    perf_filename = construct_test_name(
-        "wave_extend_attention", mfma_variant, is_causal, shape
-    )
 
     options = WaveCompileOptions(
         subs=hyperparams,
@@ -565,9 +548,7 @@ def testExtendRpeAttention(
         dynamic_symbols=dynamic_symbols,
         benchmark_batch_size=1000,
         benchmark_repetitions=3,
-        benchmark_results_file=(
-            os.path.join(dump_perf, perf_filename) if dump_perf else None
-        ),
+        benchmark_results_file=perf_filename_tk,
     )
     options = set_default_run_config(options)
     extend_attention_rpe = wave_compile(options, extend_attention_rpe)
