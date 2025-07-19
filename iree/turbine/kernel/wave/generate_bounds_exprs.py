@@ -51,7 +51,9 @@ def generate_bounds_exprs(trace: CapturedTrace, constraints: list[Constraint]):
 
         vector_shapes = node.vector_shapes or hardware_constraint.vector_shapes
         is_shared_mem = is_shared_mem_access(node)
-        bounds = find_index_bounds(constraints, node.index, vector_shapes)
+        bounds = find_index_bounds(
+            constraints, node.index, vector_shapes, node.type.symbolic_shape
+        )
         if is_shared_mem and bounds:
             bounds = remove_global_indexing(bounds, constraints)
             # Masking against global bounds was already handled when reading from
