@@ -63,6 +63,12 @@ from iree.compiler.dialects import (
 from iree.compiler.dialects import (
     vector as vector_d,
 )
+from iree.compiler.dialects import (
+    hal as hal_d,
+)
+from iree.compiler.dialects import (
+    tensor as tensor_d,
+)
 from iree.compiler.ir import (
     AffineConstantExpr,
     AffineExpr,
