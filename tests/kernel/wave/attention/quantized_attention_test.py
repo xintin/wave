@@ -14,19 +14,14 @@ from wave_lang.kernel.wave.utils.run_utils import (
     set_default_run_config,
 )
 from wave_lang.kernel.wave.utils.torch_utils import (
-    device_randn,
     device_zeros,
     quantized_tensor,
 )
 from wave_lang.kernel.wave.compile import WaveCompileOptions, wave_compile
 from wave_lang.kernel.wave.constraints import MMAType
-import os
-from torch.testing import assert_close
 from ..common.utils import (
     require_e2e,
     require_cdna3,
-    enable_scheduling_barriers,
-    dump_generated_mlir,
     param_bool,
 )
 from ..common.shapes import get_test_shapes
@@ -86,7 +81,6 @@ def testAttentionPure(
     options = WaveCompileOptions(
         subs=hyperparams,
         schedule=enable_scheduling,
-        use_scheduling_barriers=enable_scheduling_barriers,
         dynamic_symbols=dynamic_symbols,
         run_bench=run_bench,
         waves_per_eu=2,
@@ -106,17 +100,12 @@ def testAttentionPure(
     v = quantized_tensor(v_shape, dtype=torch.float16, scale=MAX_RANGE)
 
     output = device_zeros(o_shape, dtype=torch.float32)
-    asm = base_attention(q, k, v, output)
+    base_attention(q, k, v, output)
     torch_ref = torch.nn.functional.scaled_dot_product_attention(
         q.to(torch.float32) * q_scale,
         k.to(torch.float32) * k_scale,
         v.to(torch.float32) * v_scale,
     )
-
-    if dump_generated_mlir:
-        filename = f"wave_attention_{'x'.join(map(str, input_shape))}.mlir"
-        with open(filename, "w") as f:
-            f.write(asm)
 
     rmse = torch.sqrt(torch.mean(torch.square(output - torch_ref)))
     # Higher tolerance because, we are testing a higher range

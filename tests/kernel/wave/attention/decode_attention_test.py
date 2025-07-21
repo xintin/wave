@@ -7,7 +7,6 @@
 import pytest
 import torch
 import math
-import wave_lang.kernel as tk
 from wave_lang.kernel.lang.global_symbols import *
 from wave_lang.kernel.wave.utils.run_utils import (
     set_default_run_config,
@@ -25,13 +24,10 @@ from wave_lang.kernel.wave.templates.decode_attention import (
     get_decode_attention_kernels,
 )
 from wave_lang.kernel.wave.scheduling.schedule import SchedulingType
-import os
 from torch.testing import assert_close
 from ..common.utils import (
     require_e2e,
     param_bool,
-    enable_scheduling_barriers,
-    dump_generated_mlir,
 )
 from ..common.shapes import get_test_shapes
 from wave_lang.kernel.wave.templates.gqa_decode_attention import (
@@ -88,7 +84,6 @@ def testFlashDecoding(
         canonicalize=True,
         run_bench=run_bench,
         schedule=enable_scheduling,
-        use_scheduling_barriers=enable_scheduling_barriers,
         dynamic_symbols=dynamic_symbols_0,
         benchmark_batch_size=10,
         benchmark_repetitions=3,
@@ -98,7 +93,7 @@ def testFlashDecoding(
     phase_0 = wave_compile(options, phase_0)
 
     # TODO: Add scaling of QK as part of kernel.
-    asm_qk = phase_0(
+    phase_0(
         q * dk_sqrt * log2e,
         k,
         v.permute([0, 2, 1]),
@@ -111,7 +106,6 @@ def testFlashDecoding(
         canonicalize=True,
         run_bench=run_bench,
         schedule=enable_scheduling,
-        use_scheduling_barriers=enable_scheduling_barriers,
         dynamic_symbols=dynamic_symbols_1,
         benchmark_batch_size=10,
         benchmark_repetitions=3,
@@ -121,19 +115,11 @@ def testFlashDecoding(
     phase_1 = wave_compile(options, phase_1)
 
     # TODO: Add variant of non-transposed V attention kernel.
-    asm_sv = phase_1(phase_0_output, phase_0_output_max, output)
+    phase_1(phase_0_output, phase_0_output_max, output)
 
     torch_ref = torch.nn.functional.scaled_dot_product_attention(
         q, k, v, attn_mask=None
     )
-
-    if dump_generated_mlir:
-        filename = f"wave_phase_0_kernel_{'x'.join(map(str, shape))}.mlir"
-        with open(filename, "w") as f:
-            f.write(asm_qk)
-        filename = f"wave_phase_1_kernel_{'x'.join(map(str, shape))}.mlir"
-        with open(filename, "w") as f:
-            f.write(asm_sv)
 
     assert_close(output, torch_ref, check_dtype=False, atol=1e-3, rtol=1e-3)
 
@@ -195,14 +181,13 @@ def testGqaFlashDecoding(
         canonicalize=True,
         run_bench=run_bench,
         schedule=enable_scheduling,
-        use_scheduling_barriers=enable_scheduling_barriers,
         benchmark_batch_size=10,
         benchmark_repetitions=3,
         benchmark_results_file=perf_filename_tk2[0],
     )
     options = set_default_run_config(options)
     phase_0 = wave_compile(options, phase_0)
-    asm_qk = phase_0(q, k, v, phase_0_output, phase_0_output_max)
+    phase_0(q, k, v, phase_0_output, phase_0_output_max)
 
     # Compile and run phase 1
     options = WaveCompileOptions(
@@ -210,14 +195,13 @@ def testGqaFlashDecoding(
         canonicalize=True,
         run_bench=run_bench,
         schedule=enable_scheduling,
-        use_scheduling_barriers=enable_scheduling_barriers,
         benchmark_batch_size=10,
         benchmark_repetitions=3,
         benchmark_results_file=perf_filename_tk2[1],
     )
     options = set_default_run_config(options)
     phase_1 = wave_compile(options, phase_1)
-    asm_sv = phase_1(phase_0_output, phase_0_output_max, output)
+    phase_1(phase_0_output, phase_0_output_max, output)
 
     # Reference implementation using SDPA
     # Reshape for SDPA
@@ -237,13 +221,5 @@ def testGqaFlashDecoding(
         is_causal=False,
         scale=1.0 / math.sqrt(shape.head_size),
     ).reshape(*o_shape)
-
-    if dump_generated_mlir:
-        filename = f"wave_gqa_phase_0_kernel_{shape.num_seqs}x{shape.num_query_heads}x{shape.num_kv_heads}x{shape.head_size}x{shape.kv_seq_len}.mlir"
-        with open(filename, "w") as f:
-            f.write(asm_qk)
-        filename = f"wave_gqa_phase_1_kernel_{shape.num_seqs}x{shape.num_query_heads}x{shape.num_kv_heads}x{shape.head_size}x{shape.kv_seq_len}.mlir"
-        with open(filename, "w") as f:
-            f.write(asm_sv)
 
     assert_close(output, torch_ref, check_dtype=False, atol=1e-3, rtol=1e-3)

@@ -5,10 +5,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 import pytest
-import os
-from wave_lang.kernel.wave.utils.run_utils import (
-    get_default_arch,
-)
+from wave_lang.kernel.wave.utils.run_utils import get_default_arch
 
 require_e2e = pytest.mark.require_e2e
 expensive_test = pytest.mark.expensive_test
@@ -36,10 +33,6 @@ require_cdna_3_or_4 = pytest.mark.skipif(
         get_default_arch()
     ),
 )
-# Whether to dump the generated MLIR module.
-dump_generated_mlir = int(os.environ.get("WAVE_DUMP_MLIR", 0))
-# Whether to use scheduling group barriers (needs LLVM fix).
-enable_scheduling_barriers = int(os.environ.get("WAVE_USE_SCHED_BARRIERS", 0))
 
 # Add test shapes for validation and performance testing.
 perf_test = lambda *a: pytest.param(*a, marks=pytest.mark.perf_only)

@@ -6,7 +6,6 @@
 
 import pytest
 import torch
-import wave_lang.kernel as tk
 import wave_lang.kernel.lang as tkl
 import wave_lang.kernel.wave as tkw
 from wave_lang.kernel.lang.global_symbols import *
@@ -27,14 +26,11 @@ from wave_lang.kernel.wave.utils.torch_utils import (
 )
 from wave_lang.kernel.wave.compile import WaveCompileOptions, wave_compile
 from wave_lang.kernel.wave.constraints import MMAType
-import os
 from torch.testing import assert_close
 from ..common.utils import (
     require_e2e,
     require_cdna3,
     param_bool,
-    enable_scheduling_barriers,
-    dump_generated_mlir,
 )
 from ..common.shapes import get_test_shapes
 
@@ -145,7 +141,6 @@ def testChainedGemm(
         subs=hyperparams,
         canonicalize=True,
         run_bench=run_bench,
-        use_scheduling_barriers=enable_scheduling_barriers,
         benchmark_batch_size=10,
         benchmark_repetitions=3,
         benchmark_results_file=perf_filename_tk,
@@ -157,13 +152,7 @@ def testChainedGemm(
     k = device_randn(batch, kv_seq_len, qk_head_dim, dtype=torch.float16)
     v = device_randn(batch, v_head_dim, kv_seq_len, dtype=torch.float16)
     output = device_zeros(batch, v_head_dim, q_seq_len, dtype=torch.float32)
-    asm = chained_gemm(q, k, v, output)
-
-    if dump_generated_mlir:
-        filename = f"wave_cgemm_{'x'.join(map(str, shape))}.mlir"
-        with open(filename, "w") as f:
-            f.write(asm)
-            print(f"IR dumped to {filename}")
+    chained_gemm(q, k, v, output)
 
     iree_ref = device_zeros(batch, v_head_dim, q_seq_len, dtype=torch.float32)
     generate_iree_ref("chain_mmt", [q, k, v], [iree_ref], options)
@@ -291,7 +280,6 @@ def testChainedGemmF8(
         subs=hyperparams,
         canonicalize=True,
         run_bench=run_bench,
-        use_scheduling_barriers=enable_scheduling_barriers,
         benchmark_batch_size=10,
         benchmark_repetitions=3,
         benchmark_results_file=perf_filename_tk,
@@ -303,12 +291,7 @@ def testChainedGemmF8(
     k = device_randn(batch, kv_seq_len, qk_head_dim, dtype=torch.float16)
     v = device_randn(batch, v_head_dim, kv_seq_len, dtype=torch.float16)
     output = device_zeros(batch, v_head_dim, q_seq_len, dtype=torch.float32)
-    asm = chained_gemm_f8(q, k, v, output)
-
-    if dump_generated_mlir:
-        filename = f"wave_cgemm_{'x'.join(map(str, shape))}.mlir"
-        with open(filename, "w") as f:
-            f.write(asm)
+    chained_gemm_f8(q, k, v, output)
 
     iree_ref = device_zeros(batch, v_head_dim, q_seq_len, dtype=torch.float32)
     generate_iree_ref("chain_mmt_f8", [q, k, v], [iree_ref], options)

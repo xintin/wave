@@ -29,8 +29,6 @@ from .common.utils import (
     require_cdna3,
     require_cdna_3_or_4,
     perf_test,
-    enable_scheduling_barriers,
-    dump_generated_mlir,
     param_bool,
 )
 from wave_lang.kernel.wave.constraints import MMAType, MMAOperand, GenericDot
@@ -87,7 +85,6 @@ def testGemmBench(tmp_path):
         canonicalize=True,
         run_bench=True,
         schedule=enable_scheduling,
-        use_scheduling_barriers=enable_scheduling_barriers,
         dynamic_symbols=dynamic_symbols,
         benchmark_batch_size=10,
         benchmark_repetitions=3,
@@ -151,7 +148,6 @@ def testPureGemm(
         canonicalize=True,
         run_bench=run_bench,
         schedule=enable_scheduling,
-        use_scheduling_barriers=enable_scheduling_barriers,
         dynamic_symbols=dynamic_symbols,
         benchmark_batch_size=10,
         benchmark_repetitions=3,
@@ -163,12 +159,7 @@ def testPureGemm(
     a = device_randn(shape[0], shape[2], dtype=datatype)
     b = device_randn(shape[1], shape[2], dtype=datatype)
     c = device_zeros(shape[0], shape[1], dtype=torch.float32)
-    asm = gemm(a, b, c)
-
-    if dump_generated_mlir:
-        filename = f"wave_gemm_{'x'.join(map(str, shape))}.mlir"
-        with open(filename, "w") as f:
-            f.write(asm)
+    gemm(a, b, c)
 
     if run_bench:
         options.benchmark_results_file = perf_filename_iree
@@ -221,7 +212,6 @@ def testGemmGatherToLDS(
         canonicalize=True,
         run_bench=run_bench,
         schedule=enable_scheduling,
-        use_scheduling_barriers=enable_scheduling_barriers,
         dynamic_symbols=dynamic_symbols,
         benchmark_batch_size=10,
         benchmark_repetitions=3,
@@ -236,11 +226,6 @@ def testGemmGatherToLDS(
     c = device_zeros(shape[0], shape[1], dtype=torch.float32)
     asm = gemm(a, b, c)
     assert "amdgpu.gather_to_lds" in asm, "gather_to_lds not found in asm"
-
-    if dump_generated_mlir:
-        filename = f"wave_gemm_{'x'.join(map(str, shape))}.mlir"
-        with open(filename, "w") as f:
-            f.write(asm)
 
     if run_bench:
         options.benchmark_results_file = perf_filename_iree
@@ -355,7 +340,6 @@ def testGemmSmallTiles(
         canonicalize=True,
         run_bench=run_bench,
         schedule=enable_scheduling,
-        use_scheduling_barriers=enable_scheduling_barriers,
         dynamic_symbols=dynamic_symbols,
         benchmark_batch_size=10,
         benchmark_repetitions=3,
@@ -369,12 +353,7 @@ def testGemmSmallTiles(
     a = device_randn(shape[0], shape[2], dtype=torch.float16)
     b = device_randn(shape[1], shape[2], dtype=torch.float16)
     c = device_zeros(shape[0], shape[1], dtype=torch.float32)
-    asm = gemm(a, b, c)
-
-    if dump_generated_mlir:
-        filename = f"wave_gemm_{'x'.join(map(str, shape))}.mlir"
-        with open(filename, "w") as f:
-            f.write(asm)
+    gemm(a, b, c)
 
     if run_bench:
         options.benchmark_results_file = perf_filename_iree
@@ -486,7 +465,6 @@ def testNonTransposeGemm(
         canonicalize=True,
         run_bench=run_bench,
         schedule=enable_scheduling,
-        use_scheduling_barriers=enable_scheduling_barriers,
         dynamic_symbols=dynamic_symbols,
         benchmark_batch_size=10,
         benchmark_repetitions=3,
@@ -497,12 +475,7 @@ def testNonTransposeGemm(
     a = device_randn(shape[0], shape[2], dtype=torch.float16)
     b = device_randn(shape[2], shape[1], dtype=torch.float16)
     c = device_zeros(shape[0], shape[1], dtype=torch.float32)
-    asm = gemm(a, b, c)
-
-    if dump_generated_mlir:
-        filename = f"wave_gemm_{'x'.join(map(str, shape))}.mlir"
-        with open(filename, "w") as f:
-            f.write(asm)
+    gemm(a, b, c)
 
     if run_bench:
         options.benchmark_results_file = perf_filename_iree
@@ -607,12 +580,7 @@ def testPingPongGemm(
     a = device_randn(shape[0], shape[2], dtype=torch.float16)
     b = device_randn(shape[1], shape[2], dtype=torch.float16)
     c = device_zeros(shape[0], shape[1], dtype=torch.float32)
-    asm = gemm(a, b, c)
-
-    if dump_generated_mlir:
-        filename = f"wave_gemm_{'x'.join(map(str, shape))}.mlir"
-        with open(filename, "w") as f:
-            f.write(asm)
+    gemm(a, b, c)
 
     if run_bench:
         options.benchmark_results_file = perf_filename_iree
@@ -647,7 +615,6 @@ def testGemmDumpOverrideSchedule(
         canonicalize=True,
         run_bench=run_bench,
         schedule=enable_scheduling,
-        use_scheduling_barriers=enable_scheduling_barriers,
         dynamic_symbols=dynamic_symbols,
         benchmark_batch_size=10,
         benchmark_repetitions=3,
@@ -660,12 +627,7 @@ def testGemmDumpOverrideSchedule(
     a = device_randn(shape[0], shape[2], dtype=datatype)
     b = device_randn(shape[1], shape[2], dtype=datatype)
     c = device_zeros(shape[0], shape[1], dtype=torch.float32)
-    asm = compiled_gemm(a, b, c)
-
-    if dump_generated_mlir:
-        filename = f"wave_gemm_{'x'.join(map(str, shape))}.mlir"
-        with open(filename, "w") as f:
-            f.write(asm)
+    compiled_gemm(a, b, c)
 
     if run_bench:
         options.benchmark_results_file = perf_filename_iree
@@ -684,7 +646,6 @@ def testGemmDumpOverrideSchedule(
         canonicalize=True,
         run_bench=run_bench,
         schedule=enable_scheduling,
-        use_scheduling_barriers=enable_scheduling_barriers,
         dynamic_symbols=dynamic_symbols,
         benchmark_batch_size=10,
         benchmark_repetitions=3,
@@ -803,7 +764,6 @@ def testGemmDot(
         canonicalize=True,
         run_bench=run_bench,
         schedule=enable_scheduling,
-        use_scheduling_barriers=enable_scheduling_barriers,
         dynamic_symbols=dynamic_symbols,
         benchmark_batch_size=10,
         benchmark_repetitions=3,
@@ -817,12 +777,7 @@ def testGemmDot(
     b = device_randn(shape[1], shape[2], dtype=torch.float16)
     c = device_zeros(shape[0], shape[1], dtype=torch.float32)
 
-    asm = gemm(a, b, c)
-
-    if dump_generated_mlir:
-        filename = f"wave_gemm_{'x'.join(map(str, shape))}.mlir"
-        with open(filename, "w") as f:
-            f.write(asm)
+    gemm(a, b, c)
 
     if run_bench:
         options.benchmark_results_file = perf_filename_iree
@@ -934,7 +889,6 @@ def testVMFMAGemm(
         canonicalize=True,
         run_bench=run_bench,
         schedule=enable_scheduling,
-        use_scheduling_barriers=enable_scheduling_barriers,
         dynamic_symbols=dynamic_symbols,
         benchmark_batch_size=10,
         benchmark_repetitions=3,
@@ -946,12 +900,7 @@ def testVMFMAGemm(
     a = device_randn(shape[0], shape[2], dtype=torch.float16)
     b = device_randn(shape[1], shape[2], dtype=torch.float16)
     c = device_zeros(shape[0], shape[1], dtype=torch.float32)
-    asm = gemm(a, b, c)
-
-    if dump_generated_mlir:
-        filename = f"wave_gemm_{'x'.join(map(str, shape))}.mlir"
-        with open(filename, "w") as f:
-            f.write(asm)
+    gemm(a, b, c)
 
     if run_bench:
         options.benchmark_results_file = perf_filename_iree
@@ -1064,7 +1013,6 @@ def testCDNA2IntGemm(
         canonicalize=True,
         run_bench=run_bench,
         schedule=enable_scheduling,
-        use_scheduling_barriers=enable_scheduling_barriers,
         dynamic_symbols=dynamic_symbols,
         benchmark_batch_size=10,
         benchmark_repetitions=3,
@@ -1077,12 +1025,7 @@ def testCDNA2IntGemm(
     a = device_randint(randint_hi, (shape[0], shape[2]), dtype=torch.int8)
     b = device_randint(randint_hi, (shape[1], shape[2]), dtype=torch.int8)
     c = device_zeros(shape[0], shape[1], dtype=torch.int32)
-    asm = gemm(a, b, c)
-
-    if dump_generated_mlir:
-        filename = f"wave_gemm_{'x'.join(map(str, shape))}.mlir"
-        with open(filename, "w") as f:
-            f.write(asm)
+    gemm(a, b, c)
 
     if run_bench:
         options.benchmark_results_file = perf_filename_iree
@@ -1172,7 +1115,6 @@ def testCDNA3IntGemm(
         canonicalize=True,
         run_bench=run_bench,
         schedule=enable_scheduling,
-        use_scheduling_barriers=enable_scheduling_barriers,
         benchmark_batch_size=10,
         benchmark_repetitions=3,
         benchmark_results_file=perf_filename_tk,
@@ -1184,12 +1126,7 @@ def testCDNA3IntGemm(
     a = device_randint(randint_hi, (shape[0], shape[2]), dtype=torch.int8)
     b = device_randint(randint_hi, (shape[1], shape[2]), dtype=torch.int8)
     c = device_zeros(shape[0], shape[1], dtype=torch.int32)
-    asm = gemm(a, b, c)
-
-    if dump_generated_mlir:
-        filename = f"wave_gemm_{'x'.join(map(str, shape))}_f8.mlir"
-        with open(filename, "w") as f:
-            f.write(asm)
+    gemm(a, b, c)
 
     if run_bench:
         options.benchmark_results_file = perf_filename_iree
@@ -1277,7 +1214,6 @@ def testF8Gemm(
         canonicalize=True,
         run_bench=run_bench,
         schedule=enable_scheduling,
-        use_scheduling_barriers=enable_scheduling_barriers,
         benchmark_batch_size=10,
         benchmark_repetitions=3,
         benchmark_results_file=perf_filename_tk,
@@ -1288,12 +1224,7 @@ def testF8Gemm(
     a = device_randn(shape[0], shape[2], dtype=torch.float16)
     b = device_randn(shape[1], shape[2], dtype=torch.float16)
     c = device_zeros(shape[0], shape[1], dtype=torch.float32)
-    asm = gemm(a, b, c)
-
-    if dump_generated_mlir:
-        filename = f"wave_gemm_{'x'.join(map(str, shape))}_f8.mlir"
-        with open(filename, "w") as f:
-            f.write(asm)
+    gemm(a, b, c)
 
     if run_bench:
         options.benchmark_results_file = perf_filename_iree
@@ -1403,7 +1334,6 @@ def testPackedGemm(
         canonicalize=True,
         run_bench=run_bench,
         schedule=enable_scheduling,
-        use_scheduling_barriers=enable_scheduling_barriers,
         dynamic_symbols=dynamic_symbols,
         benchmark_batch_size=10,
         benchmark_repetitions=3,
@@ -1415,12 +1345,7 @@ def testPackedGemm(
     a = device_randn(shape[0], shape[2], dtype=torch.float16)
     b = device_randn(shape[1], shape[2], dtype=torch.float16)
     c = device_zeros(shape[0], shape[1], dtype=torch.float32)
-    asm = gemm(a.view(torch.int32), b.view(torch.int32), c)
-
-    if dump_generated_mlir:
-        filename = f"wave_gemm_{'x'.join(map(str, shape))}.mlir"
-        with open(filename, "w") as f:
-            f.write(asm)
+    gemm(a.view(torch.int32), b.view(torch.int32), c)
 
     if run_bench:
         options.benchmark_results_file = perf_filename_iree
@@ -1537,7 +1462,6 @@ def testPackedNonTransposeGemm(
         canonicalize=True,
         run_bench=run_bench,
         schedule=enable_scheduling,
-        use_scheduling_barriers=enable_scheduling_barriers,
         dynamic_symbols=dynamic_symbols,
         benchmark_batch_size=10,
         benchmark_repetitions=3,
@@ -1549,12 +1473,7 @@ def testPackedNonTransposeGemm(
     a = device_randn(shape[0], shape[2], dtype=torch.float16)
     b = device_randn(shape[1], shape[2], dtype=torch.float16)
     c = device_zeros(shape[0], shape[1], dtype=torch.float32)
-    asm = gemm(a.view(torch.int32), b.view(torch.int32).T.contiguous(), c)
-
-    if dump_generated_mlir:
-        filename = f"wave_gemm_{'x'.join(map(str, shape))}.mlir"
-        with open(filename, "w") as f:
-            f.write(asm)
+    gemm(a.view(torch.int32), b.view(torch.int32).T.contiguous(), c)
 
     if run_bench:
         options.benchmark_results_file = perf_filename_iree
@@ -1637,7 +1556,6 @@ def testBatchedGemm(
         canonicalize=True,
         run_bench=run_bench,
         schedule=enable_scheduling,
-        use_scheduling_barriers=enable_scheduling_barriers,
         benchmark_batch_size=10,
         benchmark_repetitions=3,
         benchmark_results_file=perf_filename_tk,
@@ -1648,12 +1566,7 @@ def testBatchedGemm(
     a = device_randn(shape[0], shape[1], shape[3], dtype=torch.float16)
     b = device_randn(shape[0], shape[2], shape[3], dtype=torch.float16)
     c = device_zeros(shape[0], shape[1], shape[2], dtype=torch.float32)
-    asm = batched_gemm(a, b, c)
-
-    if dump_generated_mlir:
-        filename = f"wave_batched_gemm_{'x'.join(map(str, shape))}.mlir"
-        with open(filename, "w") as f:
-            f.write(asm)
+    batched_gemm(a, b, c)
 
     if run_bench:
         options.benchmark_results_file = perf_filename_iree
@@ -1741,7 +1654,6 @@ def testSequentialBatchedGemm(
         canonicalize=True,
         run_bench=run_bench,
         schedule=enable_scheduling,
-        use_scheduling_barriers=enable_scheduling_barriers,
         benchmark_batch_size=10,
         benchmark_repetitions=3,
         benchmark_results_file=perf_filename_tk,
@@ -1752,12 +1664,7 @@ def testSequentialBatchedGemm(
     a = device_randn(shape[0], shape[1], shape[3], dtype=torch.float16)
     b = device_randn(shape[0], shape[2], shape[3], dtype=torch.float16)
     c = device_zeros(shape[0], shape[1], shape[2], dtype=torch.float32)
-    asm = batched_gemm(a, b, c)
-
-    if dump_generated_mlir:
-        filename = f"wave_batched_gemm_{'x'.join(map(str, shape))}.mlir"
-        with open(filename, "w") as f:
-            f.write(asm)
+    batched_gemm(a, b, c)
 
     if run_bench:
         options.benchmark_results_file = perf_filename_iree
@@ -1851,7 +1758,6 @@ def testSequentialBatchedGemmWhile(
         canonicalize=True,
         run_bench=run_bench,
         schedule=enable_scheduling,
-        use_scheduling_barriers=enable_scheduling_barriers,
         benchmark_batch_size=10,
         benchmark_repetitions=3,
         benchmark_results_file=perf_filename_tk,
@@ -1863,12 +1769,7 @@ def testSequentialBatchedGemmWhile(
     a = device_randn(shape[0], shape[1], shape[3], dtype=torch.float16)
     b = device_randn(shape[0], shape[2], shape[3], dtype=torch.float16)
     c = device_zeros(shape[0], shape[1], shape[2], dtype=torch.float32)
-    asm = batched_gemm(a, b, c, 0)
-
-    if dump_generated_mlir:
-        filename = f"wave_batched_gemm_{'x'.join(map(str, shape))}.mlir"
-        with open(filename, "w") as f:
-            f.write(asm)
+    batched_gemm(a, b, c, 0)
 
     torch_ref = torch.matmul(a, b.transpose(-2, -1))
     assert_close(c.to(torch.float16), torch_ref, atol=1e-3, rtol=5e-3)
@@ -1964,7 +1865,6 @@ def testSequentialBatchedGemmWhileWithOutputSum(
         canonicalize=True,
         run_bench=run_bench,
         schedule=enable_scheduling,
-        use_scheduling_barriers=enable_scheduling_barriers,
         benchmark_batch_size=10,
         benchmark_repetitions=3,
         benchmark_results_file=perf_filename_tk,
@@ -1977,12 +1877,7 @@ def testSequentialBatchedGemmWhileWithOutputSum(
     b = device_randn(shape[0], shape[2], shape[3], dtype=torch.float16)
     c = device_zeros(shape[0], shape[1], shape[2], dtype=torch.float32)
     d = device_zeros(shape[2], shape[1], dtype=torch.float32)
-    asm = batched_gemm(a, b, c, d, 0)
-
-    if dump_generated_mlir:
-        filename = f"wave_batched_gemm_{'x'.join(map(str, shape))}.mlir"
-        with open(filename, "w") as f:
-            f.write(asm)
+    batched_gemm(a, b, c, d, 0)
 
     torch_ref = torch.matmul(a, b.transpose(-2, -1))
     assert_close(c.to(torch.float16), torch_ref, atol=1e-3, rtol=5e-3)
@@ -2067,7 +1962,6 @@ def testBatchedGemmWithPermute(
         canonicalize=True,
         run_bench=run_bench,
         schedule=enable_scheduling,
-        use_scheduling_barriers=enable_scheduling_barriers,
         benchmark_batch_size=10,
         benchmark_repetitions=3,
         benchmark_results_file=perf_filename_tk,
@@ -2078,12 +1972,7 @@ def testBatchedGemmWithPermute(
     a = device_randn(shape[0], shape[1], shape[3], dtype=torch.float16)
     b = device_randn(shape[0], shape[2], shape[3], dtype=torch.float16)
     c = device_zeros(shape[1], shape[0], shape[2], dtype=torch.float32)
-    asm = batched_gemm_with_permute(a, b, c)
-
-    if dump_generated_mlir:
-        filename = f"wave_batched_gemm_{'x'.join(map(str, shape))}.mlir"
-        with open(filename, "w") as f:
-            f.write(asm)
+    batched_gemm_with_permute(a, b, c)
 
     torch_ref = (
         torch.bmm(a, b.permute(0, 2, 1).contiguous()).permute(1, 0, 2).contiguous()
