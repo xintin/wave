@@ -188,6 +188,7 @@ def tree_speculative_sampling_target_only(
     retrive_next_token,  # [batch_size, num_draft_tokens]
     retrive_next_sibling,  # [batch_size, num_draft_tokens]
     uniform_samples,  # [batch_size, num_draft_tokens]
+    uniform_samples_for_final_sampling,  # [batch_size]
     target_probs,  # [batch_size, num_draft_tokens, vocab_size]
     draft_probs,  # [batch_size, num_draft_tokens, vocab_size]
     batch_size,
@@ -246,7 +247,7 @@ def tree_speculative_sampling_target_only(
         target_probs,
         draft_probs,
         cur_prob_offset_vec,
-        updated_coins_vec,
+        uniform_samples_for_final_sampling,
         last_accepted_retrive_idx_vec,
         accept_token_num,
         num_speculative_tokens,
@@ -349,6 +350,9 @@ def testReferenceSpeculativeDecoding(
     draft_probs = torch.full_like(target_probs, 0, dtype=torch.float32, device=device)
     coins = torch.rand(bs, num_draft_tokens, device=device, dtype=torch.float32)
 
+    # based on updated speculative decode kernel from sglang
+    coins_for_final_sampling = torch.rand((bs,), dtype=torch.float32, device=device)
+
     vocab_size = target_probs.shape[2]
 
     tree_speculative_sampling_target_only(
@@ -360,6 +364,7 @@ def testReferenceSpeculativeDecoding(
         retrive_next_token=retrive_next_token,
         retrive_next_sibling=retrive_next_sibling,
         uniform_samples=coins,
+        uniform_samples_for_final_sampling=coins_for_final_sampling,
         target_probs=target_probs,
         draft_probs=draft_probs,
         batch_size=bs,
