@@ -34,20 +34,23 @@ def get_speculative_decoding_kernel(
         SEQ_LEN: seq_len,
         BLOCK_BATCH_SIZE: 1,
         BLOCK_NUM_DRAFT_TOK: 1,
-        BLOCK_VOCAB_SIZE: 64,
+        BLOCK_VOCAB_SIZE: vocab_size,
     }
 
     dynamic_symbols = []
 
     constraints = [tkw.WorkgroupConstraint(VOCAB_SIZE, VOCAB_SIZE, 0)]
-    constraints += [tkw.WaveConstraint(VOCAB_SIZE, VOCAB_SIZE)]
     constraints += [tkw.WorkgroupConstraint(BATCH_SIZE, BLOCK_BATCH_SIZE, 1)]
+    constraints += [tkw.WaveConstraint(VOCAB_SIZE, VOCAB_SIZE)]
 
     constraints += [
         tkw.HardwareConstraint(
             threads_per_wave=64,
-            waves_per_block=(1, 1, 1),
-            vector_shapes={BATCH_SIZE: 0, NUM_DRAFT_TOKENS: 0, VOCAB_SIZE: VOCAB_SIZE},
+            vector_shapes={
+                BATCH_SIZE: 0,
+                NUM_DRAFT_TOKENS: 0,
+                VOCAB_SIZE: BLOCK_VOCAB_SIZE,
+            },
         )
     ]
 
@@ -82,7 +85,9 @@ def get_speculative_decoding_kernel(
             BATCH_SIZE, NUM_DRAFT_TOKENS, VOCAB_SIZE, GLOBAL_ADDRESS_SPACE, tkl.f32
         ],
         cur_prob_offset: tkl.Memory[BATCH_SIZE, GLOBAL_ADDRESS_SPACE, tkl.i32],
-        updated_coins_vec: tkl.Memory[BATCH_SIZE, GLOBAL_ADDRESS_SPACE, tkl.f32],
+        uniform_samples_for_final_sampling: tkl.Memory[
+            BATCH_SIZE, GLOBAL_ADDRESS_SPACE, tkl.f32
+        ],
         last_accepted_retrive_idx_vec: tkl.Memory[
             BATCH_SIZE, GLOBAL_ADDRESS_SPACE, tkl.i32
         ],
@@ -116,7 +121,7 @@ def get_speculative_decoding_kernel(
         )
         draft_probs_reg = tkw.select(condition, draft_probs_reg, zero)
 
-        coin = tkw.read(updated_coins_vec)
+        coin = tkw.read(uniform_samples_for_final_sampling)
         coin = tkw.broadcast(coin, target_shape=[BATCH_SIZE, NUM_DRAFT_TOKENS])
 
         diff = target_probs_reg - draft_probs_reg
@@ -128,7 +133,10 @@ def get_speculative_decoding_kernel(
         threshold_dist_u = tkw.broadcast(
             coin * sum_relu, target_shape=[BATCH_SIZE, NUM_DRAFT_TOKENS, VOCAB_SIZE]
         )
-        greater_than_u = cdf > threshold_dist_u
+
+        # TODO: Ideally we should be having this condition: greater_than_u = cdf > threshold_dist_u
+        # But as per the flashinfer.ai kernel, we are using the below fix to align with it.
+        greater_than_u = cdf > zero
 
         # Initializing `pad_token` to the last token in the vocabulary to be default
         # and within bounds.
