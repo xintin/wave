@@ -304,6 +304,7 @@ def testReferenceSpeculativeDecoding(
     coins = torch.rand(bs, num_draft_tokens, device=device, dtype=torch.float32)
 
     # based on updated speculative decode kernel from sglang
+    # https://github.com/harsh-nod/sglang/commit/cfceb83
     coins_for_final_sampling = torch.rand((bs,), dtype=torch.float32, device=device)
 
     vocab_size = target_probs.shape[2]

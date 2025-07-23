@@ -57,8 +57,10 @@ def get_speculative_sampling_kernel(
     constraints: list[tkw.Constraint] = [
         tkw.HardwareConstraint(
             threads_per_wave=64,
-            waves_per_block=(1, 1, 1),
             vector_shapes={
+                # Currently, in both the kernels here, we have different vector shapes wrt
+                # to the NUM_DRAFT_TOKENS: 0 and num_draft_tokens
+                # TODO: revisit to see how can we use num_draft_tokens.
                 NUM_DRAFT_TOKENS: 0,
                 J: 0,
                 CUR_INDEX: 0,

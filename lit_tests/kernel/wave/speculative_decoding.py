@@ -51,8 +51,15 @@ def test_speculative_decoding():
     # CHECK: scf.while
     # CHECK: vector.extractelement
     # CHECK: scf.condition
+    # CHECK: scf.while
     # CHECK: ^bb0
+    # CHECK: arith.divf
+    # CHECK: arith.cmpf
+    # CHECK: arith.ori
+    # CHECK: arith.xori
     # CHECK: vector.extract
+    # CHECK: scf.if
+    # CHECK: scf.if
     # CHECK: vector.load
     # CHECK: vector.store
     # CHECK: scf.yield
