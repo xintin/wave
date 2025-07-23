@@ -443,19 +443,18 @@ def _cast_buffer_and_encode_stride(
     )  # max bytes that are in range to be addressed from a buffer
     valid_bytes_constant = get_constant_attr(valid_bytes, uint32)
     valid_bytes_constant = arith_d.constant(uint32, valid_bytes_constant)
-    stride_larger_than_8192 = False
+    stride_rank = len(strides)
+    stride = None
 
-    if emitter.options.use_stride_cache_swizzle:
-        assert len(strides) >= 1
-        stride = strides[0]
-        stride_int = stride.owner.attributes["value"].value
-        if stride_int > 8192:
-            stride_larger_than_8192 = True
-            stride = None
-        else:
-            stride = arith_d.index_cast(uint14, stride)
+    if stride_rank >= 2 and emitter.options.use_stride_cache_swizzle:
+        # fastest_dim_bound == second to last stride.
+        stride_candidate = strides[-2]
+        stride_int = stride_candidate.owner.attributes["value"].value
+        # Swizzle is only useful upto swizzle stride <= 8192.
+        if stride_int <= 8192:
+            stride = arith_d.index_cast(uint14, stride_candidate)
 
-    if not stride_larger_than_8192 and emitter.options.use_stride_cache_swizzle:
+    if stride and emitter.options.use_stride_cache_swizzle:
         ptr = amdgpu_d.fat_raw_buffer_cast(
             ptr,
             cache_swizzle_stride=stride,
@@ -513,11 +512,9 @@ def _create_vec_read_write(
         IndexingContext.current(), symbolic_shape, allow_mixed_shapes=True
     )
     has_int_strides = all(isinstance(s, int) for s in strides)
+    strides = [gen_sympy_index(add_emitter_subs(emitter), s) for s in strides]
 
-    if has_int_strides:
-        strides = [gen_sympy_index(add_emitter_subs(emitter), s) for s in strides]
-
-    buffer_ops_enabled = buffer_ops_enabled and use_buffer_ops and has_int_strides
+    buffer_ops_enabled = buffer_ops_enabled and use_buffer_ops
     no_masked_load_store_ops = buffer_ops_enabled
 
     mask_splat = _get_splat_input(mask)
@@ -527,6 +524,7 @@ def _create_vec_read_write(
         vector_type = value.type
 
     element_type = vector_type.element_type
+    # Case 1: Generate load/stores with no mask and no offset
     if mask is None and offsets_vec is None:
         offset_th = None
         if buffer_ops_enabled:
@@ -553,6 +551,7 @@ def _create_vec_read_write(
         )
         mask = _constant_mask(mask_vec_type)
 
+    # Case 2: Generate load/stores with no offset
     if offsets_vec is None:
         # make offsets 0, 1, 2 ...
         offsets_vec_type = VectorType.get(vector_type.shape, IndexType.get())
@@ -640,6 +639,11 @@ def _create_vec_read_write(
                 vector_d.maskedstore(mem, indices, mask, value)
                 return
 
+    # Case 3: Generate efficient "unrolled" gather and scatter using vector.load/store if strides are constants.
+    #
+    # Per vector.gather/vector.scatter ABI, case 3 and 4 takes N-d indices as base offset,
+    # and offset_vec which is vector of linearized indices as additional offsets.
+    # TODO: Drop case 3 and case 4, by adding support for non-trivial mapping and readOps on partition_strided_operator.
     if has_int_strides:
         vec1 = VectorType.get([1], element_type)
         vec1_mask = VectorType.get([1], IntegerType.get_signless(1))
@@ -708,6 +712,7 @@ def _create_vec_read_write(
 
             return
 
+    # Case 4: Default gather scatter case (slowest path).
     if is_read:
         passthru = vector_d.splat(vector_type, zero)
         return vector_d.gather(
