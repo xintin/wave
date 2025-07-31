@@ -144,7 +144,7 @@ def main():
         config = json.load(f)
 
     # Run benchmark for each configuration
-    for shape_config in config["shapes"]:
+    for shape_config in config["bhsd_shapes"]:
         benchmark_sdpa(
             shape_config["batch_size"],
             shape_config["num_heads"],
