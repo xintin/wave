@@ -98,7 +98,7 @@ def benchmark_sdpa(
     print(df_kernel_info)
     print(df_top)
     conn.close()
-    avg_time = df_top["Ave_us"][0] / 1e6
+    avg_time = df_top["Ave"][0] / 1e6
 
     throughput = (
         4 * batch_size * num_heads * seq_len_q * seq_len_k * head_dim
