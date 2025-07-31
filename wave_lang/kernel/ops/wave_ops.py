@@ -187,6 +187,9 @@ def roundeven(src: "Register") -> "Register": ...
 def sin(src: "Register") -> "Register": ...
 
 
+def sinh(src: "Register") -> "Register": ...
+
+
 def maximum(lhs: "Register", rhs: "Register") -> "Register": ...
 
 
@@ -934,6 +937,7 @@ class ComparisonPyOp(BinaryOpBase, ABC):
 @define_interface_op("reciprocal")
 @define_interface_op("roundeven")
 @define_interface_op("sin")
+@define_interface_op("sinh")
 @define_interface_op("tanh")
 @define_interface_op("tanh_approx")
 @define_interface_op("cos")
