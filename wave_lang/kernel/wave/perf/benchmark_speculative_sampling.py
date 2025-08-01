@@ -1,3 +1,9 @@
+# Copyright 2025 The IREE Authors
+#
+# Licensed under the Apache License v2.0 with LLVM Exceptions.
+# See https://llvm.org/LICENSE.txt for license information.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 import logging
 
 logging.basicConfig(
@@ -11,15 +17,15 @@ import importlib
 import json
 
 from pathlib import Path
-import sqlite3
 import sys
 from typing import Any, Dict, List
 
-import pandas as pd
 import torch
 
 from wave_lang.kernel.lang.global_symbols import *
 from tests.kernel.wave.speculative_decode_test import testReferenceSpeculativeDecoding
+
+from wave_lang.kernel.wave.perf.utils import analyze_rpd_trace
 
 rpd_tracer_module = importlib.util.find_spec("rpdTracerControl")
 if rpd_tracer_module is None:
@@ -75,38 +81,10 @@ def benchmark_speculative_sampling(
     tracer.flush()
 
     # Read profiling output and compute average time for speculative_sampling
-    with sqlite3.connect(output_filename) as conn:
-        # Read kernel timing summary
-        df_top = pd.read_sql_query("SELECT * FROM top", conn)
-        if df_top.empty:
-            logger.error("Empty 'top' dataframe from profiling output.")
-            raise ValueError("'df_top' DataFrame is empty.")
-
-        # Read detailed kernel launch info
-        df_kernel_info = pd.read_sql_query(
-            """
-            SELECT s1.string AS api_name, k.stream, k.gridX, k.gridY, k.gridZ,
-                k.workgroupX, k.workgroupY, k.workgroupZ, s2.string AS kernel_name
-            FROM rocpd_kernelapi k
-            LEFT JOIN rocpd_string s1 ON k.api_ptr_id = s1.id
-            LEFT JOIN rocpd_string s2 ON k.kernelName_id = s2.id;
-            """,
-            conn,
-        ).drop_duplicates()
-
-    # Log detailed information
-    logger.info("Kernel Info:\n%s", df_kernel_info)
-    logger.info("Top Kernels:\n%s", df_top)
-
-    # Extract average time for the speculative_sampling kernel
-    spec_row = df_top[df_top["Name"] == "speculative_sampling"]
-    if spec_row.empty:
-        logger.warning("No entry found for 'speculative_sampling' kernel.")
-        avg_time_ms = 0.0
-    else:
-        avg_time_ms = spec_row["Ave_us"].iloc[0] / 1e3  # Convert µs to ms
-
-    logger.info("Average time for 'speculative_sampling': %.3f ms", avg_time_ms)
+    avg_time_us, _, _ = analyze_rpd_trace(
+        output_filename, kernel_name="speculative_sampling"
+    )
+    logger.info("Average time for 'speculative_sampling': %.3f us", avg_time_us)
 
 
 def main() -> None:
