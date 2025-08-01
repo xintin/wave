@@ -116,7 +116,7 @@ jobs:
     runs-on: ${{matrix.os}}
     timeout-minutes: 60
     needs: build_llvm_linux
-    if: github.event.pull_request.draft == false
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     env:
       VENV_DIR: ${{ github.workspace }}/.wave-venv
     steps:
