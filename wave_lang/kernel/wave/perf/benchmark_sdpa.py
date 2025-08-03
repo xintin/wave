@@ -5,41 +5,54 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 import argparse
-import json
-from typing import Callable
+import logging
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+import json
 import torch
 
 import wave_lang.kernel.wave.nn as wave_nn
-from wave_lang.kernel.wave.perf.utils import analyze_rpd_trace
-
-try:
-    from rpdTracerControl import rpdTracerControl
-except ImportError:
-    print("rpdTraceControl not found, skipping profiling")
-    exit(1)
+from wave_lang.kernel.wave.perf.utils import BaseBenchmark, benchmark_kernel
 
 try:
     from flash_attn import flash_attn_func
 
-    flash_attn_enabled = True
+    _flash_attn_enabled = True
 except:
-    flash_attn_enabled = False
-
-DEFAULT_OUTPUT_FILENAME = "trace.rpd"
+    _flash_attn_enabled = False
 
 
-def benchmark_sdpa(
-    batch_size: int,
-    num_heads: int,
-    seq_len_q: int,
-    seq_len_k: int,
-    head_dim: int,
-    num_warmup: int,
-    num_iterations: int,
-    func: Callable,
-    output_filename: str = DEFAULT_OUTPUT_FILENAME,
-):
+class SPDABenchmark(BaseBenchmark):
+    def __init__(self):
+        usage = (
+            "Example:\n"
+            "  python -u wave_lang/kernel/wave/perf/benchmark_sdpa.py \\\n"
+            "    --config wave_lang/kernel/wave/perf/benchmark_configs.json \\\n"
+            "    --num_warmup 10 \\\n"
+            "    --num_iterations 100 \\\n"
+            "    --output bm_trace.rpd \\\n"
+            "    [--fa]\n\n"
+            "Notes:\n"
+            "  --fa : Use FlashAttention instead of Wave kernel (if available).\n"
+        )
+        super().__init__(
+            description="Benchmark Wave attention (sdpa) kernel",
+            epilog=usage,
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+        )
+        self.parser.add_argument(
+            "--fa",
+            action="store_true",
+            help="Benchmark FlashAttention attention kernel",
+        )
+
+
+def benchmark_sdpa():
     """Benchmark wave_sdpa with given BHSD shapes.
 
     Args:
@@ -51,100 +64,71 @@ def benchmark_sdpa(
         num_warmup: Number of warmup iterations
         num_iterations: Number of benchmark iterations
     """
-    device = torch.device("cuda:0")
+    args = SPDABenchmark().parse()
 
-    # Create input tensors
-    query = torch.randn(
-        [batch_size, num_heads, seq_len_q, head_dim], device=device, dtype=torch.float16
-    )
-    key = torch.randn(
-        [batch_size, num_heads, seq_len_k, head_dim], device=device, dtype=torch.float16
-    )
-    value = torch.randn(
-        [batch_size, num_heads, seq_len_k, head_dim], device=device, dtype=torch.float16
-    )
-
-    # Warmup
-    for _ in range(num_warmup):
-        _ = func(query, key, value)
-
-    # Synchronize GPU
-    torch.cuda.synchronize()
-
-    # Initialize RPD tracer
-    rpdTracerControl.setFilename(name=output_filename, append=False)
-    tracer = rpdTracerControl()
-    tracer.start()
-
-    # Benchmark with profiling
-    for _ in range(num_iterations):
-        _ = func(query, key, value)
-    torch.cuda.synchronize()
-
-    # Stop profiling and get results
-    tracer.stop()
-    tracer.flush()
-
-    # Read profiling output and compute average time for speculative_sampling
-    avg_time_us, _, _ = analyze_rpd_trace(output_filename, kernel_name="base_attention")
-
-    throughput = (4 * batch_size * num_heads * seq_len_q * seq_len_k * head_dim) / (
-        avg_time_us / 1e6
-    )
-
-    print(f"\nBenchmark Results for BHSD shapes:")
-    print(f"Batch size: {batch_size}")
-    print(f"Number of heads: {num_heads}")
-    print(f"Query sequence length: {seq_len_q}")
-    print(f"Key sequence length: {seq_len_k}")
-    print(f"Head dimension: {head_dim}")
-    print(f"Average time per iteration: {avg_time_us / 1000:.2f} ms")
-    print(f"Throughput: {throughput / 1e12:.2f} TFLOPs")
-
-
-def main():
-    parser = argparse.ArgumentParser(description="Benchmark wave_sdpa with BHSD shapes")
-    parser.add_argument(
-        "--output", type=str, default="trace.rpd", help="Path to output trace file"
-    )
-    parser.add_argument(
-        "--config", type=str, required=True, help="Path to JSON config file"
-    )
-    parser.add_argument(
-        "--num_warmup", type=int, default=10, help="Number of warmup iterations"
-    )
-    parser.add_argument(
-        "--num_iterations", type=int, default=100, help="Number of benchmark iterations"
-    )
-    parser.add_argument(
-        "--fa", action="store_true", help="Benchmark FA instead of Wave, if available"
-    )
-
-    args = parser.parse_args()
-    global flash_attn_enabled
-    if args.fa and not flash_attn_enabled:
+    if args.fa and not _flash_attn_enabled:
         raise ValueError("FA enabled but not installed on system!")
 
-    flash_attn_enabled = args.fa and flash_attn_enabled
+    use_flash_attn = args.fa and _flash_attn_enabled
 
     # Load configuration from JSON file
     with open(args.config, "r") as f:
         config = json.load(f)
 
+    device = torch.device("cuda:0")
+
     # Run benchmark for each configuration
-    for shape_config in config["bhsd_shapes"]:
-        benchmark_sdpa(
-            shape_config["batch_size"],
-            shape_config["num_heads"],
-            shape_config["seq_len_q"],
-            shape_config["seq_len_k"],
-            shape_config["head_dim"],
-            args.num_warmup,
-            args.num_iterations,
-            flash_attn_func if flash_attn_enabled else wave_nn.functional.wave_sdpa,
-            args.output,
+    for shape_config in config["attention_bhsd_shapes"]:
+        batch_size = shape_config["batch_size"]
+        num_heads = shape_config["num_heads"]
+        seq_len_q = shape_config["seq_len_q"]
+        seq_len_k = shape_config["seq_len_k"]
+        head_dim = shape_config["head_dim"]
+
+        # Create input tensors
+        query = torch.randn(
+            [batch_size, num_heads, seq_len_q, head_dim],
+            device=device,
+            dtype=torch.float16,
         )
+        key = torch.randn(
+            [batch_size, num_heads, seq_len_k, head_dim],
+            device=device,
+            dtype=torch.float16,
+        )
+        value = torch.randn(
+            [batch_size, num_heads, seq_len_k, head_dim],
+            device=device,
+            dtype=torch.float16,
+        )
+
+        sdpa_inputs = lambda: (query, key, value)
+
+        # Read profiling output and compute average time for speculative_sampling
+        avg_time_us, _, _ = benchmark_kernel(
+            inputs=sdpa_inputs,
+            kernel_func=(
+                flash_attn_func if use_flash_attn else wave_nn.functional.wave_sdpa
+            ),
+            warmup_iters=args.num_warmup,
+            benchmark_iters=args.num_iterations,
+            output_filename=args.output,
+            kernel_name="base_attention",
+        )
+
+        throughput = (4 * batch_size * num_heads * seq_len_q * seq_len_k * head_dim) / (
+            avg_time_us / 1e6
+        )
+
+        logger.info("\nBenchmark Results for BHSD shapes:")
+        logger.info("Batch size: %d", batch_size)
+        logger.info("Number of heads: %d", num_heads)
+        logger.info("Query sequence length: %d", seq_len_q)
+        logger.info("Key sequence length: %d", seq_len_k)
+        logger.info("Head dimension: %d", head_dim)
+        logger.info("Average time per iteration: %.2f ms", avg_time_us / 1000)
+        logger.info("Throughput: %.2f TFLOPs", throughput / 1e12)
 
 
 if __name__ == "__main__":
-    main()
+    benchmark_sdpa()

@@ -6,22 +6,117 @@
 
 import logging
 
-import sqlite3
-import pandas as pd
-from typing import Tuple
-
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
+import argparse
+import importlib
+import sqlite3
 
-def analyze_rpd_trace(
-    output_filename: str, kernel_name: str = None
-) -> Tuple[pd.DataFrame, pd.DataFrame, float]:
-    """Analyze RPD trace and return kernel info, top summary, and kernel avg time (us)."""
+from typing import Callable, Optional, Tuple
+
+import pandas as pd
+import torch
+
+# Safe RPD tracer loader
+rpd_tracer_spec = importlib.util.find_spec("rpdTracerControl")
+if rpd_tracer_spec is None:
+    raise ImportError("rpdTracerControl not found. Profiling is disabled.")
+rpdTracerControl = importlib.import_module("rpdTracerControl").rpdTracerControl
+
+DEFAULT_OUTPUT_FILENAME = "trace.rpd"
+
+
+class BaseBenchmark:
+    """Base parser class for benchmarking kernels."""
+
+    def __init__(
+        self,
+        description: str = "Benchmarking CLI for Wave kernels",
+        epilog: str = "",
+        formatter_class=argparse.RawTextHelpFormatter,
+    ):
+        self.parser = argparse.ArgumentParser(
+            description=description,
+            epilog=epilog,
+            formatter_class=formatter_class,
+        )
+        self._add_common_args()
+
+    def _add_common_args(self) -> None:
+        self.parser.add_argument(
+            "--output",
+            type=str,
+            default=DEFAULT_OUTPUT_FILENAME,
+            help="Path to output trace file",
+        )
+        self.parser.add_argument(
+            "--config", type=str, required=True, help="Path to JSON config file"
+        )
+        self.parser.add_argument(
+            "--num_warmup", type=int, default=10, help="Number of warmup iterations"
+        )
+        self.parser.add_argument(
+            "--num_iterations",
+            type=int,
+            default=100,
+            help="Number of benchmark iterations",
+        )
+
+    def parse(self):
+        return self.parser.parse_args()
+
+
+def benchmark_kernel(
+    inputs: Callable[[], Tuple],
+    kernel_func: Callable,
+    warmup_iters: int,
+    benchmark_iters: int,
+    output_filename: str,
+    kernel_name: Optional[str] = None,
+) -> Tuple[float, pd.DataFrame, pd.DataFrame]:
+    """
+    Run benchmark on `kernel_func` using inputs from `prepare_inputs`.
+
+    Args:
+        inputs: Function returning args to pass to kernel_func
+        kernel_func: Kernel function to profile
+        warmup_iters: Number of warmup runs (not profiled)
+        benchmark_iters: Number of profiled runs
+        output_filename: File to write RPD trace to
+        kernel_name: Kernel name to be profiled
+
+    Returns:
+        Tuple of (avg_time_us, kernel_info_df, top_df)
+    """
+    # Warmup
+    for _ in range(warmup_iters):
+        kernel_func(*inputs())
+
+    # Synchronize GPU
+    torch.cuda.synchronize()
+
+    # Initialize RPD tracer
+    rpdTracerControl.setFilename(name=output_filename, append=False)
+    tracer = rpdTracerControl()
+    tracer.start()
+
+    # Benchmark with profiling
+    for _ in range(benchmark_iters):
+        kernel_func(*inputs())
+
+    torch.cuda.synchronize()
+
+    # Stop profiling and get results
+    tracer.stop()
+    tracer.flush()
+
     with sqlite3.connect(output_filename) as conn:
+        # Analyze RPD trace and return (avg time in µs, kernel_info_df, top_df).
         df_top = pd.read_sql_query("SELECT * FROM top", conn)
         if df_top.empty:
             logger.error("Empty 'top' dataframe from profiling output.")
@@ -38,17 +133,14 @@ def analyze_rpd_trace(
             conn,
         ).drop_duplicates()
 
-    logger.info("Kernel Info:\n%s", df_kernel_info)
-    logger.info("Top Kernels:\n%s", df_top)
+    logger.debug("Kernel Info:\n%s", df_kernel_info)
+    logger.info("Top Kernels:\n%s", df_top.head(100))
 
-    avg_time_us = 0.0
-    if kernel_name:
-        kernel_row = df_top[df_top["Name"] == kernel_name]
-        if not kernel_row.empty:
-            avg_time_us = kernel_row["Ave_us"].iloc[0]
-        else:
-            logger.warning(f"No entry found for '{kernel_name}' kernel.")
+    row = df_top[df_top["Name"] == kernel_name]
+    if not row.empty:
+        avg_time_us = row["Ave_us"].iloc[0]
     else:
-        avg_time_us = df_top["Ave_us"].iloc[0]
+        logger.warning("Kernel '%s' not found in profiling trace.", kernel_name)
+        avg_time_us = 0.0
 
-    return avg_time_us, df_kernel_info, df_top
+    return (avg_time_us, df_kernel_info, df_top)
