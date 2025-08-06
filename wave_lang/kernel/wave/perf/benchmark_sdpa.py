@@ -5,13 +5,13 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 import argparse
-from wave_lang.support.logging import get_logger
-
 import json
+
 import torch
 
 import wave_lang.kernel.wave.nn as wave_nn
 from wave_lang.kernel.wave.perf.utils import BaseBenchmark, benchmark_kernel
+from wave_lang.support.logging import get_logger
 
 try:
     from flash_attn import flash_attn_func

@@ -4,18 +4,15 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-from wave_lang.support.logging import get_logger
-
 import argparse
 import json
-
 from pathlib import Path
 from typing import Any, Dict, List
 
-from wave_lang.kernel.lang.global_symbols import *
-
-from wave_lang.kernel.wave.perf.utils import BaseBenchmark, benchmark_kernel
 from tests.kernel.wave.speculative_decode_test import testReferenceSpeculativeDecoding
+from wave_lang.kernel.lang.global_symbols import *
+from wave_lang.kernel.wave.perf.utils import BaseBenchmark, benchmark_kernel
+from wave_lang.support.logging import get_logger
 
 logger = get_logger("wave.perf.benchmark_speculative_sampling")
 
