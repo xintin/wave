@@ -4,13 +4,7 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-import logging
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-)
-logger = logging.getLogger(__name__)
+from wave_lang.support.logging import get_logger
 
 import argparse
 import json
@@ -23,11 +17,14 @@ from wave_lang.kernel.lang.global_symbols import *
 from wave_lang.kernel.wave.perf.utils import BaseBenchmark, benchmark_kernel
 from tests.kernel.wave.speculative_decode_test import testReferenceSpeculativeDecoding
 
+logger = get_logger("wave.perf.benchmark_speculative_sampling")
+
 
 class SpecSamplingBenchmark(BaseBenchmark):
     def __init__(self):
         usage = (
             "Example:\n"
+            "  WAVE_LOG_LEVEL=INFO \\\n"
             "  python -u wave_lang/kernel/wave/perf/benchmark_speculative_sampling.py \\\n"
             "    --config wave_lang/kernel/wave/perf/benchmark_configs.json \\\n"
             "    --num_warmup 10 \\\n"

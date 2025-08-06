@@ -4,14 +4,7 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-import logging
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-)
-logger = logging.getLogger(__name__)
+from wave_lang.support.logging import get_logger
 
 import argparse
 import importlib
@@ -22,7 +15,10 @@ from typing import Callable, Optional, Tuple
 import pandas as pd
 import torch
 
-# Safe RPD tracer loader
+logger = get_logger("wave.perf.utils")
+
+# Import rpdTracerControl, required for profiling.
+# If the library is unavailable, profiling will be skipped.
 rpd_tracer_spec = importlib.util.find_spec("rpdTracerControl")
 if rpd_tracer_spec is None:
     raise ImportError("rpdTracerControl not found. Profiling is disabled.")
