@@ -441,8 +441,6 @@ def define_interface_op(op_name: str) -> Callable[[T], T]:
 
 def get_custom(node: fx.Node) -> "CustomOp":
     """Get the corresponding CustomOp for a given fx.Node."""
-    if isinstance(node, CustomOp):
-        raise ValueError(f"fx.Node required but got custom op {node}")
     if not isinstance(node, fx.Node):
         raise ValueError(f"Expected an fx.Node but got {type(node)}")
 
@@ -1881,13 +1879,10 @@ class Iterate(NestedRegionOp):
     @property
     def indexing_dims(self) -> list[IndexSymbol] | list[list[IndexSymbol]]:
         expand_dims: list[IndexSymbol] = []
-        return_node = [
-            nested_node
-            for nested_node in self.get_root_graph().subgraphs[self.subgraph_name].nodes
-            if isinstance(get_custom(nested_node), Output)
-        ]
-        assert len(return_node) == 1
-        return_vals = get_custom(return_node[0]).return_vals[0]
+        subgraph = self.get_root_graph().subgraphs[self.subgraph_name]
+        return_node = get_custom(subgraph.output_node())
+        assert isinstance(return_node, Output)
+        return_vals = return_node.return_vals[0]
         if not isinstance(return_vals, Sequence):
             return_vals = [return_vals]
         for return_val in return_vals:
@@ -1921,21 +1916,22 @@ class Iterate(NestedRegionOp):
 
     @property
     def index(self) -> list[dict[IndexSymbol, IndexSequence]]:
-        for node in self.get_root_graph().subgraphs[self.subgraph_name].nodes:
-            if isinstance(output := get_custom(node), Output):
-                return_vals = output.return_vals[0]
-                return (
-                    [
-                        (
-                            get_custom(val).acc_index
-                            if isinstance(get_custom(val), (MMA, ScaledMMA))
-                            else val.index
-                        )
-                        for val in return_vals
-                    ]
-                    if isinstance(return_vals, (Sequence))
-                    else return_vals.index
+        subgraph = self.get_root_graph().subgraphs[self.subgraph_name]
+        output = get_custom(subgraph.output_node())
+        assert isinstance(output, Output)
+        return_vals = output.return_vals[0]
+        return (
+            [
+                (
+                    get_custom(val).acc_index
+                    if isinstance(get_custom(val), (MMA, ScaledMMA))
+                    else val.index
                 )
+                for val in return_vals
+            ]
+            if isinstance(return_vals, (Sequence))
+            else return_vals.index
+        )
 
     @index.setter
     def index(self, value: Any):
@@ -2219,9 +2215,11 @@ class GetResult(CustomOp):
             return custom_index
         if not isinstance(custom_index, Sequence):
             return custom_index
-        assert self.res_idx < len(
-            custom.indexing_dims
-        ), f"Invalid {custom_index=} with {self.res_idx=} and {custom.indexing_dims=}\n{custom}"
+
+        # `indexing_dims` is way too expensive to use it in assert.
+        # assert self.res_idx < len(
+        #     custom.indexing_dims
+        # ), f"Invalid {custom_index=} with {self.res_idx=} and {custom.indexing_dims=}\n{custom}"
         return custom_index[self.res_idx]
 
     @index.setter
