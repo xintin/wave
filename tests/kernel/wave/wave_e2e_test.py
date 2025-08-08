@@ -1838,6 +1838,7 @@ def test_block_scanop_cumsum(shape, run_bench):
             ADDRESS_SPACE: tkl.AddressSpace.GLOBAL_MEMORY.value,
         },
         canonicalize=True,
+        wave_runtime=True,
         run_bench=run_bench,
     )
     options = set_default_run_config(options)
