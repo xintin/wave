@@ -403,6 +403,16 @@ def get_paged_decode_attention_kernels(
             res = tkw.broadcast(res, target_shape=[U, S, N, B])
             tkw.write(res, output, mapping=logits_mapping)
 
+        # `sympy.Eq` is used because `==` tests for exact structural equality rather than symbolic equality
+        #
+        # See https://docs.sympy.org/dev/tutorials/intro-tutorial/gotchas.html#equals-signs
+        @tkw.conditional(sympy.Eq(SPLIT_LEN, 0))
+        def then():
+            # `res_max` is filled with -1e6, `res` is filled with 0 (see `init_max` and `new_acc`)
+            tkw.write(res_max, output_max)
+            res = tkw.broadcast(res_mm, target_shape=[U, S, N, B])
+            tkw.write(res, output, mapping=logits_mapping)
+
     @tkw.wave(get_constraints(Phase.PHASE_1))
     def phase_1(
         logits: tkl.Memory[U, S, B, N, GLOBAL_ADDRESS_SPACE, tkl.f32],

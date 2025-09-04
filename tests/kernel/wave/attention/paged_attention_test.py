@@ -19,6 +19,7 @@ from wave_lang.kernel.wave.utils.torch_utils import (
     device_randint,
     device_randn,
     device_zeros,
+    device_empty,
 )
 from wave_lang.kernel.wave.compile import WaveCompileOptions, wave_compile
 from wave_lang.kernel.wave.constraints import MMAType, GenericDot, MMAOperand
@@ -56,6 +57,10 @@ shapes += [expensive_test_param((32, 8, 128, 128, 32, 1319, 1018))]
 # This example requires 2 workgroups, since HEAD_BLOCK_SIZE will be 16 while the
 # number of query heads is 17
 shapes += [(17, 1, 1, 1, 1, 1, 1)]
+
+# Test KV splits where some splits do no work: [2, 2, 2, 2, 1, 0, 0, 0]
+# Assumes num_kv_splits is 8
+shapes += [(2, 1, 1, 1, 1, 1, 9)]
 
 # Test shapes for MHA paged attention
 # (NUM_HEADS, HEAD_SIZE_QK, HEAD_SIZE_V, BLOCK_SIZE, NUM_SEQS, SEQ_LEN)
@@ -280,9 +285,9 @@ def testPagedFlashDecoding(
         get_paged_decode_intermediate_arrays_shapes(shape, num_kv_splits)
     )
 
-    phase_0_output = device_zeros(phase_0_output_shape, dtype=torch.float32)
-    phase_0_output_max = device_zeros(phase_0_output_max_shape, dtype=torch.float32)
-    output = device_zeros(
+    phase_0_output = device_empty(phase_0_output_shape, dtype=torch.float32)
+    phase_0_output_max = device_empty(phase_0_output_max_shape, dtype=torch.float32)
+    output = device_empty(
         shape.num_seqs, shape.num_query_heads, shape.head_size_kv, dtype=dtype
     )
 
@@ -444,9 +449,9 @@ def testPagedFlashDecodingMHA(
         get_paged_decode_intermediate_arrays_shapes(shape, num_kv_splits)
     )
 
-    phase_0_output = device_zeros(phase_0_output_shape, dtype=torch.float32)
-    phase_0_output_max = device_zeros(phase_0_output_max_shape, dtype=torch.float32)
-    output = device_zeros(
+    phase_0_output = device_empty(phase_0_output_shape, dtype=torch.float32)
+    phase_0_output_max = device_empty(phase_0_output_max_shape, dtype=torch.float32)
+    output = device_empty(
         shape.num_seqs, shape.num_query_heads, shape.head_size_kv, dtype=dtype
     )
 
