@@ -341,6 +341,7 @@ def wave_compile(options: WaveCompileOptions, kernel: "LaunchableWave") -> WaveK
             != LocationCaptureLevel.NONE,
             use_local_scope=options.use_local_scope,
         )
+        breakpoint()
 
         if options.print_mlir:
             if options.print_mlir_file:

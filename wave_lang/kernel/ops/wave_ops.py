@@ -2403,11 +2403,13 @@ class ScanOp(CustomOp, ABC):
     arg: Source tensor/value to scan.
     init: Optional initial value.
     dim: Symbolic dimension along which to scan.
+    block_scan: When set to true, reduce across block, else reduce across warp.
     """
 
     arg: fx.Node | list[fx.Node]
     init: Optional[fx.Node] = None
     dim: Optional[IndexSymbol] = None
+    block_scan: Optional[bool] = False
 
     @property
     def indexing_dims(self) -> list[IndexSymbol]:
