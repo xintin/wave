@@ -14,6 +14,10 @@ from wave_lang.kernel.wave.utils.compile_utils import (
 from wave_lang.kernel.wave.utils.general_utils import (
     run_test,
 )
+from wave_lang.support.location_config import (
+    LocationCaptureConfig,
+    LocationCaptureLevel,
+)
 
 M = tkl.sym.M
 N = tkl.sym.N
@@ -30,7 +34,13 @@ ADDRESS_SPACE_0 = tkl.sym.ADDRESS_SPACE_0
 
 
 def get_wave_compile_options(
-    canonicalize: bool = False, dynamic_symbols=[], additional_symbols={}
+    canonicalize: bool = False,
+    dynamic_symbols=[],
+    additional_symbols={},
+    location_capture_config=LocationCaptureConfig(
+        level=LocationCaptureLevel.FILE_LINE_COL
+    ),
+    drop_debug_info_before_mlir=True,
 ):
     bindings = {
         M: 16,
@@ -53,6 +63,8 @@ def get_wave_compile_options(
         canonicalize=canonicalize,
         dynamic_symbols=dynamic_symbols,
         compile_to_mlir=True,
+        location_capture_config=location_capture_config,
+        drop_debug_info_before_mlir=drop_debug_info_before_mlir,
     )
 
 
@@ -155,6 +167,9 @@ def test_read_mapped_buffer():
         use_buffer_ops=True,
         compile_to_mlir=True,
         canonicalize=False,
+        location_capture_config=LocationCaptureConfig(
+            level=LocationCaptureLevel.FILE_LINE_COL
+        ),
     )
     read_mapped_buffer = wave_compile(options, read_mapped_buffer)
     print(read_mapped_buffer.asm)
