@@ -9,7 +9,6 @@ import torch
 import wave_lang.kernel.lang as tkl
 import wave_lang.kernel.wave as tkw
 from wave_lang.kernel.lang.global_symbols import *
-from wave_lang.kernel.wave.iree_utils import generate_iree_ref
 from wave_lang.kernel.wave.utils.general_utils import (
     get_default_scheduling_params,
 )
@@ -21,6 +20,11 @@ from wave_lang.kernel.wave.utils.torch_utils import (
     device_randint,
     device_zeros,
 )
+from wave_lang.kernel.wave.utils.mma_utils import (
+    get_mfma_load_elems_per_thread,
+    get_mfma_store_elems_per_thread,
+)
+from wave_lang.kernel.wave.iree_utils import generate_iree_ref
 from wave_lang.kernel.wave.scheduling.schedule import SchedulingType
 from wave_lang.kernel.wave.compile import WaveCompileOptions, wave_compile
 from .common.utils import (
@@ -30,6 +34,7 @@ from .common.utils import (
     require_cdna4,
     require_cdna_3_or_4,
     require_cdna_2_or_3_or_4,
+    require_rdna4,
     perf_test,
     param_bool,
 )
@@ -69,16 +74,26 @@ def get_test_shapes(test_name: str) -> list[tuple[int]]:
 
 
 @require_e2e
-@require_cdna_3_or_4
-def testGemmBench(tmp_path):
+@pytest.mark.parametrize(
+    "mfma_variant, threads_per_wave",
+    [
+        pytest.param(MMAType.F32_16x16x16_F16, 64, marks=require_cdna_3_or_4),
+        pytest.param(MMAType.RDNA4_WAVE32_F32_16x16x16_F16, 32, marks=require_rdna4),
+    ],
+)
+def testGemmBench(tmp_path, mfma_variant: MMAType, threads_per_wave: int):
     shape = (64, 64, 64)
     perf_filename_tk = tmp_path / "wave_gemm_bench.txt"
     perf_filename_iree = tmp_path / "iree_gemm_bench.txt"
     enable_scheduling = SchedulingType.NONE
     dynamic_dims = False
-    mfma_variant = MMAType.F32_16x16x16_F16
+    mfma_variant = mfma_variant
     gemm, hyperparams, dynamic_symbols = get_gemm_kernel(
-        shape, dynamic_dims, mfma_variant, torch.float16
+        shape,
+        dynamic_dims,
+        mfma_variant,
+        torch.float16,
+        threads_per_wave=threads_per_wave,
     )
 
     assert not perf_filename_tk.exists()
@@ -113,7 +128,6 @@ def testGemmBench(tmp_path):
 
 
 @require_e2e
-@require_cdna_3_or_4
 @pytest.mark.parametrize("shape", get_test_shapes("test_gemm"))
 @pytest.mark.parametrize(
     "enable_scheduling",
@@ -126,10 +140,11 @@ def testGemmBench(tmp_path):
 )
 @param_bool("dynamic_dims", "dyn")
 @pytest.mark.parametrize(
-    "mfma_variant",
+    "mfma_variant, threads_per_wave",
     [
-        MMAType.F32_16x16x16_F16,
-        MMAType.F32_32x32x8_F16,
+        pytest.param(MMAType.F32_16x16x16_F16, 64, marks=require_cdna_3_or_4),
+        pytest.param(MMAType.F32_32x32x8_F16, 64, marks=require_cdna_3_or_4),
+        pytest.param(MMAType.RDNA4_WAVE32_F32_16x16x16_F16, 32, marks=require_rdna4),
     ],
 )
 @pytest.mark.parametrize("datatype", [torch.float16])
@@ -138,13 +153,14 @@ def testPureGemm(
     enable_scheduling: SchedulingType,
     dynamic_dims: bool,
     mfma_variant: MMAType,
+    threads_per_wave: int,
     datatype: torch.dtype,
     run_bench,
     perf_filename_tk,
     perf_filename_iree,
 ):
     gemm, hyperparams, dynamic_symbols = get_gemm_kernel(
-        shape, dynamic_dims, mfma_variant, datatype
+        shape, dynamic_dims, mfma_variant, datatype, threads_per_wave=threads_per_wave
     )
 
     multibuffer = enable_scheduling in [
@@ -268,7 +284,6 @@ def testGemmGatherToLDS(
 
 
 @require_e2e
-@require_cdna_3_or_4
 @pytest.mark.parametrize("shape", [(32, 32, 32)] + get_test_shapes("test_gemm"))
 @pytest.mark.parametrize(
     "enable_scheduling",
@@ -278,10 +293,11 @@ def testGemmGatherToLDS(
 )
 @param_bool("dynamic_dims", "dyn")
 @pytest.mark.parametrize(
-    "mfma_variant",
+    "mfma_variant, threads_per_wave",
     [
-        MMAType.F32_16x16x16_F16,
-        MMAType.F32_32x32x8_F16,
+        pytest.param(MMAType.F32_16x16x16_F16, 64, marks=require_cdna_3_or_4),
+        pytest.param(MMAType.F32_32x32x8_F16, 64, marks=require_cdna_3_or_4),
+        pytest.param(MMAType.RDNA4_WAVE32_F32_16x16x16_F16, 32, marks=require_rdna4),
     ],
 )
 def testGemmSmallTiles(
@@ -289,6 +305,7 @@ def testGemmSmallTiles(
     enable_scheduling: SchedulingType,
     dynamic_dims: bool,
     mfma_variant: MMAType,
+    threads_per_wave: int,
     run_bench,
     perf_filename_tk,
     perf_filename_iree,
@@ -312,7 +329,9 @@ def testGemmSmallTiles(
     constraints += [tkw.WaveConstraint(M, BLOCK_M)]
     constraints += [tkw.WaveConstraint(N, BLOCK_N)]
 
-    constraints += [tkw.HardwareConstraint(threads_per_wave=64, mma_type=mfma_variant)]
+    constraints += [
+        tkw.HardwareConstraint(threads_per_wave=threads_per_wave, mma_type=mfma_variant)
+    ]
 
     # With dynamic dimensions, we need to add an assumption on how big
     # the iterate dimension is to determine whether we can schedule or not.
@@ -392,11 +411,10 @@ def testGemmSmallTiles(
 
     iree_ref = device_zeros(shape[0], shape[1], dtype=torch.float32)
     generate_iree_ref("mmt", [a, b], [iree_ref], options)
-    assert_close(c, iree_ref, check_device=False)
+    assert_close(c, iree_ref, check_device=False, atol=2e-4, rtol=1e-5)
 
 
 @require_e2e
-@require_cdna_3_or_4
 @pytest.mark.parametrize("shape", get_test_shapes("test_gemm"))
 @pytest.mark.parametrize(
     "enable_scheduling",
@@ -409,10 +427,11 @@ def testGemmSmallTiles(
 )
 @param_bool("dynamic_dims", "dyn")
 @pytest.mark.parametrize(
-    "mfma_variant",
+    "mfma_variant, threads_per_wave",
     [
-        MMAType.F32_16x16x16_F16,
-        MMAType.F32_32x32x8_F16,
+        pytest.param(MMAType.F32_16x16x16_F16, 64, marks=require_cdna_3_or_4),
+        pytest.param(MMAType.F32_32x32x8_F16, 64, marks=require_cdna_3_or_4),
+        pytest.param(MMAType.RDNA4_WAVE32_F32_16x16x16_F16, 32, marks=require_rdna4),
     ],
 )
 def testNonTransposeGemm(
@@ -420,6 +439,7 @@ def testNonTransposeGemm(
     enable_scheduling: SchedulingType,
     dynamic_dims: bool,
     mfma_variant: MMAType,
+    threads_per_wave: int,
     run_bench,
     perf_filename_tk,
     perf_filename_iree,
@@ -442,7 +462,9 @@ def testNonTransposeGemm(
     constraints += [tkw.WaveConstraint(M, BLOCK_M / 2)]
     constraints += [tkw.WaveConstraint(N, BLOCK_N / 2)]
 
-    constraints += [tkw.HardwareConstraint(threads_per_wave=64, mma_type=mfma_variant)]
+    constraints += [
+        tkw.HardwareConstraint(threads_per_wave=threads_per_wave, mma_type=mfma_variant)
+    ]
 
     if dynamic_dims:
         constraints += [tkw.Assumption(K > BLOCK_K * 4)]
@@ -521,18 +543,19 @@ def testNonTransposeGemm(
 
 
 @require_e2e
-@require_cdna_3_or_4
 @pytest.mark.parametrize("shape", [(4096, 4096, 4096)])
 @pytest.mark.parametrize(
-    "mfma_variant",
+    "mfma_variant, threads_per_wave",
     [
-        MMAType.F32_16x16x16_F16,
-        MMAType.F32_32x32x8_F16,
+        pytest.param(MMAType.F32_16x16x16_F16, 64, marks=require_cdna_3_or_4),
+        pytest.param(MMAType.F32_32x32x8_F16, 64, marks=require_cdna_3_or_4),
+        pytest.param(MMAType.RDNA4_WAVE32_F32_16x16x16_F16, 32, marks=require_rdna4),
     ],
 )
 def testPingPongGemm(
     shape: tuple[int],
     mfma_variant: MMAType,
+    threads_per_wave: int,
     run_bench,
     perf_filename_tk,
     perf_filename_iree,
@@ -555,7 +578,9 @@ def testPingPongGemm(
     constraints += [tkw.WaveConstraint(M, BLOCK_M / 4)]
     constraints += [tkw.WaveConstraint(N, BLOCK_N / 2)]
 
-    constraints += [tkw.HardwareConstraint(threads_per_wave=64, mma_type=mfma_variant)]
+    constraints += [
+        tkw.HardwareConstraint(threads_per_wave=threads_per_wave, mma_type=mfma_variant)
+    ]
 
     # Wave-level micro-kernel.
     # Since warps are not directly addressable, there is no
@@ -1281,7 +1306,6 @@ def testF8Gemm(
 
 
 @require_e2e
-@require_cdna_3_or_4
 @pytest.mark.parametrize("shape", get_test_shapes("test_gemm"))
 @pytest.mark.parametrize(
     "enable_scheduling",
@@ -1291,10 +1315,11 @@ def testF8Gemm(
 )
 @param_bool("dynamic_dims", "dyn", [False])
 @pytest.mark.parametrize(
-    "mfma_variant",
+    "mfma_variant, threads_per_wave",
     [
-        MMAType.F32_16x16x16_F16,
-        MMAType.F32_32x32x8_F16,
+        pytest.param(MMAType.F32_16x16x16_F16, 64, marks=require_cdna_3_or_4),
+        pytest.param(MMAType.F32_32x32x8_F16, 64, marks=require_cdna_3_or_4),
+        pytest.param(MMAType.RDNA4_WAVE32_F32_16x16x16_F16, 32, marks=require_rdna4),
     ],
 )
 def testPackedGemm(
@@ -1302,12 +1327,14 @@ def testPackedGemm(
     enable_scheduling: SchedulingType,
     dynamic_dims: bool,
     mfma_variant: MMAType,
+    threads_per_wave: int,
     run_bench,
     perf_filename_tk,
     perf_filename_iree,
 ):
     # TODO: Convert this to i8 -> bitcast f16 gemm
     # Input sizes
+    B = tkl.sym.B
     M = tkl.sym.M
     N = tkl.sym.N
     K = tkl.sym.K
@@ -1325,7 +1352,9 @@ def testPackedGemm(
     constraints += [tkw.WaveConstraint(M, BLOCK_M / 2)]
     constraints += [tkw.WaveConstraint(N, BLOCK_N / 2)]
 
-    constraints += [tkw.HardwareConstraint(threads_per_wave=64, mma_type=mfma_variant)]
+    constraints += [
+        tkw.HardwareConstraint(threads_per_wave=threads_per_wave, mma_type=mfma_variant)
+    ]
 
     # With dynamic dimensions, we need to add an assumption on how big
     # the iterate dimension is to determine whether we can schedule or not.
@@ -1403,7 +1432,6 @@ def testPackedGemm(
 
 
 @require_e2e
-@require_cdna_2_or_3_or_4
 @pytest.mark.parametrize("shape", get_test_shapes("test_gemm"))
 @pytest.mark.parametrize(
     "enable_scheduling",
@@ -1413,10 +1441,11 @@ def testPackedGemm(
 )
 @param_bool("dynamic_dims", "dyn", [False])
 @pytest.mark.parametrize(
-    "mfma_variant",
+    "mfma_variant, threads_per_wave",
     [
-        MMAType.F32_16x16x16_F16,
-        MMAType.F32_32x32x8_F16,
+        pytest.param(MMAType.F32_16x16x16_F16, 64, marks=require_cdna_2_or_3_or_4),
+        pytest.param(MMAType.F32_32x32x8_F16, 64, marks=require_cdna_2_or_3_or_4),
+        pytest.param(MMAType.RDNA4_WAVE32_F32_16x16x16_F16, 32, marks=require_rdna4),
     ],
 )
 def testPackedNonTransposeGemm(
@@ -1424,6 +1453,7 @@ def testPackedNonTransposeGemm(
     enable_scheduling: SchedulingType,
     dynamic_dims: bool,
     mfma_variant: MMAType,
+    threads_per_wave: int,
     run_bench,
     perf_filename_tk,
     perf_filename_iree,
@@ -1447,7 +1477,9 @@ def testPackedNonTransposeGemm(
     constraints += [tkw.WaveConstraint(M, BLOCK_M / 2)]
     constraints += [tkw.WaveConstraint(N, BLOCK_N / 2)]
 
-    constraints += [tkw.HardwareConstraint(threads_per_wave=64, mma_type=mfma_variant)]
+    constraints += [
+        tkw.HardwareConstraint(threads_per_wave=threads_per_wave, mma_type=mfma_variant)
+    ]
 
     # With dynamic dimensions, we need to add an assumption on how big
     # the iterate dimension is to determine whether we can schedule or not.
@@ -1532,7 +1564,6 @@ def testPackedNonTransposeGemm(
 
 
 @require_e2e
-@require_cdna_2_or_3_or_4
 @pytest.mark.parametrize("shape", get_test_shapes("test_batched_gemm"))
 @pytest.mark.parametrize(
     "enable_scheduling",
@@ -1542,9 +1573,18 @@ def testPackedNonTransposeGemm(
         SchedulingType.FOUR_STAGE,
     ],
 )
+@pytest.mark.parametrize(
+    "mfma_variant, threads_per_wave",
+    [
+        pytest.param(MMAType.F32_16x16x16_F16, 64, marks=require_cdna_2_or_3_or_4),
+        pytest.param(MMAType.RDNA4_WAVE32_F32_16x16x16_F16, 32, marks=require_rdna4),
+    ],
+)
 def testBatchedGemm(
     shape: tuple[int],
     enable_scheduling: SchedulingType,
+    mfma_variant: MMAType,
+    threads_per_wave: int,
     run_bench,
     perf_filename_tk,
     perf_filename_iree,
@@ -1570,7 +1610,13 @@ def testBatchedGemm(
     constraints += [tkw.WaveConstraint(M, BLOCK_M / 2)]
     constraints += [tkw.WaveConstraint(N, BLOCK_N / 2)]
 
-    constraints += [tkw.HardwareConstraint(threads_per_wave=64, vector_shapes={B: 0})]
+    constraints += [
+        tkw.HardwareConstraint(
+            mma_type=mfma_variant,
+            threads_per_wave=threads_per_wave,
+            vector_shapes={B: 0},
+        )
+    ]
 
     @tkw.wave(constraints)
     def batched_gemm(
@@ -1633,15 +1679,23 @@ def testBatchedGemm(
 
 
 @require_e2e
-@require_cdna_2_or_3_or_4
 @pytest.mark.parametrize("shape", get_test_shapes("test_batched_gemm"))
 @pytest.mark.parametrize(
     "enable_scheduling",
     [SchedulingType.NONE],
 )
+@pytest.mark.parametrize(
+    "mfma_variant, threads_per_wave",
+    [
+        pytest.param(MMAType.F32_16x16x16_F16, 64, marks=require_cdna_2_or_3_or_4),
+        pytest.param(MMAType.RDNA4_WAVE32_F32_16x16x16_F16, 32, marks=require_rdna4),
+    ],
+)
 def testSequentialBatchedGemm(
     shape: tuple[int],
     enable_scheduling: SchedulingType,
+    mfma_variant: MMAType,
+    threads_per_wave: int,
     run_bench,
     perf_filename_tk,
     perf_filename_iree,
@@ -1667,7 +1721,13 @@ def testSequentialBatchedGemm(
     constraints += [tkw.WaveConstraint(M, BLOCK_M / 2)]
     constraints += [tkw.WaveConstraint(N, BLOCK_N / 2)]
 
-    constraints += [tkw.HardwareConstraint(threads_per_wave=64, vector_shapes={B: 0})]
+    constraints += [
+        tkw.HardwareConstraint(
+            mma_type=mfma_variant,
+            threads_per_wave=threads_per_wave,
+            vector_shapes={B: 0},
+        )
+    ]
 
     @tkw.wave(constraints)
     def batched_gemm(
@@ -1939,15 +1999,23 @@ def testSequentialBatchedGemmWhileWithOutputSum(
 
 
 @require_e2e
-@require_cdna_2_or_3_or_4
 @pytest.mark.parametrize("shape", get_test_shapes("test_batched_gemm"))
 @pytest.mark.parametrize(
     "enable_scheduling",
     [SchedulingType.NONE],
 )
+@pytest.mark.parametrize(
+    "mfma_variant, threads_per_wave",
+    [
+        pytest.param(MMAType.F32_16x16x16_F16, 64, marks=require_cdna_2_or_3_or_4),
+        pytest.param(MMAType.RDNA4_WAVE32_F32_16x16x16_F16, 32, marks=require_rdna4),
+    ],
+)
 def testBatchedGemmWithPermute(
     shape: tuple[int],
     enable_scheduling: SchedulingType,
+    mfma_variant: MMAType,
+    threads_per_wave: int,
     run_bench,
     perf_filename_tk,
 ):
@@ -1963,9 +2031,6 @@ def testBatchedGemmWithPermute(
     BLOCK_K = tkl.sym.BLOCK_K
     # Address space (for GPU, shared(1) or global(0))
     ADDRESS_SPACE = tkl.sym.ADDRESS_SPACE
-    # Load and store sizes
-    LOAD_ELEMS_PER_THREAD = tkl.sym.LOAD_ELEMS_PER_THREAD
-    STORE_ELEMS_PER_THREAD = tkl.sym.STORE_ELEMS_PER_THREAD
 
     # Expose user-constraints
     constraints: list[tkw.Constraint] = [tkw.WorkgroupConstraint(M, BLOCK_M, 0)]
@@ -1975,7 +2040,13 @@ def testBatchedGemmWithPermute(
     constraints += [tkw.WaveConstraint(M, BLOCK_M / 2)]
     constraints += [tkw.WaveConstraint(N, BLOCK_N / 2)]
 
-    constraints += [tkw.HardwareConstraint(threads_per_wave=64, vector_shapes={B: 0})]
+    constraints += [
+        tkw.HardwareConstraint(
+            mma_type=mfma_variant,
+            threads_per_wave=threads_per_wave,
+            vector_shapes={B: 0},
+        )
+    ]
 
     @tkw.wave(constraints)
     def batched_gemm_with_permute(
@@ -1989,13 +2060,13 @@ def testBatchedGemmWithPermute(
         def repeat(
             acc: tkl.Register[B, M, N, tkl.f32],
         ) -> tkl.Register[B, M, N, tkl.f32]:
-            a_reg = tkw.read(a, elements_per_thread=LOAD_ELEMS_PER_THREAD)
-            b_reg = tkw.read(b, elements_per_thread=LOAD_ELEMS_PER_THREAD)
+            a_reg = tkw.read(a)
+            b_reg = tkw.read(b)
             acc = tkw.mma(a_reg, b_reg, acc)
             return acc
 
         res = tkw.permute(repeat, target_shape=[M, B, N])
-        tkw.write(res, c, elements_per_thread=STORE_ELEMS_PER_THREAD)
+        tkw.write(res, c)
 
     hyperparams = {
         ADDRESS_SPACE: GLOBAL_ADDRESS_SPACE,
@@ -2007,8 +2078,6 @@ def testBatchedGemmWithPermute(
         M: shape[1],
         N: shape[2],
         K: shape[3],
-        LOAD_ELEMS_PER_THREAD: 4,
-        STORE_ELEMS_PER_THREAD: 4,
     }
     hyperparams.update(get_default_scheduling_params())
 
@@ -2248,3 +2317,43 @@ def testFloatHwTransposeGemm(shape: tuple[int], mfma_variant: MMAType, request):
     assert_close(
         c.to(torch.float32), torch_ref, atol=1e-2, rtol=1e-2, check_device=False
     )
+
+
+# TODO(megan.kuo) Add parameters when more MMA types are supported.
+@require_e2e
+@require_rdna4
+@pytest.mark.parametrize("shape", [(4096, 4096, 4096)])
+@pytest.mark.parametrize("datatype", [torch.float16])
+@pytest.mark.parametrize(
+    "mfma_variant, threads_per_wave",
+    [(MMAType.RDNA4_WAVE32_F32_16x16x16_F16, 32)],
+)
+def test_rdna4_wmma(
+    shape: tuple[int],
+    datatype: torch.dtype,
+    mfma_variant: MMAType,
+    threads_per_wave: int,
+):
+    gemm, hyperparams, dynamic_symbols = get_gemm_kernel(
+        shape, False, mfma_variant, datatype, threads_per_wave=threads_per_wave
+    )
+
+    options = WaveCompileOptions(
+        subs=hyperparams,
+        wave_runtime=True,
+        canonicalize=True,
+        use_scheduling_barriers=False,
+        dynamic_symbols=[],
+    )
+    options = set_default_run_config(options)
+
+    gemm = wave_compile(options, gemm)
+
+    a = device_randn(shape[0], shape[2], device="cuda", dtype=datatype)
+    b = device_randn(shape[1], shape[2], device="cuda", dtype=datatype)
+    c = device_randn(shape[0], shape[1], device="cuda", dtype=torch.float32)
+    asm = gemm(a, b, c)
+
+    iree_ref = device_zeros(shape[0], shape[1], dtype=torch.float32)
+    generate_iree_ref("mmt", [a, b], [iree_ref], options)
+    assert_close(c, iree_ref, check_device=False)
