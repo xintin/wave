@@ -1,0 +1,32 @@
+diff --git a/tests/kernel/wave/reordered_gemm_test.py b/tests/kernel/wave/reordered_gemm_test.py
+index cae8c1c..e879966 100644
+--- a/tests/kernel/wave/reordered_gemm_test.py
++++ b/tests/kernel/wave/reordered_gemm_test.py
+@@ -22,9 +22,16 @@ from .common.utils import (
+ )
+
+ reordered_gemm_test_shapes = [
+-    (8192, 8192, 8192),
+-    (256, 256, 256),
+-    (2048, 1280, 5120),
++#    (8192, 8192, 8192),
++    (20512, 5760, 2880),
++#    (20512, 2880, 2880),
++#    (642, 28672, 8192),
++#    (706, 5120, 5120),
++#    (642, 14336, 4096),
++#    (706,14336,4096),
++#    old shapes
++#    (256, 256, 256),
++#    (2048, 1280, 5120),
+ ]
+
+
+@@ -71,6 +78,7 @@ def testReorderedPingPongGemm(
+         benchmark_repetitions=3,
+         use_buffer_ops=True,
+         benchmark_results_file=perf_filename_tk,
++        dump_intermediates="/home/gaurav/wave/tests/kernel/wave/logs/gemm_20512x5760x2880",
+     )
+     options = set_default_run_config(options)
+     reordered_gemm = wave_compile(options, reordered_gemm)
