@@ -1,0 +1,22 @@
+diff --git a/cdna_benchmark/gemm_benchmark/1.tilelang_benchmark/benchmark_tilelang_matmul.py b/cdna_benchmark/gemm_benchmark/1.tilelang_benchmark/benchmark_tilelang_matmul.py
+index 82c250b..7fbb7ba 100644
+--- a/cdna_benchmark/gemm_benchmark/1.tilelang_benchmark/benchmark_tilelang_matmul.py
++++ b/cdna_benchmark/gemm_benchmark/1.tilelang_benchmark/benchmark_tilelang_matmul.py
+@@ -4,7 +4,7 @@ from tilelang import language as T
+ import tilelang as tl
+ from tilelang.autotuner import *
+ import itertools
+-
++from tilelang import jit
+ import logging
+ 
+ logger = logging.getLogger(__name__)
+@@ -34,7 +34,7 @@ def get_configs():
+ def matmul(M, N, K):
+     
+     @autotune(configs=get_configs(), warmup=3, rep=5)
+-    @jit(out_idx=[2], supply_type=tl.TensorSupplyType.Integer, ref_prog=ref_program, skip_check=True, target="hip")
++    @jit(out_idx=[2], target="hip")
+     def kernel(block_M = None, block_N = None, block_K = None, num_stages = None, thread_num = None, enable_rasteration=None, k_pack=None):
+         dtype = "float16"
+         accum_dtype = "float"

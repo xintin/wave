@@ -1,0 +1,77 @@
+[MM] Tuning (706,4096) x (4096,14336) dtype=float16 on rocm
+2025-10-02 01:11:39 [INFO] Logging directory: ./log/mm_ms/rocm_mm_706_14336_4096/logs
+2025-10-02 01:11:43 [INFO] [task_scheduler.cc:159] Initializing Task #0: "mm"
+2025-10-02 01:11:43 [INFO] [task_scheduler.cc:320] 
+ ID | Name |        FLOP | Weight | Speed (GFLOPS) | Latency (us) | Weighted Latency (us) | Trials | Done 
+----------------------------------------------------------------------------------------------------------
+  0 |   mm | 82913001472 |      1 |            N/A |          N/A |                   N/A |      0 |      
+----------------------------------------------------------------------------------------------------------
+Total trials: 0
+Total latency (us): 0
+
+2025-10-02 01:11:43 [INFO] [task_scheduler.cc:180] TaskScheduler picks Task #0: "mm"
+2025-10-02 01:11:57 [INFO] [task_scheduler.cc:193] Sending 64 sample(s) to builder
+error: <unknown>:0:0: stack frame size (158160) exceeds limit (131056) in function 'mm_kernel'
+error: <unknown>:0:0: stack frame size (158160) exceeds limit (131056) in function 'mm_kernel'
+2025-10-02 01:12:29 [INFO] [task_scheduler.cc:195] Sending 64 sample(s) to runner
+2025-10-02 01:21:33 [DEBUG] XGB iter   0: tr-p-rmse: 0.722199	tr-a-peak@32: 0.524364	tr-rmse: 0.387374	tr-rmse: 0.387374
+2025-10-02 01:21:33 [DEBUG] XGB iter  25: tr-p-rmse: 0.062381	tr-a-peak@32: 1.000000	tr-rmse: 0.413340	tr-rmse: 0.413340
+2025-10-02 01:21:33 [DEBUG] XGB iter  50: tr-p-rmse: 0.062381	tr-a-peak@32: 1.000000	tr-rmse: 0.413340	tr-rmse: 0.413340
+2025-10-02 01:21:33 [DEBUG] XGB stopped. Best iteration: [13] tr-p-rmse:0.06238	tr-a-peak@32:1.00000	tr-rmse:0.41334	tr-rmse:0.41334 
+2025-10-02 01:21:33 [INFO] [task_scheduler.cc:237] [Updated] Task #0: "mm"
+2025-10-02 01:21:33 [INFO] [task_scheduler.cc:320] 
+ ID | Name |        FLOP | Weight | Speed (GFLOPS) | Latency (us) | Weighted Latency (us) | Trials | Done 
+----------------------------------------------------------------------------------------------------------
+  0 |   mm | 82913001472 |      1 |     31545.2752 |    2628.3810 |             2628.3810 |     64 |      
+----------------------------------------------------------------------------------------------------------
+Total trials: 64
+Total latency (us): 2628.38
+
+2025-10-02 01:21:33 [INFO] [task_scheduler.cc:180] TaskScheduler picks Task #0: "mm"
+2025-10-02 01:21:47 [INFO] [task_scheduler.cc:193] Sending 64 sample(s) to builder
+2025-10-02 01:22:20 [INFO] [task_scheduler.cc:195] Sending 64 sample(s) to runner
+2025-10-02 01:31:50 [DEBUG] XGB validation: p-rmse: 0.150518	a-peak@32: 0.979516
+2025-10-02 01:31:50 [DEBUG] XGB iter   0: tr-p-rmse: 0.725070	tr-a-peak@32: 0.522085	tr-rmse: 0.414649	tr-rmse: 0.414649
+2025-10-02 01:31:50 [DEBUG] XGB iter  25: tr-p-rmse: 0.047219	tr-a-peak@32: 1.000000	tr-rmse: 0.433740	tr-rmse: 0.433740
+2025-10-02 01:31:50 [DEBUG] XGB iter  50: tr-p-rmse: 0.047219	tr-a-peak@32: 1.000000	tr-rmse: 0.433740	tr-rmse: 0.433740
+2025-10-02 01:31:50 [DEBUG] XGB stopped. Best iteration: [11] tr-p-rmse:0.04722	tr-a-peak@32:1.00000	tr-rmse:0.43374	tr-rmse:0.43374 
+2025-10-02 01:31:50 [INFO] [task_scheduler.cc:237] [Updated] Task #0: "mm"
+2025-10-02 01:31:50 [INFO] [task_scheduler.cc:320] 
+ ID | Name |        FLOP | Weight | Speed (GFLOPS) | Latency (us) | Weighted Latency (us) | Trials | Done 
+----------------------------------------------------------------------------------------------------------
+  0 |   mm | 82913001472 |      1 |     33565.1993 |    2470.2073 |             2470.2073 |    128 |      
+----------------------------------------------------------------------------------------------------------
+Total trials: 128
+Total latency (us): 2470.21
+
+2025-10-02 01:31:50 [INFO] [task_scheduler.cc:260] Task #0 has finished. Remaining task(s): 0
+2025-10-02 01:31:50 [INFO] [task_scheduler.cc:320] 
+ ID | Name |        FLOP | Weight | Speed (GFLOPS) | Latency (us) | Weighted Latency (us) | Trials | Done 
+----------------------------------------------------------------------------------------------------------
+  0 |   mm | 82913001472 |      1 |     33565.1993 |    2470.2073 |             2470.2073 |    128 |    Y 
+----------------------------------------------------------------------------------------------------------
+Total trials: 128
+Total latency (us): 2470.21
+
+[MS] Tuning Time (min): 20.23
+ ID |                                        Name | Time (min) | Percentage 
+----------------------------------------------------------------------------
+    |                                       Total |    20.2080 |   100.0000 
+  1 |                                SendToRunner |    18.5723 |    91.9058 
+  2 |                               SendToBuilder |     1.0745 |     5.3170 
+  3 |                   EvoSearch/Evolve/Mutation |     0.2578 |     1.2759 
+  4 |              EvoSearch/SampleInitPopulation |     0.1839 |     0.9102 
+  5 |             MeasureCallback/UpdateCostModel |     0.0112 |     0.0557 
+  6 |                       EvoSearch/Evolve/Misc |     0.0098 |     0.0484 
+  7 |     EvoSearch/Evolve/PredictNormalizedScore |     0.0047 |     0.0231 
+  8 |              EvoSearch/PickBestFromDatabase |     0.0033 |     0.0165 
+  9 |               MeasureCallback/AddToDatabase |     0.0009 |     0.0044 
+ 10 |         MeasureCallback/RemoveBuildArtifact |     0.0006 |     0.0028 
+ 11 |                 EvoSearch/PickWithEpsGreedy |     0.0002 |     0.0012 
+ 12 |                           JoinRunnerFutures |     0.0001 |     0.0003 
+ 13 |                              InitializeTask |     0.0000 |     0.0001 
+ 14 | EvoSearch/Evolve/Misc/CopyMeasuredWorkloads |     0.0000 |     0.0000 
+----------------------------------------------------------------------------
+[MM] (706,4096) x (4096,14336) dtype=float16 -> median latency: 2.551 ms
+TFLOPs: 32.50314659603705
+=== Finished 706x14336x4096 in 1221 seconds ===

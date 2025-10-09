@@ -1,0 +1,1011 @@
+2025-10-01 12:42:30 [INFO] [task_scheduler.cc:160] Initializing Task #0: "mm"
+2025-10-01 12:42:30 [INFO] [task_scheduler.cc:35] 
+# from tvm.script import ir as I
+# from tvm.script import tir as T
+
+@I.ir_module
+class Module:
+    @T.prim_func
+    def main(A: T.Buffer((512, 4096), "float16"), B: T.Buffer((4096, 14336), "float16"), C: T.Buffer((512, 14336), "float16")):
+        T.func_attr({"global_symbol": "mm", "tir.noalias": T.bool(True)})
+        # with T.block("root"):
+        for i, j, k in T.grid(512, 14336, 4096):
+            with T.block("C"):
+                v_i, v_j, v_k = T.axis.remap("SSR", [i, j, k])
+                T.reads(A[v_i, v_k], B[v_k, v_j])
+                T.writes(C[v_i, v_j])
+                with T.init():
+                    C[v_i, v_j] = T.float16(0.0)
+                C[v_i, v_j] = C[v_i, v_j] + A[v_i, v_k] * B[v_k, v_j]
+2025-10-01 12:42:30 [INFO] [task_scheduler.cc:164] Total 1 design space(s) generated
+2025-10-01 12:42:30 [INFO] [task_scheduler.cc:170] Design space #0:
+# from tvm.script import ir as I
+# from tvm.script import tir as T
+
+@I.ir_module
+class Module:
+    @T.prim_func
+    def main(A: T.Buffer((512, 4096), "float16"), B: T.Buffer((4096, 14336), "float16"), C: T.Buffer((512, 14336), "float16")):
+        T.func_attr({"global_symbol": "mm", "tir.noalias": T.bool(True)})
+        with T.block("root"):
+            T.reads()
+            T.writes()
+            T.block_attr({"meta_schedule.unroll_explicit": 16})
+            C_local = T.alloc_buffer((512, 14336), "float16", scope="local")
+            A_shared = T.alloc_buffer((512, 4096), "float16", scope="shared")
+            B_shared = T.alloc_buffer((4096, 14336), "float16", scope="shared")
+            for i_0_j_0_fused in T.thread_binding(8, thread="blockIdx.x"):
+                for i_1_j_1_fused in T.thread_binding(2, thread="vthread.x"):
+                    for i_2_j_2_fused in T.thread_binding(16384, thread="threadIdx.x"):
+                        for k_0 in range(64):
+                            for ax0_ax1_fused in range(16384):
+                                with T.block("A_shared"):
+                                    v0 = T.axis.spatial(512, i_0_j_0_fused // 4 * 256 + ax0_ax1_fused // 64)
+                                    v1 = T.axis.spatial(4096, k_0 * 64 + ax0_ax1_fused % 64)
+                                    T.reads(A[v0, v1])
+                                    T.writes(A_shared[v0, v1])
+                                    T.block_attr({"meta_schedule.cooperative_fetch": 8})
+                                    A_shared[v0, v1] = A[v0, v1]
+                            for ax0_ax1_fused in range(229376):
+                                with T.block("B_shared"):
+                                    v0 = T.axis.spatial(4096, k_0 * 64 + ax0_ax1_fused // 3584)
+                                    v1 = T.axis.spatial(14336, i_0_j_0_fused % 4 * 3584 + ax0_ax1_fused % 3584)
+                                    T.reads(B[v0, v1])
+                                    T.writes(B_shared[v0, v1])
+                                    T.block_attr({"meta_schedule.cooperative_fetch": 2})
+                                    B_shared[v0, v1] = B[v0, v1]
+                            for k_1, i_3, j_3, k_2, i_4, j_4 in T.grid(16, 1, 1, 4, 1, 28):
+                                with T.block("C"):
+                                    v_i = T.axis.spatial(512, i_0_j_0_fused // 4 * 256 + i_2_j_2_fused // 64 + i_3 + i_4)
+                                    v_j = T.axis.spatial(14336, i_0_j_0_fused % 4 * 3584 + i_1_j_1_fused * 1792 + i_2_j_2_fused % 64 * 28 + j_3 * 28 + j_4)
+                                    v_k = T.axis.reduce(4096, k_0 * 64 + k_1 * 4 + k_2)
+                                    T.reads(A_shared[v_i, v_k], B_shared[v_k, v_j])
+                                    T.writes(C_local[v_i, v_j])
+                                    T.block_attr({"meta_schedule.thread_extent_high_inclusive": 1024, "meta_schedule.thread_extent_low_inclusive": 64, "meta_schedule.tiling_structure": "SSSRRSRS"})
+                                    with T.init():
+                                        C_local[v_i, v_j] = T.float16(0.0)
+                                    C_local[v_i, v_j] = C_local[v_i, v_j] + A_shared[v_i, v_k] * B_shared[v_k, v_j]
+                        for ax0, ax1 in T.grid(1, 28):
+                            with T.block("C_local"):
+                                v0 = T.axis.spatial(512, i_0_j_0_fused // 4 * 256 + i_2_j_2_fused // 64 + ax0)
+                                v1 = T.axis.spatial(14336, i_0_j_0_fused % 4 * 3584 + i_1_j_1_fused * 1792 + i_2_j_2_fused % 64 * 28 + ax1)
+                                T.reads(C_local[v0, v1])
+                                T.writes(C[v0, v1])
+                                C[v0, v1] = C_local[v0, v1]
+b0 = sch.get_block(name="C", func_name="main")
+b1 = sch.get_block(name="root", func_name="main")
+sch.annotate(block_or_loop=b0, ann_key="meta_schedule.tiling_structure", ann_val="SSSRRSRS")
+l2, l3, l4 = sch.get_loops(block=b0)
+v5, v6, v7, v8, v9 = sch.sample_perfect_tile(loop=l2, n=5, max_innermost_factor=64, decision=[2, 1, 256, 1, 1])
+l10, l11, l12, l13, l14 = sch.split(loop=l2, factors=[v5, v6, v7, v8, v9], preserve_unit_iters=True, disable_predication=False)
+v15, v16, v17, v18, v19 = sch.sample_perfect_tile(loop=l3, n=5, max_innermost_factor=64, decision=[4, 2, 64, 1, 28])
+l20, l21, l22, l23, l24 = sch.split(loop=l3, factors=[v15, v16, v17, v18, v19], preserve_unit_iters=True, disable_predication=False)
+v25, v26, v27 = sch.sample_perfect_tile(loop=l4, n=3, max_innermost_factor=64, decision=[64, 16, 4])
+l28, l29, l30 = sch.split(loop=l4, factors=[v25, v26, v27], preserve_unit_iters=True, disable_predication=False)
+sch.reorder(l10, l20, l11, l21, l12, l22, l28, l29, l13, l23, l30, l14, l24)
+l31 = sch.fuse(l10, l20, preserve_unit_iters=True)
+sch.bind(loop=l31, thread_axis="blockIdx.x")
+l32 = sch.fuse(l11, l21, preserve_unit_iters=True)
+sch.bind(loop=l32, thread_axis="vthread.x")
+l33 = sch.fuse(l12, l22, preserve_unit_iters=True)
+sch.bind(loop=l33, thread_axis="threadIdx.x")
+sch.annotate(block_or_loop=b0, ann_key="meta_schedule.thread_extent_low_inclusive", ann_val=64)
+sch.annotate(block_or_loop=b0, ann_key="meta_schedule.thread_extent_high_inclusive", ann_val=1024)
+b34 = sch.cache_write(block=b0, write_buffer_index=0, storage_scope="local")
+sch.reverse_compute_at(block=b34, loop=l33, preserve_unit_loops=True, index=-1)
+b35 = sch.cache_read(block=b0, read_buffer_index=0, storage_scope="shared", consumer_blocks=[b0])
+sch.compute_at(block=b35, loop=l28, preserve_unit_loops=True, index=-1)
+l36, l37, l38, l39, l40, l41 = sch.get_loops(block=b35)
+l42 = sch.fuse(l40, l41, preserve_unit_iters=True)
+v43 = sch.sample_categorical(candidates=[1, 2, 4, 8], probs=[0.25, 0.25, 0.25, 0.25], decision=3)
+sch.annotate(block_or_loop=b35, ann_key="meta_schedule.cooperative_fetch", ann_val=v43)
+b44 = sch.cache_read(block=b0, read_buffer_index=1, storage_scope="shared", consumer_blocks=[b0])
+sch.compute_at(block=b44, loop=l28, preserve_unit_loops=True, index=-1)
+l45, l46, l47, l48, l49, l50 = sch.get_loops(block=b44)
+l51 = sch.fuse(l49, l50, preserve_unit_iters=True)
+v52 = sch.sample_categorical(candidates=[1, 2, 4, 8], probs=[0.25, 0.25, 0.25, 0.25], decision=1)
+sch.annotate(block_or_loop=b44, ann_key="meta_schedule.cooperative_fetch", ann_val=v52)
+v53 = sch.sample_categorical(candidates=[0, 16, 64, 512, 1024], probs=[0.20000000000000001, 0.20000000000000001, 0.20000000000000001, 0.20000000000000001, 0.20000000000000001], decision=1)
+sch.annotate(block_or_loop=b1, ann_key="meta_schedule.unroll_explicit", ann_val=v53)
+2025-10-01 12:42:30 [INFO] [evolutionary_search.cc:713] Generating candidates......
+2025-10-01 12:42:30 [INFO] [evolutionary_search.cc:715] Picked top 0 candidate(s) from database
+2025-10-01 12:42:32 [INFO] [evolutionary_search.cc:533] Sample-Init-Population summary:
+Postproc #0 [meta_schedule.DisallowDynamicLoop(0x3d863ef8)]: 0 failure(s)
+Postproc #1 [meta_schedule.RewriteCooperativeFetch(0x3d9dd1d8)]: 0 failure(s)
+Postproc #2 [meta_schedule.RewriteUnboundBlock(0x3d9da328)]: 0 failure(s)
+Postproc #3 [meta_schedule.RewriteParallelVectorizeUnroll(0x3d889168)]: 0 failure(s)
+Postproc #4 [meta_schedule.RewriteReductionBlock(0x3d8aa868)]: 0 failure(s)
+Postproc #5 [meta_schedule.VerifyGPUCode(0x3d9d70c8)]: 497 failure(s)
+2025-10-01 12:42:33 [INFO] [evolutionary_search.cc:533] Sample-Init-Population summary:
+Postproc #0 [meta_schedule.DisallowDynamicLoop(0x3d863ef8)]: 0 failure(s)
+Postproc #1 [meta_schedule.RewriteCooperativeFetch(0x3d9dd1d8)]: 0 failure(s)
+Postproc #2 [meta_schedule.RewriteUnboundBlock(0x3d9da328)]: 0 failure(s)
+Postproc #3 [meta_schedule.RewriteParallelVectorizeUnroll(0x3d889168)]: 0 failure(s)
+Postproc #4 [meta_schedule.RewriteReductionBlock(0x3d8aa868)]: 0 failure(s)
+Postproc #5 [meta_schedule.VerifyGPUCode(0x3d9d70c8)]: 991 failure(s)
+2025-10-01 12:42:34 [INFO] [evolutionary_search.cc:533] Sample-Init-Population summary:
+Postproc #0 [meta_schedule.DisallowDynamicLoop(0x3d863ef8)]: 0 failure(s)
+Postproc #1 [meta_schedule.RewriteCooperativeFetch(0x3d9dd1d8)]: 0 failure(s)
+Postproc #2 [meta_schedule.RewriteUnboundBlock(0x3d9da328)]: 0 failure(s)
+Postproc #3 [meta_schedule.RewriteParallelVectorizeUnroll(0x3d889168)]: 0 failure(s)
+Postproc #4 [meta_schedule.RewriteReductionBlock(0x3d8aa868)]: 0 failure(s)
+Postproc #5 [meta_schedule.VerifyGPUCode(0x3d9d70c8)]: 1487 failure(s)
+2025-10-01 12:42:35 [INFO] [evolutionary_search.cc:533] Sample-Init-Population summary:
+Postproc #0 [meta_schedule.DisallowDynamicLoop(0x3d863ef8)]: 0 failure(s)
+Postproc #1 [meta_schedule.RewriteCooperativeFetch(0x3d9dd1d8)]: 0 failure(s)
+Postproc #2 [meta_schedule.RewriteUnboundBlock(0x3d9da328)]: 0 failure(s)
+Postproc #3 [meta_schedule.RewriteParallelVectorizeUnroll(0x3d889168)]: 0 failure(s)
+Postproc #4 [meta_schedule.RewriteReductionBlock(0x3d8aa868)]: 0 failure(s)
+Postproc #5 [meta_schedule.VerifyGPUCode(0x3d9d70c8)]: 1989 failure(s)
+2025-10-01 12:42:35 [INFO] [evolutionary_search.cc:723] Sampled 59 candidate(s)
+2025-10-01 12:42:37 [INFO] [evolutionary_search.cc:621] Evolve iter #0 done. Summary:
+Postproc #0 [meta_schedule.DisallowDynamicLoop(0x3d863ef8)]: 0 failure(s)
+Postproc #1 [meta_schedule.RewriteCooperativeFetch(0x3d9dd1d8)]: 0 failure(s)
+Postproc #2 [meta_schedule.RewriteUnboundBlock(0x3d9da328)]: 0 failure(s)
+Postproc #3 [meta_schedule.RewriteParallelVectorizeUnroll(0x3d889168)]: 0 failure(s)
+Postproc #4 [meta_schedule.RewriteReductionBlock(0x3d8aa868)]: 0 failure(s)
+Postproc #5 [meta_schedule.VerifyGPUCode(0x3d9d70c8)]: 115 failure(s)
+2025-10-01 12:42:40 [INFO] [evolutionary_search.cc:621] Evolve iter #1 done. Summary:
+Postproc #0 [meta_schedule.DisallowDynamicLoop(0x3d863ef8)]: 0 failure(s)
+Postproc #1 [meta_schedule.RewriteCooperativeFetch(0x3d9dd1d8)]: 0 failure(s)
+Postproc #2 [meta_schedule.RewriteUnboundBlock(0x3d9da328)]: 0 failure(s)
+Postproc #3 [meta_schedule.RewriteParallelVectorizeUnroll(0x3d889168)]: 0 failure(s)
+Postproc #4 [meta_schedule.RewriteReductionBlock(0x3d8aa868)]: 0 failure(s)
+Postproc #5 [meta_schedule.VerifyGPUCode(0x3d9d70c8)]: 94 failure(s)
+2025-10-01 12:42:42 [INFO] [evolutionary_search.cc:621] Evolve iter #2 done. Summary:
+Postproc #0 [meta_schedule.DisallowDynamicLoop(0x3d863ef8)]: 0 failure(s)
+Postproc #1 [meta_schedule.RewriteCooperativeFetch(0x3d9dd1d8)]: 0 failure(s)
+Postproc #2 [meta_schedule.RewriteUnboundBlock(0x3d9da328)]: 0 failure(s)
+Postproc #3 [meta_schedule.RewriteParallelVectorizeUnroll(0x3d889168)]: 0 failure(s)
+Postproc #4 [meta_schedule.RewriteReductionBlock(0x3d8aa868)]: 0 failure(s)
+Postproc #5 [meta_schedule.VerifyGPUCode(0x3d9d70c8)]: 85 failure(s)
+2025-10-01 12:42:44 [INFO] [evolutionary_search.cc:621] Evolve iter #3 done. Summary:
+Postproc #0 [meta_schedule.DisallowDynamicLoop(0x3d863ef8)]: 0 failure(s)
+Postproc #1 [meta_schedule.RewriteCooperativeFetch(0x3d9dd1d8)]: 0 failure(s)
+Postproc #2 [meta_schedule.RewriteUnboundBlock(0x3d9da328)]: 0 failure(s)
+Postproc #3 [meta_schedule.RewriteParallelVectorizeUnroll(0x3d889168)]: 0 failure(s)
+Postproc #4 [meta_schedule.RewriteReductionBlock(0x3d8aa868)]: 0 failure(s)
+Postproc #5 [meta_schedule.VerifyGPUCode(0x3d9d70c8)]: 95 failure(s)
+2025-10-01 12:42:44 [INFO] [evolutionary_search.cc:649] Scores of the best 64 candidates:
+[1 : 16]:	0.9985  0.9982  0.9977  0.9971  0.9968  0.9958  0.9949  0.9941  0.9931  0.9929  0.9925  0.9900  0.9896  0.9895  0.9894  0.9890
+[17 : 32]:	0.9887  0.9879  0.9860  0.9857  0.9857  0.9852  0.9848  0.9837  0.9836  0.9836  0.9826  0.9824  0.9821  0.9817  0.9812  0.9810
+[33 : 48]:	0.9808  0.9802  0.9800  0.9794  0.9792  0.9783  0.9757  0.9743  0.9741  0.9741  0.9739  0.9713  0.9713  0.9693  0.9691  0.9690
+[49 : 64]:	0.9684  0.9683  0.9675  0.9673  0.9667  0.9665  0.9664  0.9661  0.9658  0.9654  0.9651  0.9649  0.9640  0.9638  0.9636  0.9635
+2025-10-01 12:42:44 [INFO] [evolutionary_search.cc:727] Got 64 candidate(s) with evolutionary search
+2025-10-01 12:42:44 [INFO] [evolutionary_search.cc:730] Sending 63 candidates(s) for measurement
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #1: GFLOPs: 212.9085. Time: 282419.5963 us. Best GFLOPs: 212.9085
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #2: GFLOPs: 5356.5344. Time: 11225.4562 us. Best GFLOPs: 5356.5344
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #3: GFLOPs: 19608.9192. Time: 3066.4384 us. Best GFLOPs: 19608.9192
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #4: GFLOPs: 9300.0334. Time: 6465.5189 us. Best GFLOPs: 19608.9192
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #5: GFLOPs: 13570.6690. Time: 4430.8458 us. Best GFLOPs: 19608.9192
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #6: GFLOPs: 12581.8850. Time: 4779.0567 us. Best GFLOPs: 19608.9192
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #7: GFLOPs: 529.7633. Time: 113502.6550 us. Best GFLOPs: 19608.9192
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #8: GFLOPs: 254.7412. Time: 236041.7073 us. Best GFLOPs: 19608.9192
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #9: GFLOPs: 83.1683. Time: 722986.1653 us. Best GFLOPs: 19608.9192
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #10: GFLOPs: 15606.7819. Time: 3852.7829 us. Best GFLOPs: 19608.9192
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #11: GFLOPs: 931.2706. Time: 64567.2097 us. Best GFLOPs: 19608.9192
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #12: GFLOPs: 509.0236. Time: 118127.2277 us. Best GFLOPs: 19608.9192
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #13: GFLOPs: 56.0322. Time: 1073125.7323 us. Best GFLOPs: 19608.9192
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:121] [Task #0: mm] Trial #14: Error in building:
+LocalBuilder: Timeout, killed after 30.0 seconds
+# from tvm.script import ir as I
+# from tvm.script import tir as T
+
+@I.ir_module
+class Module:
+    @T.prim_func
+    def main(A: T.Buffer((512, 4096), "float16"), B: T.Buffer((4096, 14336), "float16"), C: T.Buffer((512, 14336), "float16")):
+        T.func_attr({"global_symbol": "mm", "tir.noalias": T.bool(True)})
+        # with T.block("root"):
+        C_local = T.alloc_buffer((512, 14336), "float16", scope="local")
+        A_shared = T.alloc_buffer((512, 4096), "float16", scope="shared")
+        B_shared = T.alloc_buffer((4096, 14336), "float16", scope="shared")
+        for i_0_j_0_fused in T.thread_binding(4, thread="blockIdx.x", annotations={"pragma_auto_unroll_max_step": 16, "pragma_unroll_explicit": 1}):
+            for i_1_j_1_fused in T.thread_binding(28, thread="vthread.x"):
+                for i_2_j_2_fused in T.thread_binding(256, thread="threadIdx.x"):
+                    for i_3_init, j_3_init, i_4_init, j_4_init in T.grid(8, 8, 1, 4):
+                        with T.block("C_init"):
+                            v_i = T.axis.spatial(512, i_1_j_1_fused // 7 * 128 + i_2_j_2_fused // 16 * 8 + i_3_init + i_4_init)
+                            v_j = T.axis.spatial(14336, i_0_j_0_fused * 3584 + i_1_j_1_fused % 7 * 512 + i_2_j_2_fused % 16 * 32 + j_3_init * 4 + j_4_init)
+                            T.reads()
+                            T.writes(C_local[v_i, v_j])
+                            T.block_attr({"meta_schedule.thread_extent_high_inclusive": 1024, "meta_schedule.thread_extent_low_inclusive": 64, "meta_schedule.tiling_structure": "SSSRRSRS"})
+                            C_local[v_i, v_j] = T.float16(0.0)
+                    for k_0 in range(1024):
+                        for ax0_ax1_fused_0 in range(1):
+                            for ax0_ax1_fused_1 in T.thread_binding(256, thread="threadIdx.x"):
+                                for ax0_ax1_fused_2 in T.vectorized(8):
+                                    with T.block("A_shared"):
+                                        v0 = T.axis.spatial(512, (ax0_ax1_fused_0 * 2048 + ax0_ax1_fused_1 * 8 + ax0_ax1_fused_2) // 4)
+                                        v1 = T.axis.spatial(4096, k_0 * 4 + (ax0_ax1_fused_0 * 2048 + ax0_ax1_fused_1 * 8 + ax0_ax1_fused_2) % 4)
+                                        T.reads(A[v0, v1])
+                                        T.writes(A_shared[v0, v1])
+                                        A_shared[v0, v1] = A[v0, v1]
+                        for ax0_ax1_fused_0 in range(14):
+                            for ax0_ax1_fused_1 in T.thread_binding(256, thread="threadIdx.x"):
+                                for ax0_ax1_fused_2 in T.vectorized(4):
+                                    with T.block("B_shared"):
+                                        v0 = T.axis.spatial(4096, k_0 * 4 + (ax0_ax1_fused_0 * 1024 + ax0_ax1_fused_1 * 4 + ax0_ax1_fused_2) // 3584)
+                                        v1 = T.axis.spatial(14336, i_0_j_0_fused * 3584 + (ax0_ax1_fused_0 * 1024 + ax0_ax1_fused_1 * 4 + ax0_ax1_fused_2) % 3584)
+                                        T.reads(B[v0, v1])
+                                        T.writes(B_shared[v0, v1])
+                                        B_shared[v0, v1] = B[v0, v1]
+                        for k_1, i_3, j_3, k_2, i_4, j_4 in T.grid(4, 8, 8, 1, 1, 4):
+                            with T.block("C_update"):
+                                v_i = T.axis.spatial(512, i_1_j_1_fused // 7 * 128 + i_2_j_2_fused // 16 * 8 + i_3 + i_4)
+                                v_j = T.axis.spatial(14336, i_0_j_0_fused * 3584 + i_1_j_1_fused % 7 * 512 + i_2_j_2_fused % 16 * 32 + j_3 * 4 + j_4)
+                                v_k = T.axis.reduce(4096, k_0 * 4 + k_1 + k_2)
+                                T.reads(C_local[v_i, v_j], A_shared[v_i, v_k], B_shared[v_k, v_j])
+                                T.writes(C_local[v_i, v_j])
+                                T.block_attr({"meta_schedule.thread_extent_high_inclusive": 1024, "meta_schedule.thread_extent_low_inclusive": 64, "meta_schedule.tiling_structure": "SSSRRSRS"})
+                                C_local[v_i, v_j] = C_local[v_i, v_j] + A_shared[v_i, v_k] * B_shared[v_k, v_j]
+                    for ax0, ax1 in T.grid(8, 32):
+                        with T.block("C_local"):
+                            v0 = T.axis.spatial(512, i_1_j_1_fused // 7 * 128 + i_2_j_2_fused // 16 * 8 + ax0)
+                            v1 = T.axis.spatial(14336, i_0_j_0_fused * 3584 + i_1_j_1_fused % 7 * 512 + i_2_j_2_fused % 16 * 32 + ax1)
+                            T.reads(C_local[v0, v1])
+                            T.writes(C[v0, v1])
+                            C[v0, v1] = C_local[v0, v1]
+b0 = sch.get_block(name="C", func_name="main")
+b1 = sch.get_block(name="root", func_name="main")
+sch.annotate(block_or_loop=b0, ann_key="meta_schedule.tiling_structure", ann_val="SSSRRSRS")
+l2, l3, l4 = sch.get_loops(block=b0)
+v5, v6, v7, v8, v9 = sch.sample_perfect_tile(loop=l2, n=5, max_innermost_factor=64, decision=[1, 4, 16, 8, 1])
+l10, l11, l12, l13, l14 = sch.split(loop=l2, factors=[v5, v6, v7, v8, v9], preserve_unit_iters=True, disable_predication=False)
+v15, v16, v17, v18, v19 = sch.sample_perfect_tile(loop=l3, n=5, max_innermost_factor=64, decision=[4, 7, 16, 8, 4])
+l20, l21, l22, l23, l24 = sch.split(loop=l3, factors=[v15, v16, v17, v18, v19], preserve_unit_iters=True, disable_predication=False)
+v25, v26, v27 = sch.sample_perfect_tile(loop=l4, n=3, max_innermost_factor=64, decision=[1024, 4, 1])
+l28, l29, l30 = sch.split(loop=l4, factors=[v25, v26, v27], preserve_unit_iters=True, disable_predication=False)
+sch.reorder(l10, l20, l11, l21, l12, l22, l28, l29, l13, l23, l30, l14, l24)
+l31 = sch.fuse(l10, l20, preserve_unit_iters=True)
+sch.bind(loop=l31, thread_axis="blockIdx.x")
+l32 = sch.fuse(l11, l21, preserve_unit_iters=True)
+sch.bind(loop=l32, thread_axis="vthread.x")
+l33 = sch.fuse(l12, l22, preserve_unit_iters=True)
+sch.bind(loop=l33, thread_axis="threadIdx.x")
+sch.annotate(block_or_loop=b0, ann_key="meta_schedule.thread_extent_low_inclusive", ann_val=64)
+sch.annotate(block_or_loop=b0, ann_key="meta_schedule.thread_extent_high_inclusive", ann_val=1024)
+b34 = sch.cache_write(block=b0, write_buffer_index=0, storage_scope="local")
+sch.reverse_compute_at(block=b34, loop=l33, preserve_unit_loops=True, index=-1)
+b35 = sch.cache_read(block=b0, read_buffer_index=0, storage_scope="shared", consumer_blocks=[b0])
+sch.compute_at(block=b35, loop=l28, preserve_unit_loops=True, index=-1)
+l36, l37, l38, l39, l40, l41 = sch.get_loops(block=b35)
+l42 = sch.fuse(l40, l41, preserve_unit_iters=True)
+v43 = sch.sample_categorical(candidates=[1, 2, 4, 8], probs=[0.25, 0.25, 0.25, 0.25], decision=3)
+sch.annotate(block_or_loop=b35, ann_key="meta_schedule.cooperative_fetch", ann_val=v43)
+b44 = sch.cache_read(block=b0, read_buffer_index=1, storage_scope="shared", consumer_blocks=[b0])
+sch.compute_at(block=b44, loop=l28, preserve_unit_loops=True, index=-1)
+l45, l46, l47, l48, l49, l50 = sch.get_loops(block=b44)
+l51 = sch.fuse(l49, l50, preserve_unit_iters=True)
+v52 = sch.sample_categorical(candidates=[1, 2, 4, 8], probs=[0.25, 0.25, 0.25, 0.25], decision=2)
+sch.annotate(block_or_loop=b44, ann_key="meta_schedule.cooperative_fetch", ann_val=v52)
+v53 = sch.sample_categorical(candidates=[0, 16, 64, 512, 1024], probs=[0.20000000000000001, 0.20000000000000001, 0.20000000000000001, 0.20000000000000001, 0.20000000000000001], decision=1)
+sch.annotate(block_or_loop=b1, ann_key="meta_schedule.unroll_explicit", ann_val=v53)
+sch.enter_postproc()
+sch.unannotate(block_or_loop=b35, ann_key="meta_schedule.cooperative_fetch")
+l54, l55, l56, l57, l58 = sch.get_loops(block=b35)
+l59, l60, l61 = sch.split(loop=l58, factors=[None, 256, 8], preserve_unit_iters=True, disable_predication=False)
+sch.vectorize(loop=l61)
+sch.bind(loop=l60, thread_axis="threadIdx.x")
+sch.unannotate(block_or_loop=b44, ann_key="meta_schedule.cooperative_fetch")
+l62, l63, l64, l65, l66 = sch.get_loops(block=b44)
+l67, l68, l69 = sch.split(loop=l66, factors=[None, 256, 4], preserve_unit_iters=True, disable_predication=False)
+sch.vectorize(loop=l69)
+sch.bind(loop=l68, thread_axis="threadIdx.x")
+b70 = sch.get_block(name="root", func_name="main")
+sch.unannotate(block_or_loop=b70, ann_key="meta_schedule.unroll_explicit")
+b71, b72, b73, b74 = sch.get_child_blocks(b70)
+l75, l76, l77, l78, l79, l80, l81 = sch.get_loops(block=b71)
+l82, l83, l84, l85, l86, l87, l88 = sch.get_loops(block=b72)
+l89, l90, l91, l92, l93, l94, l95, l96, l97, l98 = sch.get_loops(block=b73)
+sch.annotate(block_or_loop=l89, ann_key="pragma_auto_unroll_max_step", ann_val=16)
+sch.annotate(block_or_loop=l89, ann_key="pragma_unroll_explicit", ann_val=1)
+l99, l100, l101, l102, l103 = sch.get_loops(block=b74)
+b104 = sch.get_block(name="C", func_name="main")
+l105, l106, l107, l108, l109, l110, l111, l112, l113, l114 = sch.get_loops(block=b104)
+b115 = sch.decompose_reduction(block=b104, loop=l108)
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #15: GFLOPs: 667.2273. Time: 90118.5300 us. Best GFLOPs: 19608.9192
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #16: GFLOPs: 5016.0261. Time: 11987.4860 us. Best GFLOPs: 19608.9192
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #17: GFLOPs: 43235.7631. Time: 1390.7362 us. Best GFLOPs: 43235.7631
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #18: GFLOPs: 1485.4068. Time: 40480.1863 us. Best GFLOPs: 43235.7631
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #19: GFLOPs: 807.3367. Time: 74478.8867 us. Best GFLOPs: 43235.7631
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #20: GFLOPs: 11531.5751. Time: 5214.3391 us. Best GFLOPs: 43235.7631
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #21: GFLOPs: 12462.0686. Time: 4825.0049 us. Best GFLOPs: 43235.7631
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #22: GFLOPs: 52465.6496. Time: 1146.0745 us. Best GFLOPs: 52465.6496
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #23: GFLOPs: 30440.8430. Time: 1975.2916 us. Best GFLOPs: 52465.6496
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #24: GFLOPs: 155.4945. Time: 386698.7710 us. Best GFLOPs: 52465.6496
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #25: GFLOPs: 13951.6882. Time: 4309.8399 us. Best GFLOPs: 52465.6496
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #26: GFLOPs: 804.5873. Time: 74733.3983 us. Best GFLOPs: 52465.6496
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #27: GFLOPs: 1145.8621. Time: 52475.3720 us. Best GFLOPs: 52465.6496
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #28: GFLOPs: 12775.6976. Time: 4706.5565 us. Best GFLOPs: 52465.6496
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:121] [Task #0: mm] Trial #29: Error in building:
+LocalBuilder: Timeout, killed after 30.0 seconds
+# from tvm.script import ir as I
+# from tvm.script import tir as T
+
+@I.ir_module
+class Module:
+    @T.prim_func
+    def main(A: T.Buffer((512, 4096), "float16"), B: T.Buffer((4096, 14336), "float16"), C: T.Buffer((512, 14336), "float16")):
+        T.func_attr({"global_symbol": "mm", "tir.noalias": T.bool(True)})
+        # with T.block("root"):
+        C_local = T.alloc_buffer((512, 14336), "float16", scope="local")
+        A_shared = T.alloc_buffer((512, 4096), "float16", scope="shared")
+        B_shared = T.alloc_buffer((4096, 14336), "float16", scope="shared")
+        for i_0_j_0_fused in T.thread_binding(14, thread="blockIdx.x"):
+            for i_1_j_1_fused in T.thread_binding(2, thread="vthread.x"):
+                for i_2_j_2_fused in T.thread_binding(64, thread="threadIdx.x"):
+                    for i_3_init, j_3_init, i_4_init, j_4_init in T.grid(2, 8, 4, 64):
+                        with T.block("C_init"):
+                            v_i = T.axis.spatial(512, i_1_j_1_fused * 256 + i_2_j_2_fused // 2 * 8 + i_3_init * 4 + i_4_init)
+                            v_j = T.axis.spatial(14336, i_0_j_0_fused * 1024 + i_2_j_2_fused % 2 * 512 + j_3_init * 64 + j_4_init)
+                            T.reads()
+                            T.writes(C_local[v_i, v_j])
+                            T.block_attr({"meta_schedule.thread_extent_high_inclusive": 1024, "meta_schedule.thread_extent_low_inclusive": 64, "meta_schedule.tiling_structure": "SSSRRSRS"})
+                            C_local[v_i, v_j] = T.float16(0.0)
+                    for k_0 in range(2048):
+                        for ax0_ax1_fused_0 in range(2):
+                            for ax0_ax1_fused_1 in T.thread_binding(64, thread="threadIdx.x"):
+                                for ax0_ax1_fused_2 in T.vectorized(8):
+                                    with T.block("A_shared"):
+                                        v0 = T.axis.spatial(512, (ax0_ax1_fused_0 * 512 + ax0_ax1_fused_1 * 8 + ax0_ax1_fused_2) // 2)
+                                        v1 = T.axis.spatial(4096, k_0 * 2 + (ax0_ax1_fused_0 * 512 + ax0_ax1_fused_1 * 8 + ax0_ax1_fused_2) % 2)
+                                        T.reads(A[v0, v1])
+                                        T.writes(A_shared[v0, v1])
+                                        A_shared[v0, v1] = A[v0, v1]
+                        for ax0_ax1_fused_0 in range(32):
+                            for ax0_ax1_fused_1 in T.thread_binding(64, thread="threadIdx.x"):
+                                with T.block("B_shared"):
+                                    v0 = T.axis.spatial(4096, k_0 * 2 + (ax0_ax1_fused_0 * 64 + ax0_ax1_fused_1) // 1024)
+                                    v1 = T.axis.spatial(14336, i_0_j_0_fused * 1024 + (ax0_ax1_fused_0 * 64 + ax0_ax1_fused_1) % 1024)
+                                    T.reads(B[v0, v1])
+                                    T.writes(B_shared[v0, v1])
+                                    B_shared[v0, v1] = B[v0, v1]
+                        for k_1, i_3, j_3, k_2, i_4, j_4 in T.grid(2, 2, 8, 1, 4, 64):
+                            with T.block("C_update"):
+                                v_i = T.axis.spatial(512, i_1_j_1_fused * 256 + i_2_j_2_fused // 2 * 8 + i_3 * 4 + i_4)
+                                v_j = T.axis.spatial(14336, i_0_j_0_fused * 1024 + i_2_j_2_fused % 2 * 512 + j_3 * 64 + j_4)
+                                v_k = T.axis.reduce(4096, k_0 * 2 + k_1 + k_2)
+                                T.reads(C_local[v_i, v_j], A_shared[v_i, v_k], B_shared[v_k, v_j])
+                                T.writes(C_local[v_i, v_j])
+                                T.block_attr({"meta_schedule.thread_extent_high_inclusive": 1024, "meta_schedule.thread_extent_low_inclusive": 64, "meta_schedule.tiling_structure": "SSSRRSRS"})
+                                C_local[v_i, v_j] = C_local[v_i, v_j] + A_shared[v_i, v_k] * B_shared[v_k, v_j]
+                    for ax0, ax1 in T.grid(8, 512):
+                        with T.block("C_local"):
+                            v0 = T.axis.spatial(512, i_1_j_1_fused * 256 + i_2_j_2_fused // 2 * 8 + ax0)
+                            v1 = T.axis.spatial(14336, i_0_j_0_fused * 1024 + i_2_j_2_fused % 2 * 512 + ax1)
+                            T.reads(C_local[v0, v1])
+                            T.writes(C[v0, v1])
+                            C[v0, v1] = C_local[v0, v1]
+b0 = sch.get_block(name="C", func_name="main")
+b1 = sch.get_block(name="root", func_name="main")
+sch.annotate(block_or_loop=b0, ann_key="meta_schedule.tiling_structure", ann_val="SSSRRSRS")
+l2, l3, l4 = sch.get_loops(block=b0)
+v5, v6, v7, v8, v9 = sch.sample_perfect_tile(loop=l2, n=5, max_innermost_factor=64, decision=[1, 2, 32, 2, 4])
+l10, l11, l12, l13, l14 = sch.split(loop=l2, factors=[v5, v6, v7, v8, v9], preserve_unit_iters=True, disable_predication=False)
+v15, v16, v17, v18, v19 = sch.sample_perfect_tile(loop=l3, n=5, max_innermost_factor=64, decision=[14, 1, 2, 8, 64])
+l20, l21, l22, l23, l24 = sch.split(loop=l3, factors=[v15, v16, v17, v18, v19], preserve_unit_iters=True, disable_predication=False)
+v25, v26, v27 = sch.sample_perfect_tile(loop=l4, n=3, max_innermost_factor=64, decision=[2048, 2, 1])
+l28, l29, l30 = sch.split(loop=l4, factors=[v25, v26, v27], preserve_unit_iters=True, disable_predication=False)
+sch.reorder(l10, l20, l11, l21, l12, l22, l28, l29, l13, l23, l30, l14, l24)
+l31 = sch.fuse(l10, l20, preserve_unit_iters=True)
+sch.bind(loop=l31, thread_axis="blockIdx.x")
+l32 = sch.fuse(l11, l21, preserve_unit_iters=True)
+sch.bind(loop=l32, thread_axis="vthread.x")
+l33 = sch.fuse(l12, l22, preserve_unit_iters=True)
+sch.bind(loop=l33, thread_axis="threadIdx.x")
+sch.annotate(block_or_loop=b0, ann_key="meta_schedule.thread_extent_low_inclusive", ann_val=64)
+sch.annotate(block_or_loop=b0, ann_key="meta_schedule.thread_extent_high_inclusive", ann_val=1024)
+b34 = sch.cache_write(block=b0, write_buffer_index=0, storage_scope="local")
+sch.reverse_compute_at(block=b34, loop=l33, preserve_unit_loops=True, index=-1)
+b35 = sch.cache_read(block=b0, read_buffer_index=0, storage_scope="shared", consumer_blocks=[b0])
+sch.compute_at(block=b35, loop=l28, preserve_unit_loops=True, index=-1)
+l36, l37, l38, l39, l40, l41 = sch.get_loops(block=b35)
+l42 = sch.fuse(l40, l41, preserve_unit_iters=True)
+v43 = sch.sample_categorical(candidates=[1, 2, 4, 8], probs=[0.25, 0.25, 0.25, 0.25], decision=3)
+sch.annotate(block_or_loop=b35, ann_key="meta_schedule.cooperative_fetch", ann_val=v43)
+b44 = sch.cache_read(block=b0, read_buffer_index=1, storage_scope="shared", consumer_blocks=[b0])
+sch.compute_at(block=b44, loop=l28, preserve_unit_loops=True, index=-1)
+l45, l46, l47, l48, l49, l50 = sch.get_loops(block=b44)
+l51 = sch.fuse(l49, l50, preserve_unit_iters=True)
+v52 = sch.sample_categorical(candidates=[1, 2, 4, 8], probs=[0.25, 0.25, 0.25, 0.25], decision=0)
+sch.annotate(block_or_loop=b44, ann_key="meta_schedule.cooperative_fetch", ann_val=v52)
+v53 = sch.sample_categorical(candidates=[0, 16, 64, 512, 1024], probs=[0.20000000000000001, 0.20000000000000001, 0.20000000000000001, 0.20000000000000001, 0.20000000000000001], decision=0)
+sch.annotate(block_or_loop=b1, ann_key="meta_schedule.unroll_explicit", ann_val=v53)
+sch.enter_postproc()
+sch.unannotate(block_or_loop=b35, ann_key="meta_schedule.cooperative_fetch")
+l54, l55, l56, l57, l58 = sch.get_loops(block=b35)
+l59, l60, l61 = sch.split(loop=l58, factors=[None, 64, 8], preserve_unit_iters=True, disable_predication=False)
+sch.vectorize(loop=l61)
+sch.bind(loop=l60, thread_axis="threadIdx.x")
+sch.unannotate(block_or_loop=b44, ann_key="meta_schedule.cooperative_fetch")
+l62, l63, l64, l65, l66 = sch.get_loops(block=b44)
+l67, l68 = sch.split(loop=l66, factors=[None, 64], preserve_unit_iters=True, disable_predication=False)
+sch.bind(loop=l68, thread_axis="threadIdx.x")
+b69 = sch.get_block(name="root", func_name="main")
+sch.unannotate(block_or_loop=b69, ann_key="meta_schedule.unroll_explicit")
+b70, b71, b72, b73 = sch.get_child_blocks(b69)
+l74, l75, l76, l77, l78, l79, l80 = sch.get_loops(block=b70)
+l81, l82, l83, l84, l85, l86 = sch.get_loops(block=b71)
+l87, l88, l89, l90, l91, l92, l93, l94, l95, l96 = sch.get_loops(block=b72)
+l97, l98, l99, l100, l101 = sch.get_loops(block=b73)
+b102 = sch.get_block(name="C", func_name="main")
+l103, l104, l105, l106, l107, l108, l109, l110, l111, l112 = sch.get_loops(block=b102)
+b113 = sch.decompose_reduction(block=b102, loop=l106)
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #30: GFLOPs: 150.3485. Time: 399934.4073 us. Best GFLOPs: 52465.6496
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #31: GFLOPs: 1465.6812. Time: 41024.9810 us. Best GFLOPs: 52465.6496
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #32: GFLOPs: 2715.0560. Time: 22146.7040 us. Best GFLOPs: 52465.6496
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #33: GFLOPs: 6995.4426. Time: 8595.5307 us. Best GFLOPs: 52465.6496
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #34: GFLOPs: 59944.6201. Time: 1003.0849 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #35: GFLOPs: 43050.5675. Time: 1396.7189 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #36: GFLOPs: 38943.8287. Time: 1544.0070 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #37: GFLOPs: 1887.0443. Time: 31864.4045 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #38: GFLOPs: 159.3598. Time: 377319.2950 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #39: GFLOPs: 12964.8579. Time: 4637.8867 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #40: GFLOPs: 1316.6700. Time: 45667.8923 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #41: GFLOPs: 3557.7220. Time: 16901.1357 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #42: GFLOPs: 4869.0057. Time: 12349.4500 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #43: GFLOPs: 19738.7588. Time: 3046.2676 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #44: GFLOPs: 595.8507. Time: 100913.7673 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #45: GFLOPs: 9254.2426. Time: 6497.5109 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #46: GFLOPs: 3307.0676. Time: 18182.1327 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #47: GFLOPs: 6498.2132. Time: 9253.2425 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #48: GFLOPs: 2277.4146. Time: 26402.5458 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #49: GFLOPs: 19732.9406. Time: 3047.1658 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #50: GFLOPs: 626.2406. Time: 96016.6727 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #51: GFLOPs: 49.8850. Time: 1205363.3623 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #52: GFLOPs: 28294.4802. Time: 2125.1333 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #53: GFLOPs: 34229.6477. Time: 1756.6509 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #54: GFLOPs: 20018.6406. Time: 3003.6776 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #55: GFLOPs: 1277.7125. Time: 47060.3077 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #56: GFLOPs: 50859.1788. Time: 1182.2751 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #57: GFLOPs: 1902.6636. Time: 31602.8233 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #58: GFLOPs: 80.6865. Time: 745224.1210 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #59: GFLOPs: 58345.3280. Time: 1030.5802 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #60: GFLOPs: 1568.4611. Time: 38336.6493 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #61: GFLOPs: 1240.0265. Time: 48490.5293 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #62: GFLOPs: 717.8821. Time: 83759.6333 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #63: GFLOPs: 20848.9414. Time: 2884.0573 us. Best GFLOPs: 59944.6201
+2025-10-01 12:46:38 [INFO] [evolutionary_search.cc:713] Generating candidates......
+2025-10-01 12:46:38 [INFO] [evolutionary_search.cc:715] Picked top 61 candidate(s) from database
+2025-10-01 12:46:39 [INFO] [evolutionary_search.cc:533] Sample-Init-Population summary:
+Postproc #0 [meta_schedule.DisallowDynamicLoop(0x3d863ef8)]: 0 failure(s)
+Postproc #1 [meta_schedule.RewriteCooperativeFetch(0x3d9dd1d8)]: 0 failure(s)
+Postproc #2 [meta_schedule.RewriteUnboundBlock(0x3d9da328)]: 0 failure(s)
+Postproc #3 [meta_schedule.RewriteParallelVectorizeUnroll(0x3d889168)]: 0 failure(s)
+Postproc #4 [meta_schedule.RewriteReductionBlock(0x3d8aa868)]: 0 failure(s)
+Postproc #5 [meta_schedule.VerifyGPUCode(0x3d9d70c8)]: 436 failure(s)
+2025-10-01 12:46:41 [INFO] [evolutionary_search.cc:533] Sample-Init-Population summary:
+Postproc #0 [meta_schedule.DisallowDynamicLoop(0x3d863ef8)]: 0 failure(s)
+Postproc #1 [meta_schedule.RewriteCooperativeFetch(0x3d9dd1d8)]: 0 failure(s)
+Postproc #2 [meta_schedule.RewriteUnboundBlock(0x3d9da328)]: 0 failure(s)
+Postproc #3 [meta_schedule.RewriteParallelVectorizeUnroll(0x3d889168)]: 0 failure(s)
+Postproc #4 [meta_schedule.RewriteReductionBlock(0x3d8aa868)]: 0 failure(s)
+Postproc #5 [meta_schedule.VerifyGPUCode(0x3d9d70c8)]: 875 failure(s)
+2025-10-01 12:46:42 [INFO] [evolutionary_search.cc:533] Sample-Init-Population summary:
+Postproc #0 [meta_schedule.DisallowDynamicLoop(0x3d863ef8)]: 0 failure(s)
+Postproc #1 [meta_schedule.RewriteCooperativeFetch(0x3d9dd1d8)]: 0 failure(s)
+Postproc #2 [meta_schedule.RewriteUnboundBlock(0x3d9da328)]: 0 failure(s)
+Postproc #3 [meta_schedule.RewriteParallelVectorizeUnroll(0x3d889168)]: 0 failure(s)
+Postproc #4 [meta_schedule.RewriteReductionBlock(0x3d8aa868)]: 0 failure(s)
+Postproc #5 [meta_schedule.VerifyGPUCode(0x3d9d70c8)]: 1305 failure(s)
+2025-10-01 12:46:43 [INFO] [evolutionary_search.cc:533] Sample-Init-Population summary:
+Postproc #0 [meta_schedule.DisallowDynamicLoop(0x3d863ef8)]: 0 failure(s)
+Postproc #1 [meta_schedule.RewriteCooperativeFetch(0x3d9dd1d8)]: 0 failure(s)
+Postproc #2 [meta_schedule.RewriteUnboundBlock(0x3d9da328)]: 0 failure(s)
+Postproc #3 [meta_schedule.RewriteParallelVectorizeUnroll(0x3d889168)]: 0 failure(s)
+Postproc #4 [meta_schedule.RewriteReductionBlock(0x3d8aa868)]: 0 failure(s)
+Postproc #5 [meta_schedule.VerifyGPUCode(0x3d9d70c8)]: 1739 failure(s)
+2025-10-01 12:46:43 [INFO] [evolutionary_search.cc:723] Sampled 65 candidate(s)
+2025-10-01 12:46:45 [INFO] [evolutionary_search.cc:621] Evolve iter #0 done. Summary:
+Postproc #0 [meta_schedule.DisallowDynamicLoop(0x3d863ef8)]: 0 failure(s)
+Postproc #1 [meta_schedule.RewriteCooperativeFetch(0x3d9dd1d8)]: 0 failure(s)
+Postproc #2 [meta_schedule.RewriteUnboundBlock(0x3d9da328)]: 0 failure(s)
+Postproc #3 [meta_schedule.RewriteParallelVectorizeUnroll(0x3d889168)]: 0 failure(s)
+Postproc #4 [meta_schedule.RewriteReductionBlock(0x3d8aa868)]: 0 failure(s)
+Postproc #5 [meta_schedule.VerifyGPUCode(0x3d9d70c8)]: 107 failure(s)
+2025-10-01 12:46:47 [INFO] [evolutionary_search.cc:621] Evolve iter #1 done. Summary:
+Postproc #0 [meta_schedule.DisallowDynamicLoop(0x3d863ef8)]: 0 failure(s)
+Postproc #1 [meta_schedule.RewriteCooperativeFetch(0x3d9dd1d8)]: 0 failure(s)
+Postproc #2 [meta_schedule.RewriteUnboundBlock(0x3d9da328)]: 0 failure(s)
+Postproc #3 [meta_schedule.RewriteParallelVectorizeUnroll(0x3d889168)]: 0 failure(s)
+Postproc #4 [meta_schedule.RewriteReductionBlock(0x3d8aa868)]: 0 failure(s)
+Postproc #5 [meta_schedule.VerifyGPUCode(0x3d9d70c8)]: 77 failure(s)
+2025-10-01 12:46:49 [INFO] [evolutionary_search.cc:621] Evolve iter #2 done. Summary:
+Postproc #0 [meta_schedule.DisallowDynamicLoop(0x3d863ef8)]: 0 failure(s)
+Postproc #1 [meta_schedule.RewriteCooperativeFetch(0x3d9dd1d8)]: 0 failure(s)
+Postproc #2 [meta_schedule.RewriteUnboundBlock(0x3d9da328)]: 0 failure(s)
+Postproc #3 [meta_schedule.RewriteParallelVectorizeUnroll(0x3d889168)]: 0 failure(s)
+Postproc #4 [meta_schedule.RewriteReductionBlock(0x3d8aa868)]: 0 failure(s)
+Postproc #5 [meta_schedule.VerifyGPUCode(0x3d9d70c8)]: 93 failure(s)
+2025-10-01 12:46:51 [INFO] [evolutionary_search.cc:621] Evolve iter #3 done. Summary:
+Postproc #0 [meta_schedule.DisallowDynamicLoop(0x3d863ef8)]: 0 failure(s)
+Postproc #1 [meta_schedule.RewriteCooperativeFetch(0x3d9dd1d8)]: 0 failure(s)
+Postproc #2 [meta_schedule.RewriteUnboundBlock(0x3d9da328)]: 0 failure(s)
+Postproc #3 [meta_schedule.RewriteParallelVectorizeUnroll(0x3d889168)]: 0 failure(s)
+Postproc #4 [meta_schedule.RewriteReductionBlock(0x3d8aa868)]: 0 failure(s)
+Postproc #5 [meta_schedule.VerifyGPUCode(0x3d9d70c8)]: 97 failure(s)
+2025-10-01 12:46:51 [INFO] [evolutionary_search.cc:649] Scores of the best 64 candidates:
+[1 : 16]:	0.9999  0.9992  0.9976  0.9961  0.9960  0.9949  0.9948  0.9947  0.9939  0.9921  0.9911  0.9907  0.9898  0.9889  0.9885  0.9849
+[17 : 32]:	0.9846  0.9845  0.9842  0.9838  0.9815  0.9798  0.9795  0.9784  0.9778  0.9773  0.9773  0.9766  0.9756  0.9743  0.9708  0.9704
+[33 : 48]:	0.9702  0.9702  0.9691  0.9689  0.9677  0.9674  0.9674  0.9673  0.9671  0.9671  0.9659  0.9653  0.9647  0.9628  0.9617  0.9607
+[49 : 64]:	0.9593  0.9580  0.9578  0.9573  0.9567  0.9565  0.9558  0.9557  0.9557  0.9551  0.9548  0.9544  0.9537  0.9530  0.9523  0.9519
+2025-10-01 12:46:51 [INFO] [evolutionary_search.cc:727] Got 64 candidate(s) with evolutionary search
+2025-10-01 12:46:51 [INFO] [evolutionary_search.cc:730] Sending 64 candidates(s) for measurement
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #64: GFLOPs: 136.6640. Time: 439980.9977 us. Best GFLOPs: 59944.6201
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:121] [Task #0: mm] Trial #65: Error in running:
+LocalRunner: Timeout, killed after 30 seconds
+
+# from tvm.script import ir as I
+# from tvm.script import tir as T
+
+@I.ir_module
+class Module:
+    @T.prim_func
+    def main(A: T.Buffer((512, 4096), "float16"), B: T.Buffer((4096, 14336), "float16"), C: T.Buffer((512, 14336), "float16")):
+        T.func_attr({"global_symbol": "mm", "tir.noalias": T.bool(True)})
+        # with T.block("root"):
+        C_local = T.alloc_buffer((512, 14336), "float16", scope="local")
+        A_shared = T.alloc_buffer((512, 4096), "float16", scope="shared")
+        B_shared = T.alloc_buffer((4096, 14336), "float16", scope="shared")
+        for i_0_j_0_fused in T.thread_binding(8, thread="blockIdx.x"):
+            for i_1_j_1_fused in T.thread_binding(32, thread="vthread.x"):
+                for i_2_j_2_fused in T.thread_binding(112, thread="threadIdx.x"):
+                    for i_3_init, j_3_init, i_4_init, j_4_init in T.grid(8, 2, 2, 8):
+                        with T.block("C_init"):
+                            v_i = T.axis.spatial(512, i_1_j_1_fused // 2 * 32 + i_2_j_2_fused // 56 * 16 + i_3_init * 2 + i_4_init)
+                            v_j = T.axis.spatial(14336, i_0_j_0_fused * 1792 + i_1_j_1_fused % 2 * 896 + i_2_j_2_fused % 56 * 16 + j_3_init * 8 + j_4_init)
+                            T.reads()
+                            T.writes(C_local[v_i, v_j])
+                            T.block_attr({"meta_schedule.thread_extent_high_inclusive": 1024, "meta_schedule.thread_extent_low_inclusive": 64, "meta_schedule.tiling_structure": "SSSRRSRS"})
+                            C_local[v_i, v_j] = T.float16(0.0)
+                    for k_0 in range(1024):
+                        for ax0_ax1_fused_0 in range(3):
+                            for ax0_ax1_fused_1 in T.thread_binding(112, thread="threadIdx.x"):
+                                for ax0_ax1_fused_2 in T.vectorized(8):
+                                    with T.block("A_shared"):
+                                        v0 = T.axis.spatial(512, (ax0_ax1_fused_0 * 896 + ax0_ax1_fused_1 * 8 + ax0_ax1_fused_2) // 4)
+                                        v1 = T.axis.spatial(4096, k_0 * 4 + (ax0_ax1_fused_0 * 896 + ax0_ax1_fused_1 * 8 + ax0_ax1_fused_2) % 4)
+                                        T.where((ax0_ax1_fused_0 * 112 + ax0_ax1_fused_1) * 8 + ax0_ax1_fused_2 < 2048)
+                                        T.reads(A[v0, v1])
+                                        T.writes(A_shared[v0, v1])
+                                        A_shared[v0, v1] = A[v0, v1]
+                        for ax0_ax1_fused_0 in range(64):
+                            for ax0_ax1_fused_1 in T.thread_binding(112, thread="threadIdx.x"):
+                                with T.block("B_shared"):
+                                    v0 = T.axis.spatial(4096, k_0 * 4 + (ax0_ax1_fused_0 * 112 + ax0_ax1_fused_1) // 1792)
+                                    v1 = T.axis.spatial(14336, i_0_j_0_fused * 1792 + (ax0_ax1_fused_0 * 112 + ax0_ax1_fused_1) % 1792)
+                                    T.reads(B[v0, v1])
+                                    T.writes(B_shared[v0, v1])
+                                    B_shared[v0, v1] = B[v0, v1]
+                        for k_1, i_3, j_3, k_2, i_4, j_4 in T.grid(1, 8, 2, 4, 2, 8):
+                            with T.block("C_update"):
+                                v_i = T.axis.spatial(512, i_1_j_1_fused // 2 * 32 + i_2_j_2_fused // 56 * 16 + i_3 * 2 + i_4)
+                                v_j = T.axis.spatial(14336, i_0_j_0_fused * 1792 + i_1_j_1_fused % 2 * 896 + i_2_j_2_fused % 56 * 16 + j_3 * 8 + j_4)
+                                v_k = T.axis.reduce(4096, k_0 * 4 + k_1 * 4 + k_2)
+                                T.reads(C_local[v_i, v_j], A_shared[v_i, v_k], B_shared[v_k, v_j])
+                                T.writes(C_local[v_i, v_j])
+                                T.block_attr({"meta_schedule.thread_extent_high_inclusive": 1024, "meta_schedule.thread_extent_low_inclusive": 64, "meta_schedule.tiling_structure": "SSSRRSRS"})
+                                C_local[v_i, v_j] = C_local[v_i, v_j] + A_shared[v_i, v_k] * B_shared[v_k, v_j]
+                    for ax0, ax1 in T.grid(16, 16):
+                        with T.block("C_local"):
+                            v0 = T.axis.spatial(512, i_1_j_1_fused // 2 * 32 + i_2_j_2_fused // 56 * 16 + ax0)
+                            v1 = T.axis.spatial(14336, i_0_j_0_fused * 1792 + i_1_j_1_fused % 2 * 896 + i_2_j_2_fused % 56 * 16 + ax1)
+                            T.reads(C_local[v0, v1])
+                            T.writes(C[v0, v1])
+                            C[v0, v1] = C_local[v0, v1]
+b0 = sch.get_block(name="C", func_name="main")
+b1 = sch.get_block(name="root", func_name="main")
+sch.annotate(block_or_loop=b0, ann_key="meta_schedule.tiling_structure", ann_val="SSSRRSRS")
+l2, l3, l4 = sch.get_loops(block=b0)
+v5, v6, v7, v8, v9 = sch.sample_perfect_tile(loop=l2, n=5, max_innermost_factor=64, decision=[1, 16, 2, 8, 2])
+l10, l11, l12, l13, l14 = sch.split(loop=l2, factors=[v5, v6, v7, v8, v9], preserve_unit_iters=True, disable_predication=False)
+v15, v16, v17, v18, v19 = sch.sample_perfect_tile(loop=l3, n=5, max_innermost_factor=64, decision=[8, 2, 56, 2, 8])
+l20, l21, l22, l23, l24 = sch.split(loop=l3, factors=[v15, v16, v17, v18, v19], preserve_unit_iters=True, disable_predication=False)
+v25, v26, v27 = sch.sample_perfect_tile(loop=l4, n=3, max_innermost_factor=64, decision=[1024, 1, 4])
+l28, l29, l30 = sch.split(loop=l4, factors=[v25, v26, v27], preserve_unit_iters=True, disable_predication=False)
+sch.reorder(l10, l20, l11, l21, l12, l22, l28, l29, l13, l23, l30, l14, l24)
+l31 = sch.fuse(l10, l20, preserve_unit_iters=True)
+sch.bind(loop=l31, thread_axis="blockIdx.x")
+l32 = sch.fuse(l11, l21, preserve_unit_iters=True)
+sch.bind(loop=l32, thread_axis="vthread.x")
+l33 = sch.fuse(l12, l22, preserve_unit_iters=True)
+sch.bind(loop=l33, thread_axis="threadIdx.x")
+sch.annotate(block_or_loop=b0, ann_key="meta_schedule.thread_extent_low_inclusive", ann_val=64)
+sch.annotate(block_or_loop=b0, ann_key="meta_schedule.thread_extent_high_inclusive", ann_val=1024)
+b34 = sch.cache_write(block=b0, write_buffer_index=0, storage_scope="local")
+sch.reverse_compute_at(block=b34, loop=l33, preserve_unit_loops=True, index=-1)
+b35 = sch.cache_read(block=b0, read_buffer_index=0, storage_scope="shared", consumer_blocks=[b0])
+sch.compute_at(block=b35, loop=l28, preserve_unit_loops=True, index=-1)
+l36, l37, l38, l39, l40, l41 = sch.get_loops(block=b35)
+l42 = sch.fuse(l40, l41, preserve_unit_iters=True)
+v43 = sch.sample_categorical(candidates=[1, 2, 4, 8], probs=[0.25, 0.25, 0.25, 0.25], decision=3)
+sch.annotate(block_or_loop=b35, ann_key="meta_schedule.cooperative_fetch", ann_val=v43)
+b44 = sch.cache_read(block=b0, read_buffer_index=1, storage_scope="shared", consumer_blocks=[b0])
+sch.compute_at(block=b44, loop=l28, preserve_unit_loops=True, index=-1)
+l45, l46, l47, l48, l49, l50 = sch.get_loops(block=b44)
+l51 = sch.fuse(l49, l50, preserve_unit_iters=True)
+v52 = sch.sample_categorical(candidates=[1, 2, 4, 8], probs=[0.25, 0.25, 0.25, 0.25], decision=0)
+sch.annotate(block_or_loop=b44, ann_key="meta_schedule.cooperative_fetch", ann_val=v52)
+v53 = sch.sample_categorical(candidates=[0, 16, 64, 512, 1024], probs=[0.20000000000000001, 0.20000000000000001, 0.20000000000000001, 0.20000000000000001, 0.20000000000000001], decision=0)
+sch.annotate(block_or_loop=b1, ann_key="meta_schedule.unroll_explicit", ann_val=v53)
+sch.enter_postproc()
+sch.unannotate(block_or_loop=b35, ann_key="meta_schedule.cooperative_fetch")
+l54, l55, l56, l57, l58 = sch.get_loops(block=b35)
+l59, l60, l61 = sch.split(loop=l58, factors=[None, 112, 8], preserve_unit_iters=True, disable_predication=False)
+sch.vectorize(loop=l61)
+sch.bind(loop=l60, thread_axis="threadIdx.x")
+sch.unannotate(block_or_loop=b44, ann_key="meta_schedule.cooperative_fetch")
+l62, l63, l64, l65, l66 = sch.get_loops(block=b44)
+l67, l68 = sch.split(loop=l66, factors=[None, 112], preserve_unit_iters=True, disable_predication=False)
+sch.bind(loop=l68, thread_axis="threadIdx.x")
+b69 = sch.get_block(name="root", func_name="main")
+sch.unannotate(block_or_loop=b69, ann_key="meta_schedule.unroll_explicit")
+b70, b71, b72, b73 = sch.get_child_blocks(b69)
+l74, l75, l76, l77, l78, l79, l80 = sch.get_loops(block=b70)
+l81, l82, l83, l84, l85, l86 = sch.get_loops(block=b71)
+l87, l88, l89, l90, l91, l92, l93, l94, l95, l96 = sch.get_loops(block=b72)
+l97, l98, l99, l100, l101 = sch.get_loops(block=b73)
+b102 = sch.get_block(name="C", func_name="main")
+l103, l104, l105, l106, l107, l108, l109, l110, l111, l112 = sch.get_loops(block=b102)
+b113 = sch.decompose_reduction(block=b102, loop=l106)
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #66: GFLOPs: 12834.8256. Time: 4684.8741 us. Best GFLOPs: 59944.6201
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #67: GFLOPs: 19753.9443. Time: 3043.9259 us. Best GFLOPs: 59944.6201
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #68: GFLOPs: 6796.4276. Time: 8847.2277 us. Best GFLOPs: 59944.6201
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #69: GFLOPs: 71.6807. Time: 838853.1900 us. Best GFLOPs: 59944.6201
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #70: GFLOPs: 1248.2329. Time: 48171.7323 us. Best GFLOPs: 59944.6201
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #71: GFLOPs: 2850.9499. Time: 21091.0552 us. Best GFLOPs: 59944.6201
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:121] [Task #0: mm] Trial #72: Error in building:
+LocalBuilder: Timeout, killed after 30.0 seconds
+# from tvm.script import ir as I
+# from tvm.script import tir as T
+
+@I.ir_module
+class Module:
+    @T.prim_func
+    def main(A: T.Buffer((512, 4096), "float16"), B: T.Buffer((4096, 14336), "float16"), C: T.Buffer((512, 14336), "float16")):
+        T.func_attr({"global_symbol": "mm", "tir.noalias": T.bool(True)})
+        # with T.block("root"):
+        C_local = T.alloc_buffer((512, 14336), "float16", scope="local")
+        A_shared = T.alloc_buffer((512, 4096), "float16", scope="shared")
+        B_shared = T.alloc_buffer((4096, 14336), "float16", scope="shared")
+        for i_0_j_0_fused in T.thread_binding(4, thread="blockIdx.x", annotations={"pragma_auto_unroll_max_step": 1024, "pragma_unroll_explicit": 1}):
+            for i_1_j_1_fused in T.thread_binding(4, thread="vthread.x"):
+                for i_2_j_2_fused in T.thread_binding(256, thread="threadIdx.x"):
+                    for i_3_init, j_3_init, i_4_init, j_4_init in T.grid(4, 2, 4, 56):
+                        with T.block("C_init"):
+                            v_i = T.axis.spatial(512, i_2_j_2_fused // 8 * 16 + i_3_init * 4 + i_4_init)
+                            v_j = T.axis.spatial(14336, i_0_j_0_fused * 3584 + i_1_j_1_fused * 896 + i_2_j_2_fused % 8 * 112 + j_3_init * 56 + j_4_init)
+                            T.reads()
+                            T.writes(C_local[v_i, v_j])
+                            T.block_attr({"meta_schedule.thread_extent_high_inclusive": 1024, "meta_schedule.thread_extent_low_inclusive": 64, "meta_schedule.tiling_structure": "SSSRRSRS"})
+                            C_local[v_i, v_j] = T.float16(0.0)
+                    for k_0 in range(2048):
+                        for ax0_ax1_fused_0 in range(1):
+                            for ax0_ax1_fused_1 in T.thread_binding(256, thread="threadIdx.x"):
+                                for ax0_ax1_fused_2 in T.vectorized(4):
+                                    with T.block("A_shared"):
+                                        v0 = T.axis.spatial(512, (ax0_ax1_fused_0 * 1024 + ax0_ax1_fused_1 * 4 + ax0_ax1_fused_2) // 2)
+                                        v1 = T.axis.spatial(4096, k_0 * 2 + (ax0_ax1_fused_0 * 1024 + ax0_ax1_fused_1 * 4 + ax0_ax1_fused_2) % 2)
+                                        T.reads(A[v0, v1])
+                                        T.writes(A_shared[v0, v1])
+                                        A_shared[v0, v1] = A[v0, v1]
+                        for ax0_ax1_fused_0 in range(4):
+                            for ax0_ax1_fused_1 in T.thread_binding(256, thread="threadIdx.x"):
+                                for ax0_ax1_fused_2 in T.vectorized(8):
+                                    with T.block("B_shared"):
+                                        v0 = T.axis.spatial(4096, k_0 * 2 + (ax0_ax1_fused_0 * 2048 + ax0_ax1_fused_1 * 8 + ax0_ax1_fused_2) // 3584)
+                                        v1 = T.axis.spatial(14336, i_0_j_0_fused * 3584 + (ax0_ax1_fused_0 * 2048 + ax0_ax1_fused_1 * 8 + ax0_ax1_fused_2) % 3584)
+                                        T.where((ax0_ax1_fused_0 * 256 + ax0_ax1_fused_1) * 8 + ax0_ax1_fused_2 < 7168)
+                                        T.reads(B[v0, v1])
+                                        T.writes(B_shared[v0, v1])
+                                        B_shared[v0, v1] = B[v0, v1]
+                        for k_1, i_3, j_3, k_2, i_4, j_4 in T.grid(2, 4, 2, 1, 4, 56):
+                            with T.block("C_update"):
+                                v_i = T.axis.spatial(512, i_2_j_2_fused // 8 * 16 + i_3 * 4 + i_4)
+                                v_j = T.axis.spatial(14336, i_0_j_0_fused * 3584 + i_1_j_1_fused * 896 + i_2_j_2_fused % 8 * 112 + j_3 * 56 + j_4)
+                                v_k = T.axis.reduce(4096, k_0 * 2 + k_1 + k_2)
+                                T.reads(C_local[v_i, v_j], A_shared[v_i, v_k], B_shared[v_k, v_j])
+                                T.writes(C_local[v_i, v_j])
+                                T.block_attr({"meta_schedule.thread_extent_high_inclusive": 1024, "meta_schedule.thread_extent_low_inclusive": 64, "meta_schedule.tiling_structure": "SSSRRSRS"})
+                                C_local[v_i, v_j] = C_local[v_i, v_j] + A_shared[v_i, v_k] * B_shared[v_k, v_j]
+                    for ax0, ax1 in T.grid(16, 112):
+                        with T.block("C_local"):
+                            v0 = T.axis.spatial(512, i_2_j_2_fused // 8 * 16 + ax0)
+                            v1 = T.axis.spatial(14336, i_0_j_0_fused * 3584 + i_1_j_1_fused * 896 + i_2_j_2_fused % 8 * 112 + ax1)
+                            T.reads(C_local[v0, v1])
+                            T.writes(C[v0, v1])
+                            C[v0, v1] = C_local[v0, v1]
+b0 = sch.get_block(name="C", func_name="main")
+b1 = sch.get_block(name="root", func_name="main")
+sch.annotate(block_or_loop=b0, ann_key="meta_schedule.tiling_structure", ann_val="SSSRRSRS")
+l2, l3, l4 = sch.get_loops(block=b0)
+v5, v6, v7, v8, v9 = sch.sample_perfect_tile(loop=l2, n=5, max_innermost_factor=64, decision=[1, 1, 32, 4, 4])
+l10, l11, l12, l13, l14 = sch.split(loop=l2, factors=[v5, v6, v7, v8, v9], preserve_unit_iters=True, disable_predication=False)
+v15, v16, v17, v18, v19 = sch.sample_perfect_tile(loop=l3, n=5, max_innermost_factor=64, decision=[4, 4, 8, 2, 56])
+l20, l21, l22, l23, l24 = sch.split(loop=l3, factors=[v15, v16, v17, v18, v19], preserve_unit_iters=True, disable_predication=False)
+v25, v26, v27 = sch.sample_perfect_tile(loop=l4, n=3, max_innermost_factor=64, decision=[2048, 2, 1])
+l28, l29, l30 = sch.split(loop=l4, factors=[v25, v26, v27], preserve_unit_iters=True, disable_predication=False)
+sch.reorder(l10, l20, l11, l21, l12, l22, l28, l29, l13, l23, l30, l14, l24)
+l31 = sch.fuse(l10, l20, preserve_unit_iters=True)
+sch.bind(loop=l31, thread_axis="blockIdx.x")
+l32 = sch.fuse(l11, l21, preserve_unit_iters=True)
+sch.bind(loop=l32, thread_axis="vthread.x")
+l33 = sch.fuse(l12, l22, preserve_unit_iters=True)
+sch.bind(loop=l33, thread_axis="threadIdx.x")
+sch.annotate(block_or_loop=b0, ann_key="meta_schedule.thread_extent_low_inclusive", ann_val=64)
+sch.annotate(block_or_loop=b0, ann_key="meta_schedule.thread_extent_high_inclusive", ann_val=1024)
+b34 = sch.cache_write(block=b0, write_buffer_index=0, storage_scope="local")
+sch.reverse_compute_at(block=b34, loop=l33, preserve_unit_loops=True, index=-1)
+b35 = sch.cache_read(block=b0, read_buffer_index=0, storage_scope="shared", consumer_blocks=[b0])
+sch.compute_at(block=b35, loop=l28, preserve_unit_loops=True, index=-1)
+l36, l37, l38, l39, l40, l41 = sch.get_loops(block=b35)
+l42 = sch.fuse(l40, l41, preserve_unit_iters=True)
+v43 = sch.sample_categorical(candidates=[1, 2, 4, 8], probs=[0.25, 0.25, 0.25, 0.25], decision=2)
+sch.annotate(block_or_loop=b35, ann_key="meta_schedule.cooperative_fetch", ann_val=v43)
+b44 = sch.cache_read(block=b0, read_buffer_index=1, storage_scope="shared", consumer_blocks=[b0])
+sch.compute_at(block=b44, loop=l28, preserve_unit_loops=True, index=-1)
+l45, l46, l47, l48, l49, l50 = sch.get_loops(block=b44)
+l51 = sch.fuse(l49, l50, preserve_unit_iters=True)
+v52 = sch.sample_categorical(candidates=[1, 2, 4, 8], probs=[0.25, 0.25, 0.25, 0.25], decision=3)
+sch.annotate(block_or_loop=b44, ann_key="meta_schedule.cooperative_fetch", ann_val=v52)
+v53 = sch.sample_categorical(candidates=[0, 16, 64, 512, 1024], probs=[0.20000000000000001, 0.20000000000000001, 0.20000000000000001, 0.20000000000000001, 0.20000000000000001], decision=4)
+sch.annotate(block_or_loop=b1, ann_key="meta_schedule.unroll_explicit", ann_val=v53)
+sch.enter_postproc()
+sch.unannotate(block_or_loop=b35, ann_key="meta_schedule.cooperative_fetch")
+l54, l55, l56, l57, l58 = sch.get_loops(block=b35)
+l59, l60, l61 = sch.split(loop=l58, factors=[None, 256, 4], preserve_unit_iters=True, disable_predication=False)
+sch.vectorize(loop=l61)
+sch.bind(loop=l60, thread_axis="threadIdx.x")
+sch.unannotate(block_or_loop=b44, ann_key="meta_schedule.cooperative_fetch")
+l62, l63, l64, l65, l66 = sch.get_loops(block=b44)
+l67, l68, l69 = sch.split(loop=l66, factors=[None, 256, 8], preserve_unit_iters=True, disable_predication=False)
+sch.vectorize(loop=l69)
+sch.bind(loop=l68, thread_axis="threadIdx.x")
+b70 = sch.get_block(name="root", func_name="main")
+sch.unannotate(block_or_loop=b70, ann_key="meta_schedule.unroll_explicit")
+b71, b72, b73, b74 = sch.get_child_blocks(b70)
+l75, l76, l77, l78, l79, l80, l81 = sch.get_loops(block=b71)
+l82, l83, l84, l85, l86, l87, l88 = sch.get_loops(block=b72)
+l89, l90, l91, l92, l93, l94, l95, l96, l97, l98 = sch.get_loops(block=b73)
+sch.annotate(block_or_loop=l89, ann_key="pragma_auto_unroll_max_step", ann_val=1024)
+sch.annotate(block_or_loop=l89, ann_key="pragma_unroll_explicit", ann_val=1)
+l99, l100, l101, l102, l103 = sch.get_loops(block=b74)
+b104 = sch.get_block(name="C", func_name="main")
+l105, l106, l107, l108, l109, l110, l111, l112, l113, l114 = sch.get_loops(block=b104)
+b115 = sch.decompose_reduction(block=b104, loop=l108)
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #73: GFLOPs: 27844.8463. Time: 2159.4496 us. Best GFLOPs: 59944.6201
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #74: GFLOPs: 15191.5484. Time: 3958.0917 us. Best GFLOPs: 59944.6201
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #75: GFLOPs: 46724.6456. Time: 1286.8913 us. Best GFLOPs: 59944.6201
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #76: GFLOPs: 71041.8809. Time: 846.3957 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #77: GFLOPs: 5300.0822. Time: 11345.0207 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #78: GFLOPs: 51204.7024. Time: 1174.2973 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #79: GFLOPs: 112.3650. Time: 535126.8717 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #80: GFLOPs: 74.3970. Time: 808225.2603 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #81: GFLOPs: 2195.8266. Time: 27383.5563 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #82: GFLOPs: 35821.0167. Time: 1678.6107 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #83: GFLOPs: 674.3123. Time: 89171.6510 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #84: GFLOPs: 59.1412. Time: 1016712.4023 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #85: GFLOPs: 2382.8409. Time: 25234.3920 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #86: GFLOPs: 17808.1376. Time: 3376.5205 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #87: GFLOPs: 453.6069. Time: 132558.7053 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #88: GFLOPs: 3299.6074. Time: 18223.2412 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #89: GFLOPs: 35892.6744. Time: 1675.2595 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #90: GFLOPs: 492.5956. Time: 122066.7417 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #91: GFLOPs: 593.0872. Time: 101383.9823 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #92: GFLOPs: 64295.2255. Time: 935.2101 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #93: GFLOPs: 889.3087. Time: 67613.8050 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #94: GFLOPs: 3615.0942. Time: 16632.9116 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:121] [Task #0: mm] Trial #95: Error in running:
+LocalRunner: An exception occurred
+Subprocess terminated
+# from tvm.script import ir as I
+# from tvm.script import tir as T
+
+@I.ir_module
+class Module:
+    @T.prim_func
+    def main(A: T.Buffer((512, 4096), "float16"), B: T.Buffer((4096, 14336), "float16"), C: T.Buffer((512, 14336), "float16")):
+        T.func_attr({"global_symbol": "mm", "tir.noalias": T.bool(True)})
+        # with T.block("root"):
+        C_local = T.alloc_buffer((512, 14336), "float16", scope="local")
+        A_shared = T.alloc_buffer((512, 4096), "float16", scope="shared")
+        B_shared = T.alloc_buffer((4096, 14336), "float16", scope="shared")
+        for i_0_j_0_fused in T.thread_binding(2, thread="blockIdx.x"):
+            for i_1_j_1_fused in T.thread_binding(56, thread="vthread.x"):
+                for i_2_j_2_fused in T.thread_binding(64, thread="threadIdx.x"):
+                    for i_3_init, j_3_init, i_4_init, j_4_init in T.grid(2, 16, 8, 4):
+                        with T.block("C_init"):
+                            v_i = T.axis.spatial(512, i_0_j_0_fused * 256 + i_1_j_1_fused // 14 * 64 + i_2_j_2_fused // 16 * 16 + i_3_init * 8 + i_4_init)
+                            v_j = T.axis.spatial(14336, i_1_j_1_fused % 14 * 1024 + i_2_j_2_fused % 16 * 64 + j_3_init * 4 + j_4_init)
+                            T.reads()
+                            T.writes(C_local[v_i, v_j])
+                            T.block_attr({"meta_schedule.thread_extent_high_inclusive": 1024, "meta_schedule.thread_extent_low_inclusive": 64, "meta_schedule.tiling_structure": "SSSRRSRS"})
+                            C_local[v_i, v_j] = T.float16(0.0)
+                    for k_0 in range(4096):
+                        for ax0_ax1_fused_0 in range(2):
+                            for ax0_ax1_fused_1 in T.thread_binding(64, thread="threadIdx.x"):
+                                for ax0_ax1_fused_2 in T.vectorized(2):
+                                    with T.block("A_shared"):
+                                        v0 = T.axis.spatial(512, i_0_j_0_fused * 256 + ax0_ax1_fused_0 * 128 + ax0_ax1_fused_1 * 2 + ax0_ax1_fused_2)
+                                        v1 = T.axis.spatial(4096, k_0)
+                                        T.reads(A[v0, v1])
+                                        T.writes(A_shared[v0, v1])
+                                        A_shared[v0, v1] = A[v0, v1]
+                        for ax0_ax1_fused_0 in range(28):
+                            for ax0_ax1_fused_1 in T.thread_binding(64, thread="threadIdx.x"):
+                                for ax0_ax1_fused_2 in T.vectorized(8):
+                                    with T.block("B_shared"):
+                                        v0 = T.axis.spatial(4096, k_0)
+                                        v1 = T.axis.spatial(14336, ax0_ax1_fused_0 * 512 + ax0_ax1_fused_1 * 8 + ax0_ax1_fused_2)
+                                        T.reads(B[v0, v1])
+                                        T.writes(B_shared[v0, v1])
+                                        B_shared[v0, v1] = B[v0, v1]
+                        for k_1, i_3, j_3, k_2, i_4, j_4 in T.grid(1, 2, 16, 1, 8, 4):
+                            with T.block("C_update"):
+                                v_i = T.axis.spatial(512, i_0_j_0_fused * 256 + i_1_j_1_fused // 14 * 64 + i_2_j_2_fused // 16 * 16 + i_3 * 8 + i_4)
+                                v_j = T.axis.spatial(14336, i_1_j_1_fused % 14 * 1024 + i_2_j_2_fused % 16 * 64 + j_3 * 4 + j_4)
+                                v_k = T.axis.reduce(4096, k_0 + k_1 + k_2)
+                                T.reads(C_local[v_i, v_j], A_shared[v_i, v_k], B_shared[v_k, v_j])
+                                T.writes(C_local[v_i, v_j])
+                                T.block_attr({"meta_schedule.thread_extent_high_inclusive": 1024, "meta_schedule.thread_extent_low_inclusive": 64, "meta_schedule.tiling_structure": "SSSRRSRS"})
+                                C_local[v_i, v_j] = C_local[v_i, v_j] + A_shared[v_i, v_k] * B_shared[v_k, v_j]
+                    for ax0, ax1 in T.grid(16, 64):
+                        with T.block("C_local"):
+                            v0 = T.axis.spatial(512, i_0_j_0_fused * 256 + i_1_j_1_fused // 14 * 64 + i_2_j_2_fused // 16 * 16 + ax0)
+                            v1 = T.axis.spatial(14336, i_1_j_1_fused % 14 * 1024 + i_2_j_2_fused % 16 * 64 + ax1)
+                            T.reads(C_local[v0, v1])
+                            T.writes(C[v0, v1])
+                            C[v0, v1] = C_local[v0, v1]
+b0 = sch.get_block(name="C", func_name="main")
+b1 = sch.get_block(name="root", func_name="main")
+sch.annotate(block_or_loop=b0, ann_key="meta_schedule.tiling_structure", ann_val="SSSRRSRS")
+l2, l3, l4 = sch.get_loops(block=b0)
+v5, v6, v7, v8, v9 = sch.sample_perfect_tile(loop=l2, n=5, max_innermost_factor=64, decision=[2, 4, 4, 2, 8])
+l10, l11, l12, l13, l14 = sch.split(loop=l2, factors=[v5, v6, v7, v8, v9], preserve_unit_iters=True, disable_predication=False)
+v15, v16, v17, v18, v19 = sch.sample_perfect_tile(loop=l3, n=5, max_innermost_factor=64, decision=[1, 14, 16, 16, 4])
+l20, l21, l22, l23, l24 = sch.split(loop=l3, factors=[v15, v16, v17, v18, v19], preserve_unit_iters=True, disable_predication=False)
+v25, v26, v27 = sch.sample_perfect_tile(loop=l4, n=3, max_innermost_factor=64, decision=[4096, 1, 1])
+l28, l29, l30 = sch.split(loop=l4, factors=[v25, v26, v27], preserve_unit_iters=True, disable_predication=False)
+sch.reorder(l10, l20, l11, l21, l12, l22, l28, l29, l13, l23, l30, l14, l24)
+l31 = sch.fuse(l10, l20, preserve_unit_iters=True)
+sch.bind(loop=l31, thread_axis="blockIdx.x")
+l32 = sch.fuse(l11, l21, preserve_unit_iters=True)
+sch.bind(loop=l32, thread_axis="vthread.x")
+l33 = sch.fuse(l12, l22, preserve_unit_iters=True)
+sch.bind(loop=l33, thread_axis="threadIdx.x")
+sch.annotate(block_or_loop=b0, ann_key="meta_schedule.thread_extent_low_inclusive", ann_val=64)
+sch.annotate(block_or_loop=b0, ann_key="meta_schedule.thread_extent_high_inclusive", ann_val=1024)
+b34 = sch.cache_write(block=b0, write_buffer_index=0, storage_scope="local")
+sch.reverse_compute_at(block=b34, loop=l33, preserve_unit_loops=True, index=-1)
+b35 = sch.cache_read(block=b0, read_buffer_index=0, storage_scope="shared", consumer_blocks=[b0])
+sch.compute_at(block=b35, loop=l28, preserve_unit_loops=True, index=-1)
+l36, l37, l38, l39, l40, l41 = sch.get_loops(block=b35)
+l42 = sch.fuse(l40, l41, preserve_unit_iters=True)
+v43 = sch.sample_categorical(candidates=[1, 2, 4, 8], probs=[0.25, 0.25, 0.25, 0.25], decision=1)
+sch.annotate(block_or_loop=b35, ann_key="meta_schedule.cooperative_fetch", ann_val=v43)
+b44 = sch.cache_read(block=b0, read_buffer_index=1, storage_scope="shared", consumer_blocks=[b0])
+sch.compute_at(block=b44, loop=l28, preserve_unit_loops=True, index=-1)
+l45, l46, l47, l48, l49, l50 = sch.get_loops(block=b44)
+l51 = sch.fuse(l49, l50, preserve_unit_iters=True)
+v52 = sch.sample_categorical(candidates=[1, 2, 4, 8], probs=[0.25, 0.25, 0.25, 0.25], decision=3)
+sch.annotate(block_or_loop=b44, ann_key="meta_schedule.cooperative_fetch", ann_val=v52)
+v53 = sch.sample_categorical(candidates=[0, 16, 64, 512, 1024], probs=[0.20000000000000001, 0.20000000000000001, 0.20000000000000001, 0.20000000000000001, 0.20000000000000001], decision=0)
+sch.annotate(block_or_loop=b1, ann_key="meta_schedule.unroll_explicit", ann_val=v53)
+sch.enter_postproc()
+sch.unannotate(block_or_loop=b35, ann_key="meta_schedule.cooperative_fetch")
+l54, l55, l56, l57, l58 = sch.get_loops(block=b35)
+l59, l60, l61 = sch.split(loop=l58, factors=[None, 64, 2], preserve_unit_iters=True, disable_predication=False)
+sch.vectorize(loop=l61)
+sch.bind(loop=l60, thread_axis="threadIdx.x")
+sch.unannotate(block_or_loop=b44, ann_key="meta_schedule.cooperative_fetch")
+l62, l63, l64, l65, l66 = sch.get_loops(block=b44)
+l67, l68, l69 = sch.split(loop=l66, factors=[None, 64, 8], preserve_unit_iters=True, disable_predication=False)
+sch.vectorize(loop=l69)
+sch.bind(loop=l68, thread_axis="threadIdx.x")
+b70 = sch.get_block(name="root", func_name="main")
+sch.unannotate(block_or_loop=b70, ann_key="meta_schedule.unroll_explicit")
+b71, b72, b73, b74 = sch.get_child_blocks(b70)
+l75, l76, l77, l78, l79, l80, l81 = sch.get_loops(block=b71)
+l82, l83, l84, l85, l86, l87, l88 = sch.get_loops(block=b72)
+l89, l90, l91, l92, l93, l94, l95, l96, l97, l98 = sch.get_loops(block=b73)
+l99, l100, l101, l102, l103 = sch.get_loops(block=b74)
+b104 = sch.get_block(name="C", func_name="main")
+l105, l106, l107, l108, l109, l110, l111, l112, l113, l114 = sch.get_loops(block=b104)
+b115 = sch.decompose_reduction(block=b104, loop=l108)
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #96: GFLOPs: 170.1696. Time: 353350.7487 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #97: GFLOPs: 670.6542. Time: 89658.0403 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #98: GFLOPs: 261.6578. Time: 229802.2460 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #99: GFLOPs: 2500.4586. Time: 24047.4060 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #100: GFLOPs: 451.0934. Time: 133297.3327 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #101: GFLOPs: 2277.5390. Time: 26401.1038 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #102: GFLOPs: 55.1764. Time: 1089769.0427 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #103: GFLOPs: 1018.7777. Time: 59021.2603 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #104: GFLOPs: 16207.8549. Time: 3709.9013 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #105: GFLOPs: 916.4736. Time: 65609.6850 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #106: GFLOPs: 1495.8342. Time: 40198.0003 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #107: GFLOPs: 15852.6501. Time: 3793.0278 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #108: GFLOPs: 776.4029. Time: 77446.3143 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #109: GFLOPs: 1249.4453. Time: 48124.9897 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #110: GFLOPs: 407.5488. Time: 147539.4897 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #111: GFLOPs: 23120.2799. Time: 2600.7273 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #112: GFLOPs: 666.7754. Time: 90179.6060 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #113: GFLOPs: 3615.2200. Time: 16632.3329 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #114: GFLOPs: 22977.3122. Time: 2616.9093 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #115: GFLOPs: 39501.5930. Time: 1522.2055 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #116: GFLOPs: 52.3196. Time: 1149273.4373 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #117: GFLOPs: 40554.5087. Time: 1482.6845 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #118: GFLOPs: 302.4312. Time: 198820.5360 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #119: GFLOPs: 353.1519. Time: 170265.3910 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #120: GFLOPs: 12922.1148. Time: 4653.2277 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #121: GFLOPs: 22182.2885. Time: 2710.7006 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #122: GFLOPs: 3530.5282. Time: 17031.3160 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #123: GFLOPs: 1657.9526. Time: 36267.3467 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #124: GFLOPs: 5059.4794. Time: 11884.5316 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #125: GFLOPs: 53.0790. Time: 1132831.2173 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #126: GFLOPs: 52009.6565. Time: 1156.1227 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #127: GFLOPs: 1327.2325. Time: 45304.4533 us. Best GFLOPs: 71041.8809
+2025-10-01 12:51:50 [INFO] [evolutionary_search.cc:713] Generating candidates......
+2025-10-01 12:51:50 [INFO] [evolutionary_search.cc:715] Picked top 102 candidate(s) from database
+2025-10-01 12:51:51 [INFO] [evolutionary_search.cc:533] Sample-Init-Population summary:
+Postproc #0 [meta_schedule.DisallowDynamicLoop(0x3d863ef8)]: 0 failure(s)
+Postproc #1 [meta_schedule.RewriteCooperativeFetch(0x3d9dd1d8)]: 0 failure(s)
+Postproc #2 [meta_schedule.RewriteUnboundBlock(0x3d9da328)]: 0 failure(s)
+Postproc #3 [meta_schedule.RewriteParallelVectorizeUnroll(0x3d889168)]: 0 failure(s)
+Postproc #4 [meta_schedule.RewriteReductionBlock(0x3d8aa868)]: 0 failure(s)
+Postproc #5 [meta_schedule.VerifyGPUCode(0x3d9d70c8)]: 403 failure(s)
+2025-10-01 12:51:52 [INFO] [evolutionary_search.cc:533] Sample-Init-Population summary:
+Postproc #0 [meta_schedule.DisallowDynamicLoop(0x3d863ef8)]: 0 failure(s)
+Postproc #1 [meta_schedule.RewriteCooperativeFetch(0x3d9dd1d8)]: 0 failure(s)
+Postproc #2 [meta_schedule.RewriteUnboundBlock(0x3d9da328)]: 0 failure(s)
+Postproc #3 [meta_schedule.RewriteParallelVectorizeUnroll(0x3d889168)]: 0 failure(s)
+Postproc #4 [meta_schedule.RewriteReductionBlock(0x3d8aa868)]: 0 failure(s)
+Postproc #5 [meta_schedule.VerifyGPUCode(0x3d9d70c8)]: 796 failure(s)
+2025-10-01 12:51:53 [INFO] [evolutionary_search.cc:533] Sample-Init-Population summary:
+Postproc #0 [meta_schedule.DisallowDynamicLoop(0x3d863ef8)]: 0 failure(s)
+Postproc #1 [meta_schedule.RewriteCooperativeFetch(0x3d9dd1d8)]: 0 failure(s)
+Postproc #2 [meta_schedule.RewriteUnboundBlock(0x3d9da328)]: 0 failure(s)
+Postproc #3 [meta_schedule.RewriteParallelVectorizeUnroll(0x3d889168)]: 0 failure(s)
+Postproc #4 [meta_schedule.RewriteReductionBlock(0x3d8aa868)]: 0 failure(s)
+Postproc #5 [meta_schedule.VerifyGPUCode(0x3d9d70c8)]: 1186 failure(s)
+2025-10-01 12:51:54 [INFO] [evolutionary_search.cc:533] Sample-Init-Population summary:
+Postproc #0 [meta_schedule.DisallowDynamicLoop(0x3d863ef8)]: 0 failure(s)
+Postproc #1 [meta_schedule.RewriteCooperativeFetch(0x3d9dd1d8)]: 0 failure(s)
+Postproc #2 [meta_schedule.RewriteUnboundBlock(0x3d9da328)]: 0 failure(s)
+Postproc #3 [meta_schedule.RewriteParallelVectorizeUnroll(0x3d889168)]: 0 failure(s)
+Postproc #4 [meta_schedule.RewriteReductionBlock(0x3d8aa868)]: 0 failure(s)
+Postproc #5 [meta_schedule.VerifyGPUCode(0x3d9d70c8)]: 1579 failure(s)
+2025-10-01 12:51:54 [INFO] [evolutionary_search.cc:723] Sampled 61 candidate(s)
+2025-10-01 12:51:56 [INFO] [evolutionary_search.cc:621] Evolve iter #0 done. Summary:
+Postproc #0 [meta_schedule.DisallowDynamicLoop(0x3d863ef8)]: 0 failure(s)
+Postproc #1 [meta_schedule.RewriteCooperativeFetch(0x3d9dd1d8)]: 0 failure(s)
+Postproc #2 [meta_schedule.RewriteUnboundBlock(0x3d9da328)]: 0 failure(s)
+Postproc #3 [meta_schedule.RewriteParallelVectorizeUnroll(0x3d889168)]: 0 failure(s)
+Postproc #4 [meta_schedule.RewriteReductionBlock(0x3d8aa868)]: 0 failure(s)
+Postproc #5 [meta_schedule.VerifyGPUCode(0x3d9d70c8)]: 82 failure(s)
+2025-10-01 12:51:59 [INFO] [evolutionary_search.cc:621] Evolve iter #1 done. Summary:
+Postproc #0 [meta_schedule.DisallowDynamicLoop(0x3d863ef8)]: 0 failure(s)
+Postproc #1 [meta_schedule.RewriteCooperativeFetch(0x3d9dd1d8)]: 0 failure(s)
+Postproc #2 [meta_schedule.RewriteUnboundBlock(0x3d9da328)]: 0 failure(s)
+Postproc #3 [meta_schedule.RewriteParallelVectorizeUnroll(0x3d889168)]: 0 failure(s)
+Postproc #4 [meta_schedule.RewriteReductionBlock(0x3d8aa868)]: 0 failure(s)
+Postproc #5 [meta_schedule.VerifyGPUCode(0x3d9d70c8)]: 79 failure(s)
+2025-10-01 12:52:03 [INFO] [evolutionary_search.cc:621] Evolve iter #2 done. Summary:
+Postproc #0 [meta_schedule.DisallowDynamicLoop(0x3d863ef8)]: 0 failure(s)
+Postproc #1 [meta_schedule.RewriteCooperativeFetch(0x3d9dd1d8)]: 0 failure(s)
+Postproc #2 [meta_schedule.RewriteUnboundBlock(0x3d9da328)]: 0 failure(s)
+Postproc #3 [meta_schedule.RewriteParallelVectorizeUnroll(0x3d889168)]: 0 failure(s)
+Postproc #4 [meta_schedule.RewriteReductionBlock(0x3d8aa868)]: 0 failure(s)
+Postproc #5 [meta_schedule.VerifyGPUCode(0x3d9d70c8)]: 71 failure(s)
+2025-10-01 12:52:06 [INFO] [evolutionary_search.cc:621] Evolve iter #3 done. Summary:
+Postproc #0 [meta_schedule.DisallowDynamicLoop(0x3d863ef8)]: 0 failure(s)
+Postproc #1 [meta_schedule.RewriteCooperativeFetch(0x3d9dd1d8)]: 0 failure(s)
+Postproc #2 [meta_schedule.RewriteUnboundBlock(0x3d9da328)]: 0 failure(s)
+Postproc #3 [meta_schedule.RewriteParallelVectorizeUnroll(0x3d889168)]: 0 failure(s)
+Postproc #4 [meta_schedule.RewriteReductionBlock(0x3d8aa868)]: 0 failure(s)
+Postproc #5 [meta_schedule.VerifyGPUCode(0x3d9d70c8)]: 63 failure(s)
+2025-10-01 12:52:07 [INFO] [evolutionary_search.cc:649] Scores of the best 1 candidates:
+[1 : 1]:	0.9915
+2025-10-01 12:52:07 [INFO] [evolutionary_search.cc:727] Got 1 candidate(s) with evolutionary search
+2025-10-01 12:52:07 [INFO] [evolutionary_search.cc:730] Sending 1 candidates(s) for measurement
+2025-10-01 12:52:11 [INFO] [task_scheduler.cc:131] [Task #0: mm] Trial #128: GFLOPs: 65814.9348. Time: 913.6155 us. Best GFLOPs: 71041.8809

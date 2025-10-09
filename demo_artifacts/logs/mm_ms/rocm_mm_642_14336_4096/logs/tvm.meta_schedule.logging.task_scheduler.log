@@ -1,0 +1,52 @@
+2025-10-02 00:19:06 [INFO] Logging directory: ./log/mm_ms/rocm_mm_642_14336_4096/logs
+2025-10-02 00:19:11 [INFO] [task_scheduler.cc:159] Initializing Task #0: "mm"
+2025-10-02 00:19:11 [INFO] [task_scheduler.cc:320] 
+ ID | Name |        FLOP | Weight | Speed (GFLOPS) | Latency (us) | Weighted Latency (us) | Trials | Done 
+----------------------------------------------------------------------------------------------------------
+  0 |   mm | 75396808704 |      1 |            N/A |          N/A |                   N/A |      0 |      
+----------------------------------------------------------------------------------------------------------
+Total trials: 0
+Total latency (us): 0
+
+2025-10-02 00:19:11 [INFO] [task_scheduler.cc:180] TaskScheduler picks Task #0: "mm"
+2025-10-02 00:19:25 [INFO] [task_scheduler.cc:193] Sending 64 sample(s) to builder
+2025-10-02 00:19:59 [INFO] [task_scheduler.cc:195] Sending 64 sample(s) to runner
+2025-10-02 00:28:15 [DEBUG] XGB iter   0: tr-p-rmse: 0.742204	tr-a-peak@32: 0.668348	tr-rmse: 0.410129	tr-rmse: 0.410129
+2025-10-02 00:28:15 [DEBUG] XGB iter  25: tr-p-rmse: 0.132680	tr-a-peak@32: 1.000000	tr-rmse: 0.440364	tr-rmse: 0.440364
+2025-10-02 00:28:15 [DEBUG] XGB iter  50: tr-p-rmse: 0.132680	tr-a-peak@32: 1.000000	tr-rmse: 0.440364	tr-rmse: 0.440364
+2025-10-02 00:28:15 [DEBUG] XGB stopped. Best iteration: [12] tr-p-rmse:0.13268	tr-a-peak@32:1.00000	tr-rmse:0.44036	tr-rmse:0.44036 
+2025-10-02 00:28:16 [INFO] [task_scheduler.cc:237] [Updated] Task #0: "mm"
+2025-10-02 00:28:16 [INFO] [task_scheduler.cc:320] 
+ ID | Name |        FLOP | Weight | Speed (GFLOPS) | Latency (us) | Weighted Latency (us) | Trials | Done 
+----------------------------------------------------------------------------------------------------------
+  0 |   mm | 75396808704 |      1 |     41579.5512 |    1813.3146 |             1813.3146 |     64 |      
+----------------------------------------------------------------------------------------------------------
+Total trials: 64
+Total latency (us): 1813.31
+
+2025-10-02 00:28:16 [INFO] [task_scheduler.cc:180] TaskScheduler picks Task #0: "mm"
+2025-10-02 00:28:28 [INFO] [task_scheduler.cc:193] Sending 64 sample(s) to builder
+2025-10-02 00:28:43 [INFO] [task_scheduler.cc:195] Sending 64 sample(s) to runner
+2025-10-02 00:35:52 [DEBUG] XGB validation: p-rmse: 0.192327	a-peak@32: 0.995845
+2025-10-02 00:35:52 [DEBUG] XGB iter   0: tr-p-rmse: 0.720738	tr-a-peak@32: 0.729052	tr-rmse: 0.425293	tr-rmse: 0.425293
+2025-10-02 00:35:52 [DEBUG] XGB iter  25: tr-p-rmse: 0.070439	tr-a-peak@32: 0.999998	tr-rmse: 0.451182	tr-rmse: 0.451182
+2025-10-02 00:35:52 [DEBUG] XGB iter  50: tr-p-rmse: 0.070439	tr-a-peak@32: 0.999998	tr-rmse: 0.451182	tr-rmse: 0.451182
+2025-10-02 00:35:52 [DEBUG] XGB stopped. Best iteration: [11] tr-p-rmse:0.07044	tr-a-peak@32:1.00000	tr-rmse:0.45118	tr-rmse:0.45118 
+2025-10-02 00:35:52 [INFO] [task_scheduler.cc:237] [Updated] Task #0: "mm"
+2025-10-02 00:35:52 [INFO] [task_scheduler.cc:320] 
+ ID | Name |        FLOP | Weight | Speed (GFLOPS) | Latency (us) | Weighted Latency (us) | Trials | Done 
+----------------------------------------------------------------------------------------------------------
+  0 |   mm | 75396808704 |      1 |     41579.5512 |    1813.3146 |             1813.3146 |    128 |      
+----------------------------------------------------------------------------------------------------------
+Total trials: 128
+Total latency (us): 1813.31
+
+2025-10-02 00:35:52 [INFO] [task_scheduler.cc:260] Task #0 has finished. Remaining task(s): 0
+2025-10-02 00:35:52 [INFO] [task_scheduler.cc:320] 
+ ID | Name |        FLOP | Weight | Speed (GFLOPS) | Latency (us) | Weighted Latency (us) | Trials | Done 
+----------------------------------------------------------------------------------------------------------
+  0 |   mm | 75396808704 |      1 |     41579.5512 |    1813.3146 |             1813.3146 |    128 |    Y 
+----------------------------------------------------------------------------------------------------------
+Total trials: 128
+Total latency (us): 1813.31
+

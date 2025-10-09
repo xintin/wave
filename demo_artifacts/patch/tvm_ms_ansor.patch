@@ -1,0 +1,40 @@
+diff --git a/benchmarks/mm.py b/benchmarks/mm.py
+index 44a3ee1..933a82b 100644
+--- a/benchmarks/mm.py
++++ b/benchmarks/mm.py
+@@ -80,8 +80,17 @@ if __name__ == "__main__":
+         target = tvm.target.Target("llvm")
+         dev = tvm.cpu()
+     elif arch == "cuda":
+-        target = tvm.target.Target("cuda")
+-        dev = tvm.cuda()
++        #target = tvm.target.Target("rocm")
++        #target = tvm.target.Target("rocm -model=gfx942")
++        #target = tvm.target.rocm(model="MI300", options=["-mcpu=gfx942"]).with_host("llvm")
++        target = tvm.target.rocm(
++                options=(
++                "-mcpu=gfx942 "
++                "-thread_warp_size=64 "
++                "-max_threads_per_block 1024 -max_shared_memory_per_block 49152 "
++                )
++        ).with_host("llvm")
++        dev = tvm.rocm(0)
+     elif arch == "aarch64":
+         target = tvm.target.Target("llvm -mcpu=a64fx")
+         dev = tvm.cpu()
+diff --git a/src/utils.py b/src/utils.py
+index b5e210d..c954ea4 100644
+--- a/src/utils.py
++++ b/src/utils.py
+@@ -465,8 +465,9 @@ def build_template(name, logfile, target, trials):
+ 
+     log = name + ".log"
+     clean_file(log)
+-
+-    droplet = Droplet(json_file, workload, target, log, trials)
++    
++    #workload
++    droplet = Droplet(json_file, target, log, trials)
+     start = time.time()
+     droplet.tune()
+     end = time.time()
