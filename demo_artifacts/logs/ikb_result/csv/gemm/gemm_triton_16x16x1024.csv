@@ -1,0 +1,2 @@
+backend,M,N,K,tflops
+triton,16,16,1024,0.0153

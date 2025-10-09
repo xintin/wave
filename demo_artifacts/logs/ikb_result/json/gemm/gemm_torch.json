@@ -1,0 +1,41 @@
+[
+    {
+        "machine": "MI300X",
+        "kernel_type": "gemm",
+        "backend": "torch",
+        "tag": "gemm",
+        "name": "gemm_1024_1024_1024_f16_f16_tB",
+        "dims": [
+            "M",
+            "N",
+            "K",
+            "tA",
+            "tB",
+            "dtype"
+        ],
+        "shape": {
+            "M": 1024,
+            "N": 1024,
+            "K": 1024,
+            "tA": "N",
+            "tB": "T",
+            "dtype": "f16"
+        },
+        "problem": {
+            "M": 1024,
+            "N": 1024,
+            "K": 1024,
+            "tA": "N",
+            "tB": "T",
+            "operand_element_type": "f16",
+            "accumulator_element_type": "f16",
+            "result_element_type": "f32",
+            "runtime_dim": null
+        },
+        "tuning_config": null,
+        "mean_microseconds": 18.0828,
+        "arithmetic_intensity": 256.0,
+        "tflops": 118.7582,
+        "ok": true
+    }
+]

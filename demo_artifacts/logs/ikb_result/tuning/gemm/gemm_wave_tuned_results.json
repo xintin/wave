@@ -1,0 +1,1142 @@
+{
+    "gemm_642_28672_8192_f16_f16_tB": {
+        "name": "gemm_642_28672_8192_f16_f16_tB",
+        "benchmark": {
+            "machine": "MI300X",
+            "kernel_type": "gemm",
+            "backend": "wave",
+            "tag": "gemm",
+            "name": "gemm_642_28672_8192_f16_f16_tB",
+            "dims": [
+                "M",
+                "N",
+                "K",
+                "tA",
+                "tB",
+                "dtype"
+            ],
+            "shape": {
+                "M": 642,
+                "N": 28672,
+                "K": 8192,
+                "tA": "N",
+                "tB": "T",
+                "dtype": "f16"
+            },
+            "problem": {
+                "M": 642,
+                "N": 28672,
+                "K": 8192,
+                "tA": "N",
+                "tB": "T",
+                "operand_element_type": "f16",
+                "accumulator_element_type": "f16",
+                "result_element_type": "f32",
+                "runtime_dim": null
+            },
+            "tuning_config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 128,
+                "BLOCK_N": 256,
+                "BLOCK_K": 64,
+                "GROUP_SIZE_M": 8
+            },
+            "mean_microseconds": 636.0,
+            "arithmetic_intensity": 544.4695,
+            "tflops": 474.1938,
+            "ok": true
+        },
+        "improvement": false,
+        "speedup": 0,
+        "hyperparams": {
+            "MFMA_VARIANT": "F32_16x16x16_F16",
+            "BLOCK_M": 128,
+            "BLOCK_N": 256,
+            "BLOCK_K": 64,
+            "GROUP_SIZE_M": 8
+        }
+    },
+    "gemm_642_14336_4096_f16_f16_tB": {
+        "name": "gemm_642_14336_4096_f16_f16_tB",
+        "benchmark": {
+            "machine": "MI300X",
+            "kernel_type": "gemm",
+            "backend": "wave",
+            "tag": "gemm",
+            "name": "gemm_642_14336_4096_f16_f16_tB",
+            "dims": [
+                "M",
+                "N",
+                "K",
+                "tA",
+                "tB",
+                "dtype"
+            ],
+            "shape": {
+                "M": 642,
+                "N": 14336,
+                "K": 4096,
+                "tA": "N",
+                "tB": "T",
+                "dtype": "f16"
+            },
+            "problem": {
+                "M": 642,
+                "N": 14336,
+                "K": 4096,
+                "tA": "N",
+                "tB": "T",
+                "operand_element_type": "f16",
+                "accumulator_element_type": "f16",
+                "result_element_type": "f32",
+                "runtime_dim": null
+            },
+            "tuning_config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 128,
+                "BLOCK_N": 256,
+                "BLOCK_K": 64,
+                "GROUP_SIZE_M": 8
+            },
+            "mean_microseconds": 205.0,
+            "arithmetic_intensity": 472.6639,
+            "tflops": 367.7893,
+            "ok": true
+        },
+        "improvement": false,
+        "speedup": 0,
+        "hyperparams": {
+            "MFMA_VARIANT": "F32_16x16x16_F16",
+            "BLOCK_M": 128,
+            "BLOCK_N": 256,
+            "BLOCK_K": 64,
+            "GROUP_SIZE_M": 8
+        }
+    },
+    "gemm_706_13824_5120_f16_f16_tB": {
+        "name": "gemm_706_13824_5120_f16_f16_tB",
+        "benchmark": {
+            "machine": "MI300X",
+            "kernel_type": "gemm",
+            "backend": "wave",
+            "tag": "gemm",
+            "name": "gemm_706_13824_5120_f16_f16_tB",
+            "dims": [
+                "M",
+                "N",
+                "K",
+                "tA",
+                "tB",
+                "dtype"
+            ],
+            "shape": {
+                "M": 706,
+                "N": 13824,
+                "K": 5120,
+                "tA": "N",
+                "tB": "T",
+                "dtype": "f16"
+            },
+            "problem": {
+                "M": 706,
+                "N": 13824,
+                "K": 5120,
+                "tA": "N",
+                "tB": "T",
+                "operand_element_type": "f16",
+                "accumulator_element_type": "f16",
+                "result_element_type": "f32",
+                "runtime_dim": null
+            },
+            "tuning_config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 128,
+                "BLOCK_N": 256,
+                "BLOCK_K": 64,
+                "GROUP_SIZE_M": 8
+            },
+            "mean_microseconds": 325.0,
+            "arithmetic_intensity": 532.0865,
+            "tflops": 307.507,
+            "ok": true
+        },
+        "improvement": false,
+        "speedup": 0,
+        "hyperparams": {
+            "MFMA_VARIANT": "F32_16x16x16_F16",
+            "BLOCK_M": 128,
+            "BLOCK_N": 256,
+            "BLOCK_K": 64,
+            "GROUP_SIZE_M": 8
+        }
+    },
+    "gemm_642_8192_8192_f16_f16_tB": {
+        "name": "gemm_642_8192_8192_f16_f16_tB",
+        "benchmark": {
+            "machine": "MI300X",
+            "kernel_type": "gemm",
+            "backend": "wave",
+            "tag": "gemm",
+            "name": "gemm_642_8192_8192_f16_f16_tB",
+            "dims": [
+                "M",
+                "N",
+                "K",
+                "tA",
+                "tB",
+                "dtype"
+            ],
+            "shape": {
+                "M": 642,
+                "N": 8192,
+                "K": 8192,
+                "tA": "N",
+                "tB": "T",
+                "dtype": "f16"
+            },
+            "problem": {
+                "M": 642,
+                "N": 8192,
+                "K": 8192,
+                "tA": "N",
+                "tB": "T",
+                "operand_element_type": "f16",
+                "accumulator_element_type": "f16",
+                "result_element_type": "f32",
+                "runtime_dim": null
+            },
+            "tuning_config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 128,
+                "BLOCK_N": 256,
+                "BLOCK_K": 64,
+                "GROUP_SIZE_M": 8
+            },
+            "mean_microseconds": 186.0,
+            "arithmetic_intensity": 519.7928,
+            "tflops": 463.2676,
+            "ok": true
+        },
+        "improvement": false,
+        "speedup": 0,
+        "hyperparams": {
+            "MFMA_VARIANT": "F32_16x16x16_F16",
+            "BLOCK_M": 128,
+            "BLOCK_N": 256,
+            "BLOCK_K": 64,
+            "GROUP_SIZE_M": 8
+        }
+    },
+    "gemm_642_8192_28672_f16_f16_tB": {
+        "name": "gemm_642_8192_28672_f16_f16_tB",
+        "benchmark": {
+            "machine": "MI300X",
+            "kernel_type": "gemm",
+            "backend": "wave",
+            "tag": "gemm",
+            "name": "gemm_642_8192_28672_f16_f16_tB",
+            "dims": [
+                "M",
+                "N",
+                "K",
+                "tA",
+                "tB",
+                "dtype"
+            ],
+            "shape": {
+                "M": 642,
+                "N": 8192,
+                "K": 28672,
+                "tA": "N",
+                "tB": "T",
+                "dtype": "f16"
+            },
+            "problem": {
+                "M": 642,
+                "N": 8192,
+                "K": 28672,
+                "tA": "N",
+                "tB": "T",
+                "operand_element_type": "f16",
+                "accumulator_element_type": "f16",
+                "result_element_type": "f32",
+                "runtime_dim": null
+            },
+            "tuning_config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 128,
+                "BLOCK_N": 256,
+                "BLOCK_K": 64,
+                "GROUP_SIZE_M": 8
+            },
+            "mean_microseconds": 912.0,
+            "arithmetic_intensity": 571.6059,
+            "tflops": 330.6878,
+            "ok": true
+        },
+        "improvement": false,
+        "speedup": 0,
+        "hyperparams": {
+            "MFMA_VARIANT": "F32_16x16x16_F16",
+            "BLOCK_M": 128,
+            "BLOCK_N": 256,
+            "BLOCK_K": 64,
+            "GROUP_SIZE_M": 8
+        }
+    },
+    "gemm_706_5120_5120_f16_f16_tB": {
+        "name": "gemm_706_5120_5120_f16_f16_tB",
+        "benchmark": {
+            "machine": "MI300X",
+            "kernel_type": "gemm",
+            "backend": "wave",
+            "tag": "gemm",
+            "name": "gemm_706_5120_5120_f16_f16_tB",
+            "dims": [
+                "M",
+                "N",
+                "K",
+                "tA",
+                "tB",
+                "dtype"
+            ],
+            "shape": {
+                "M": 706,
+                "N": 5120,
+                "K": 5120,
+                "tA": "N",
+                "tB": "T",
+                "dtype": "f16"
+            },
+            "problem": {
+                "M": 706,
+                "N": 5120,
+                "K": 5120,
+                "tA": "N",
+                "tB": "T",
+                "operand_element_type": "f16",
+                "accumulator_element_type": "f16",
+                "result_element_type": "f32",
+                "runtime_dim": null
+            },
+            "tuning_config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 128,
+                "BLOCK_N": 256,
+                "BLOCK_K": 64,
+                "GROUP_SIZE_M": 8
+            },
+            "mean_microseconds": 142.0,
+            "arithmetic_intensity": 499.4087,
+            "tflops": 260.6671,
+            "ok": true
+        },
+        "improvement": false,
+        "speedup": 0,
+        "hyperparams": {
+            "MFMA_VARIANT": "F32_16x16x16_F16",
+            "BLOCK_M": 128,
+            "BLOCK_N": 256,
+            "BLOCK_K": 64,
+            "GROUP_SIZE_M": 8
+        }
+    },
+    "gemm_706_5120_13824_f16_f16_tB": {
+        "name": "gemm_706_5120_13824_f16_f16_tB",
+        "benchmark": {
+            "machine": "MI300X",
+            "kernel_type": "gemm",
+            "backend": "wave",
+            "tag": "gemm",
+            "name": "gemm_706_5120_13824_f16_f16_tB",
+            "dims": [
+                "M",
+                "N",
+                "K",
+                "tA",
+                "tB",
+                "dtype"
+            ],
+            "shape": {
+                "M": 706,
+                "N": 5120,
+                "K": 13824,
+                "tA": "N",
+                "tB": "T",
+                "dtype": "f16"
+            },
+            "problem": {
+                "M": 706,
+                "N": 5120,
+                "K": 13824,
+                "tA": "N",
+                "tB": "T",
+                "operand_element_type": "f16",
+                "accumulator_element_type": "f16",
+                "result_element_type": "f32",
+                "runtime_dim": null
+            },
+            "tuning_config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 128,
+                "BLOCK_N": 256,
+                "BLOCK_K": 64,
+                "GROUP_SIZE_M": 8
+            },
+            "mean_microseconds": 393.0,
+            "arithmetic_intensity": 569.3402,
+            "tflops": 254.2997,
+            "ok": true
+        },
+        "improvement": false,
+        "speedup": 0,
+        "hyperparams": {
+            "MFMA_VARIANT": "F32_16x16x16_F16",
+            "BLOCK_M": 128,
+            "BLOCK_N": 256,
+            "BLOCK_K": 64,
+            "GROUP_SIZE_M": 8
+        }
+    },
+    "gemm_642_1024_8192_f16_f16_tB": {
+        "name": "gemm_642_1024_8192_f16_f16_tB",
+        "benchmark": {
+            "machine": "MI300X",
+            "kernel_type": "gemm",
+            "backend": "wave",
+            "tag": "gemm",
+            "name": "gemm_642_1024_8192_f16_f16_tB",
+            "dims": [
+                "M",
+                "N",
+                "K",
+                "tA",
+                "tB",
+                "dtype"
+            ],
+            "shape": {
+                "M": 642,
+                "N": 1024,
+                "K": 8192,
+                "tA": "N",
+                "tB": "T",
+                "dtype": "f16"
+            },
+            "problem": {
+                "M": 642,
+                "N": 1024,
+                "K": 8192,
+                "tA": "N",
+                "tB": "T",
+                "operand_element_type": "f16",
+                "accumulator_element_type": "f16",
+                "result_element_type": "f32",
+                "runtime_dim": null
+            },
+            "tuning_config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 128,
+                "BLOCK_N": 256,
+                "BLOCK_K": 64,
+                "GROUP_SIZE_M": 8
+            },
+            "mean_microseconds": 342.0,
+            "arithmetic_intensity": 359.9277,
+            "tflops": 31.4941,
+            "ok": true
+        },
+        "improvement": false,
+        "speedup": 0,
+        "hyperparams": {
+            "MFMA_VARIANT": "F32_16x16x16_F16",
+            "BLOCK_M": 128,
+            "BLOCK_N": 256,
+            "BLOCK_K": 64,
+            "GROUP_SIZE_M": 8
+        }
+    },
+    "gemm_642_4096_14336_f16_f16_tB": {
+        "name": "gemm_642_4096_14336_f16_f16_tB",
+        "benchmark": {
+            "machine": "MI300X",
+            "kernel_type": "gemm",
+            "backend": "wave",
+            "tag": "gemm",
+            "name": "gemm_642_4096_14336_f16_f16_tB",
+            "dims": [
+                "M",
+                "N",
+                "K",
+                "tA",
+                "tB",
+                "dtype"
+            ],
+            "shape": {
+                "M": 642,
+                "N": 4096,
+                "K": 14336,
+                "tA": "N",
+                "tB": "T",
+                "dtype": "f16"
+            },
+            "problem": {
+                "M": 642,
+                "N": 4096,
+                "K": 14336,
+                "tA": "N",
+                "tB": "T",
+                "operand_element_type": "f16",
+                "accumulator_element_type": "f16",
+                "result_element_type": "f32",
+                "runtime_dim": null
+            },
+            "tuning_config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 128,
+                "BLOCK_N": 256,
+                "BLOCK_K": 64,
+                "GROUP_SIZE_M": 8
+            },
+            "mean_microseconds": 335.0,
+            "arithmetic_intensity": 515.1235,
+            "tflops": 225.0651,
+            "ok": true
+        },
+        "improvement": false,
+        "speedup": 0,
+        "hyperparams": {
+            "MFMA_VARIANT": "F32_16x16x16_F16",
+            "BLOCK_M": 128,
+            "BLOCK_N": 256,
+            "BLOCK_K": 64,
+            "GROUP_SIZE_M": 8
+        }
+    },
+    "gemm_706_14336_4096_f16_f16_tB": {
+        "name": "gemm_706_14336_4096_f16_f16_tB",
+        "benchmark": {
+            "machine": "MI300X",
+            "kernel_type": "gemm",
+            "backend": "wave",
+            "tag": "gemm",
+            "name": "gemm_706_14336_4096_f16_f16_tB",
+            "dims": [
+                "M",
+                "N",
+                "K",
+                "tA",
+                "tB",
+                "dtype"
+            ],
+            "shape": {
+                "M": 706,
+                "N": 14336,
+                "K": 4096,
+                "tA": "N",
+                "tB": "T",
+                "dtype": "f16"
+            },
+            "problem": {
+                "M": 706,
+                "N": 14336,
+                "K": 4096,
+                "tA": "N",
+                "tB": "T",
+                "operand_element_type": "f16",
+                "accumulator_element_type": "f16",
+                "result_element_type": "f32",
+                "runtime_dim": null
+            },
+            "tuning_config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 128,
+                "BLOCK_N": 256,
+                "BLOCK_K": 64,
+                "GROUP_SIZE_M": 8
+            },
+            "mean_microseconds": 216.0,
+            "arithmetic_intensity": 506.466,
+            "tflops": 383.8565,
+            "ok": true
+        },
+        "improvement": false,
+        "speedup": 0,
+        "hyperparams": {
+            "MFMA_VARIANT": "F32_16x16x16_F16",
+            "BLOCK_M": 128,
+            "BLOCK_N": 256,
+            "BLOCK_K": 64,
+            "GROUP_SIZE_M": 8
+        }
+    },
+    "gemm_642_4096_4096_f16_f16_tB": {
+        "name": "gemm_642_4096_4096_f16_f16_tB",
+        "benchmark": {
+            "machine": "MI300X",
+            "kernel_type": "gemm",
+            "backend": "wave",
+            "tag": "gemm",
+            "name": "gemm_642_4096_4096_f16_f16_tB",
+            "dims": [
+                "M",
+                "N",
+                "K",
+                "tA",
+                "tB",
+                "dtype"
+            ],
+            "shape": {
+                "M": 642,
+                "N": 4096,
+                "K": 4096,
+                "tA": "N",
+                "tB": "T",
+                "dtype": "f16"
+            },
+            "problem": {
+                "M": 642,
+                "N": 4096,
+                "K": 4096,
+                "tA": "N",
+                "tB": "T",
+                "operand_element_type": "f16",
+                "accumulator_element_type": "f16",
+                "result_element_type": "f32",
+                "runtime_dim": null
+            },
+            "tuning_config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 128,
+                "BLOCK_N": 256,
+                "BLOCK_K": 64,
+                "GROUP_SIZE_M": 8
+            },
+            "mean_microseconds": 116.0,
+            "arithmetic_intensity": 436.6709,
+            "tflops": 185.7064,
+            "ok": true
+        },
+        "improvement": false,
+        "speedup": 0,
+        "hyperparams": {
+            "MFMA_VARIANT": "F32_16x16x16_F16",
+            "BLOCK_M": 128,
+            "BLOCK_N": 256,
+            "BLOCK_K": 64,
+            "GROUP_SIZE_M": 8
+        }
+    },
+    "gemm_706_4096_14336_f16_f16_tB": {
+        "name": "gemm_706_4096_14336_f16_f16_tB",
+        "benchmark": {
+            "machine": "MI300X",
+            "kernel_type": "gemm",
+            "backend": "wave",
+            "tag": "gemm",
+            "name": "gemm_706_4096_14336_f16_f16_tB",
+            "dims": [
+                "M",
+                "N",
+                "K",
+                "tA",
+                "tB",
+                "dtype"
+            ],
+            "shape": {
+                "M": 706,
+                "N": 4096,
+                "K": 14336,
+                "tA": "N",
+                "tB": "T",
+                "dtype": "f16"
+            },
+            "problem": {
+                "M": 706,
+                "N": 4096,
+                "K": 14336,
+                "tA": "N",
+                "tB": "T",
+                "operand_element_type": "f16",
+                "accumulator_element_type": "f16",
+                "result_element_type": "f32",
+                "runtime_dim": null
+            },
+            "tuning_config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 128,
+                "BLOCK_N": 256,
+                "BLOCK_K": 64,
+                "GROUP_SIZE_M": 8
+            },
+            "mean_microseconds": 369.0,
+            "arithmetic_intensity": 555.5308,
+            "tflops": 224.6965,
+            "ok": true
+        },
+        "improvement": false,
+        "speedup": 0,
+        "hyperparams": {
+            "MFMA_VARIANT": "F32_16x16x16_F16",
+            "BLOCK_M": 128,
+            "BLOCK_N": 256,
+            "BLOCK_K": 64,
+            "GROUP_SIZE_M": 8
+        }
+    },
+    "gemm_706_4096_4096_f16_f16_tB": {
+        "name": "gemm_706_4096_4096_f16_f16_tB",
+        "benchmark": {
+            "machine": "MI300X",
+            "kernel_type": "gemm",
+            "backend": "wave",
+            "tag": "gemm",
+            "name": "gemm_706_4096_4096_f16_f16_tB",
+            "dims": [
+                "M",
+                "N",
+                "K",
+                "tA",
+                "tB",
+                "dtype"
+            ],
+            "shape": {
+                "M": 706,
+                "N": 4096,
+                "K": 4096,
+                "tA": "N",
+                "tB": "T",
+                "dtype": "f16"
+            },
+            "problem": {
+                "M": 706,
+                "N": 4096,
+                "K": 4096,
+                "tA": "N",
+                "tB": "T",
+                "operand_element_type": "f16",
+                "accumulator_element_type": "f16",
+                "result_element_type": "f32",
+                "runtime_dim": null
+            },
+            "tuning_config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 128,
+                "BLOCK_N": 256,
+                "BLOCK_K": 64,
+                "GROUP_SIZE_M": 8
+            },
+            "mean_microseconds": 119.0,
+            "arithmetic_intensity": 465.3647,
+            "tflops": 199.0708,
+            "ok": true
+        },
+        "improvement": false,
+        "speedup": 0,
+        "hyperparams": {
+            "MFMA_VARIANT": "F32_16x16x16_F16",
+            "BLOCK_M": 128,
+            "BLOCK_N": 256,
+            "BLOCK_K": 64,
+            "GROUP_SIZE_M": 8
+        }
+    },
+    "gemm_642_1024_4096_f16_f16_tB": {
+        "name": "gemm_642_1024_4096_f16_f16_tB",
+        "benchmark": {
+            "machine": "MI300X",
+            "kernel_type": "gemm",
+            "backend": "wave",
+            "tag": "gemm",
+            "name": "gemm_642_1024_4096_f16_f16_tB",
+            "dims": [
+                "M",
+                "N",
+                "K",
+                "tA",
+                "tB",
+                "dtype"
+            ],
+            "shape": {
+                "M": 642,
+                "N": 1024,
+                "K": 4096,
+                "tA": "N",
+                "tB": "T",
+                "dtype": "f16"
+            },
+            "problem": {
+                "M": 642,
+                "N": 1024,
+                "K": 4096,
+                "tA": "N",
+                "tB": "T",
+                "operand_element_type": "f16",
+                "accumulator_element_type": "f16",
+                "result_element_type": "f32",
+                "runtime_dim": null
+            },
+            "tuning_config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 128,
+                "BLOCK_N": 256,
+                "BLOCK_K": 64,
+                "GROUP_SIZE_M": 8
+            },
+            "mean_microseconds": 117.0,
+            "arithmetic_intensity": 330.8546,
+            "tflops": 46.0298,
+            "ok": true
+        },
+        "improvement": false,
+        "speedup": 0,
+        "hyperparams": {
+            "MFMA_VARIANT": "F32_16x16x16_F16",
+            "BLOCK_M": 128,
+            "BLOCK_N": 256,
+            "BLOCK_K": 64,
+            "GROUP_SIZE_M": 8
+        }
+    },
+    "gemm_706_1024_4096_f16_f16_tB": {
+        "name": "gemm_706_1024_4096_f16_f16_tB",
+        "benchmark": {
+            "machine": "MI300X",
+            "kernel_type": "gemm",
+            "backend": "wave",
+            "tag": "gemm",
+            "name": "gemm_706_1024_4096_f16_f16_tB",
+            "dims": [
+                "M",
+                "N",
+                "K",
+                "tA",
+                "tB",
+                "dtype"
+            ],
+            "shape": {
+                "M": 706,
+                "N": 1024,
+                "K": 4096,
+                "tA": "N",
+                "tB": "T",
+                "dtype": "f16"
+            },
+            "problem": {
+                "M": 706,
+                "N": 1024,
+                "K": 4096,
+                "tA": "N",
+                "tB": "T",
+                "operand_element_type": "f16",
+                "accumulator_element_type": "f16",
+                "result_element_type": "f32",
+                "runtime_dim": null
+            },
+            "tuning_config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 128,
+                "BLOCK_N": 256,
+                "BLOCK_K": 64,
+                "GROUP_SIZE_M": 8
+            },
+            "mean_microseconds": 138.0,
+            "arithmetic_intensity": 347.0687,
+            "tflops": 42.9156,
+            "ok": true
+        },
+        "improvement": false,
+        "speedup": 0,
+        "hyperparams": {
+            "MFMA_VARIANT": "F32_16x16x16_F16",
+            "BLOCK_M": 128,
+            "BLOCK_N": 256,
+            "BLOCK_K": 64,
+            "GROUP_SIZE_M": 8
+        }
+    },
+    "gemm_20512_5760_2880_f16_f16_tB": {
+        "name": "gemm_20512_5760_2880_f16_f16_tB",
+        "benchmark": {
+            "machine": "MI300X",
+            "kernel_type": "gemm",
+            "backend": "wave",
+            "tag": "gemm",
+            "name": "gemm_20512_5760_2880_f16_f16_tB",
+            "dims": [
+                "M",
+                "N",
+                "K",
+                "tA",
+                "tB",
+                "dtype"
+            ],
+            "shape": {
+                "M": 20512,
+                "N": 5760,
+                "K": 2880,
+                "tA": "N",
+                "tB": "T",
+                "dtype": "f16"
+            },
+            "problem": {
+                "M": 20512,
+                "N": 5760,
+                "K": 2880,
+                "tA": "N",
+                "tB": "T",
+                "operand_element_type": "f16",
+                "accumulator_element_type": "f16",
+                "result_element_type": "f32",
+                "runtime_dim": null
+            },
+            "tuning_config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 128,
+                "BLOCK_N": 256,
+                "BLOCK_K": 64,
+                "GROUP_SIZE_M": 8
+            },
+            "mean_microseconds": 959.0,
+            "arithmetic_intensity": 1090.7415,
+            "tflops": 709.6339,
+            "ok": true
+        },
+        "improvement": false,
+        "speedup": 0,
+        "hyperparams": {
+            "MFMA_VARIANT": "F32_16x16x16_F16",
+            "BLOCK_M": 128,
+            "BLOCK_N": 256,
+            "BLOCK_K": 64,
+            "GROUP_SIZE_M": 8
+        }
+    },
+    "gemm_641_4096_2880_f16_f16_tB": {
+        "name": "gemm_641_4096_2880_f16_f16_tB",
+        "benchmark": {
+            "machine": "MI300X",
+            "kernel_type": "gemm",
+            "backend": "wave",
+            "tag": "gemm",
+            "name": "gemm_641_4096_2880_f16_f16_tB",
+            "dims": [
+                "M",
+                "N",
+                "K",
+                "tA",
+                "tB",
+                "dtype"
+            ],
+            "shape": {
+                "M": 641,
+                "N": 4096,
+                "K": 2880,
+                "tA": "N",
+                "tB": "T",
+                "dtype": "f16"
+            },
+            "problem": {
+                "M": 641,
+                "N": 4096,
+                "K": 2880,
+                "tA": "N",
+                "tB": "T",
+                "operand_element_type": "f16",
+                "accumulator_element_type": "f16",
+                "result_element_type": "f32",
+                "runtime_dim": null
+            },
+            "tuning_config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 128,
+                "BLOCK_N": 256,
+                "BLOCK_K": 64,
+                "GROUP_SIZE_M": 8
+            },
+            "mean_microseconds": 100.0,
+            "arithmetic_intensity": 400.2165,
+            "tflops": 151.2309,
+            "ok": true
+        },
+        "improvement": false,
+        "speedup": 0,
+        "hyperparams": {
+            "MFMA_VARIANT": "F32_16x16x16_F16",
+            "BLOCK_M": 128,
+            "BLOCK_N": 256,
+            "BLOCK_K": 64,
+            "GROUP_SIZE_M": 8
+        }
+    },
+    "gemm_641_512_2880_f16_f16_tB": {
+        "name": "gemm_641_512_2880_f16_f16_tB",
+        "benchmark": {
+            "machine": "MI300X",
+            "kernel_type": "gemm",
+            "backend": "wave",
+            "tag": "gemm",
+            "name": "gemm_641_512_2880_f16_f16_tB",
+            "dims": [
+                "M",
+                "N",
+                "K",
+                "tA",
+                "tB",
+                "dtype"
+            ],
+            "shape": {
+                "M": 641,
+                "N": 512,
+                "K": 2880,
+                "tA": "N",
+                "tB": "T",
+                "dtype": "f16"
+            },
+            "problem": {
+                "M": 641,
+                "N": 512,
+                "K": 2880,
+                "tA": "N",
+                "tB": "T",
+                "operand_element_type": "f16",
+                "accumulator_element_type": "f16",
+                "result_element_type": "f32",
+                "runtime_dim": null
+            },
+            "tuning_config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 128,
+                "BLOCK_N": 256,
+                "BLOCK_K": 64,
+                "GROUP_SIZE_M": 8
+            },
+            "mean_microseconds": 96.0,
+            "arithmetic_intensity": 237.6634,
+            "tflops": 19.6915,
+            "ok": true
+        },
+        "improvement": false,
+        "speedup": 0,
+        "hyperparams": {
+            "MFMA_VARIANT": "F32_16x16x16_F16",
+            "BLOCK_M": 128,
+            "BLOCK_N": 256,
+            "BLOCK_K": 64,
+            "GROUP_SIZE_M": 8
+        }
+    },
+    "gemm_20512_2880_2880_f16_f16_tB": {
+        "name": "gemm_20512_2880_2880_f16_f16_tB",
+        "benchmark": {
+            "machine": "MI300X",
+            "kernel_type": "gemm",
+            "backend": "wave",
+            "tag": "gemm",
+            "name": "gemm_20512_2880_2880_f16_f16_tB",
+            "dims": [
+                "M",
+                "N",
+                "K",
+                "tA",
+                "tB",
+                "dtype"
+            ],
+            "shape": {
+                "M": 20512,
+                "N": 2880,
+                "K": 2880,
+                "tA": "N",
+                "tB": "T",
+                "dtype": "f16"
+            },
+            "problem": {
+                "M": 20512,
+                "N": 2880,
+                "K": 2880,
+                "tA": "N",
+                "tB": "T",
+                "operand_element_type": "f16",
+                "accumulator_element_type": "f16",
+                "result_element_type": "f32",
+                "runtime_dim": null
+            },
+            "tuning_config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 128,
+                "BLOCK_N": 256,
+                "BLOCK_K": 64,
+                "GROUP_SIZE_M": 8
+            },
+            "mean_microseconds": 528.0,
+            "arithmetic_intensity": 917.079,
+            "tflops": 644.4497,
+            "ok": true
+        },
+        "improvement": false,
+        "speedup": 0,
+        "hyperparams": {
+            "MFMA_VARIANT": "F32_16x16x16_F16",
+            "BLOCK_M": 128,
+            "BLOCK_N": 256,
+            "BLOCK_K": 64,
+            "GROUP_SIZE_M": 8
+        }
+    },
+    "gemm_641_2880_4096_f16_f16_tB": {
+        "name": "gemm_641_2880_4096_f16_f16_tB",
+        "benchmark": {
+            "machine": "MI300X",
+            "kernel_type": "gemm",
+            "backend": "wave",
+            "tag": "gemm",
+            "name": "gemm_641_2880_4096_f16_f16_tB",
+            "dims": [
+                "M",
+                "N",
+                "K",
+                "tA",
+                "tB",
+                "dtype"
+            ],
+            "shape": {
+                "M": 641,
+                "N": 2880,
+                "K": 4096,
+                "tA": "N",
+                "tB": "T",
+                "dtype": "f16"
+            },
+            "problem": {
+                "M": 641,
+                "N": 2880,
+                "K": 4096,
+                "tA": "N",
+                "tB": "T",
+                "operand_element_type": "f16",
+                "accumulator_element_type": "f16",
+                "result_element_type": "f32",
+                "runtime_dim": null
+            },
+            "tuning_config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 128,
+                "BLOCK_N": 256,
+                "BLOCK_K": 64,
+                "GROUP_SIZE_M": 8
+            },
+            "mean_microseconds": 119.0,
+            "arithmetic_intensity": 417.4379,
+            "tflops": 127.0848,
+            "ok": true
+        },
+        "improvement": false,
+        "speedup": 0,
+        "hyperparams": {
+            "MFMA_VARIANT": "F32_16x16x16_F16",
+            "BLOCK_M": 128,
+            "BLOCK_N": 256,
+            "BLOCK_K": 64,
+            "GROUP_SIZE_M": 8
+        }
+    }
+}

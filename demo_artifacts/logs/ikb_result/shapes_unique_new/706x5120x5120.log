@@ -1,0 +1,66 @@
+[INFO] Running GEMM benchmarks for backend wave
+[INFO] Generated 1 GEMM configs for backend wave.
+sched type: SchedulingType.PREFETCH
+
+[ERROR] Failed to compile gemm_706_5120_5120_f16_f16_tB: Error invoking IREE compiler tool iree-compile
+        Error code: 1
+        Diagnostics:
+        <stdin>:78:7: error: function 'gemm' uses 69632 bytes of shared memory; exceeded the limit of 65536 bytes
+              func.func @gemm(%arg0: !stream.binding, %arg1: !stream.binding, %arg2: !stream.binding) attributes {translation_info = #translation} {
+              ^
+        <stdin>:70:3: error: failed to run translation of source executable to target executable for backend #hal.executable.target<"rocm", "rocm-hsaco-fb", {abi = "hip", iree.encoding.resolver = #iree_gpu.gpu_encoding_resolver<>, iree_codegen.default_tuning_spec = #rocm.builtin.tuning_module<"iree_default_tuning_spec_gfx942.mlir">, iree_codegen.target_info = #iree_gpu.target<arch = "gfx942", features = "", wgp = <compute =  fp64|fp32|fp16|int64|int32|int16|int8, storage =  b64|b32|b16|b8, subgroup =  shuffle|arithmetic, dot =  dp4xi8toi32, mma = [<MFMA_F32_16x16x16_BF16>, <MFMA_F32_32x32x8_BF16>, <MFMA_F32_16x16x32_F8E5M2FNUZ>, <MFMA_F32_16x16x32_F8E5M2FNUZ_F8E4M3FNUZ>, <MFMA_F32_16x16x32_F8E4M3FNUZ>, <MFMA_F32_16x16x32_F8E4M3FNUZ_F8E5M2FNUZ>, <MFMA_F32_32x32x16_F8E5M2FNUZ>, <MFMA_F32_32x32x16_F8E5M2FNUZ_F8E4M3FNUZ>, <MFMA_F32_32x32x16_F8E4M3FNUZ>, <MFMA_F32_32x32x16_F8E4M3FNUZ_F8E5M2FNUZ>, <MFMA_I32_16x16x32_I8>, <MFMA_I32_32x32x16_I8>, <MFMA_F64_16x16x4_F64>, <MFMA_F32_16x16x4_F32>, <MFMA_F32_16x16x16_F16>, <MFMA_F32_32x32x8_F16>], subgroup_size_choices = [64], max_workgroup_sizes = [1024, 1024, 1024], max_thread_count_per_workgroup = 1024, max_workgroup_memory_bytes = 65536, max_workgroup_counts = [2147483647, 2147483647, 2147483647], max_load_instruction_bits = 128, simds_per_wgp = 4, vgpr_space_bits = 16384>>, ukernels = "none"}>
+          stream.executable private @gemm {
+          ^
+        
+        
+        Invoked with:
+         iree-compile /home/gaurverm/upstream/iree-kernel-benchmark/bench_venv/lib/python3.12/site-packages/iree/compiler/tools/../_mlir_libs/iree-compile - --iree-input-type=auto --iree-vm-bytecode-module-output-format=flatbuffer-binary --mlir-print-debuginfo --mlir-print-op-on-diagnostic=false --iree-vm-bytecode-module-strip-source-map=true --iree-opt-strip-assertions=true --iree-vm-target-truncate-unsupported-floats --iree-hip-target=gfx942 --iree-hal-target-device=hip
+        
+        Need more information? Set IREE_SAVE_TEMPS=/some/dir in your environment to save all artifacts and reproducers.
+        
+[ERROR] Traceback (most recent call last):
+          File "/home/gaurverm/upstream/iree-kernel-benchmark/kernel_bench/core/template.py", line 246, in compile_to_vmfb
+            result = wave_compile(compile_options, kernel.launchable)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+          File "/home/gaurverm/upstream/iree-kernel-benchmark/bench_venv/lib/python3.12/site-packages/wave_lang/kernel/wave/compile.py", line 386, in wave_compile
+            compiled_wave_vmfb = compile_to_vmfb(asm, options)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+          File "/home/gaurverm/upstream/iree-kernel-benchmark/bench_venv/lib/python3.12/site-packages/wave_lang/kernel/wave/utils/compile_utils.py", line 87, in compile_to_vmfb
+            res = compile_str(asm, extra_args=flags)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+          File "/home/gaurverm/upstream/iree-kernel-benchmark/bench_venv/lib/python3.12/site-packages/iree/compiler/tools/core.py", line 299, in compile_str
+            result = invoke_immediate(cl, immediate_input=input_bytes)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+          File "/home/gaurverm/upstream/iree-kernel-benchmark/bench_venv/lib/python3.12/site-packages/iree/compiler/tools/binaries.py", line 199, in invoke_immediate
+            raise CompilerToolError(process)
+        iree.compiler.tools.binaries.CompilerToolError: Error invoking IREE compiler tool iree-compile
+        Error code: 1
+        Diagnostics:
+        <stdin>:78:7: error: function 'gemm' uses 69632 bytes of shared memory; exceeded the limit of 65536 bytes
+              func.func @gemm(%arg0: !stream.binding, %arg1: !stream.binding, %arg2: !stream.binding) attributes {translation_info = #translation} {
+              ^
+        <stdin>:70:3: error: failed to run translation of source executable to target executable for backend #hal.executable.target<"rocm", "rocm-hsaco-fb", {abi = "hip", iree.encoding.resolver = #iree_gpu.gpu_encoding_resolver<>, iree_codegen.default_tuning_spec = #rocm.builtin.tuning_module<"iree_default_tuning_spec_gfx942.mlir">, iree_codegen.target_info = #iree_gpu.target<arch = "gfx942", features = "", wgp = <compute =  fp64|fp32|fp16|int64|int32|int16|int8, storage =  b64|b32|b16|b8, subgroup =  shuffle|arithmetic, dot =  dp4xi8toi32, mma = [<MFMA_F32_16x16x16_BF16>, <MFMA_F32_32x32x8_BF16>, <MFMA_F32_16x16x32_F8E5M2FNUZ>, <MFMA_F32_16x16x32_F8E5M2FNUZ_F8E4M3FNUZ>, <MFMA_F32_16x16x32_F8E4M3FNUZ>, <MFMA_F32_16x16x32_F8E4M3FNUZ_F8E5M2FNUZ>, <MFMA_F32_32x32x16_F8E5M2FNUZ>, <MFMA_F32_32x32x16_F8E5M2FNUZ_F8E4M3FNUZ>, <MFMA_F32_32x32x16_F8E4M3FNUZ>, <MFMA_F32_32x32x16_F8E4M3FNUZ_F8E5M2FNUZ>, <MFMA_I32_16x16x32_I8>, <MFMA_I32_32x32x16_I8>, <MFMA_F64_16x16x4_F64>, <MFMA_F32_16x16x4_F32>, <MFMA_F32_16x16x16_F16>, <MFMA_F32_32x32x8_F16>], subgroup_size_choices = [64], max_workgroup_sizes = [1024, 1024, 1024], max_thread_count_per_workgroup = 1024, max_workgroup_memory_bytes = 65536, max_workgroup_counts = [2147483647, 2147483647, 2147483647], max_load_instruction_bits = 128, simds_per_wgp = 4, vgpr_space_bits = 16384>>, ukernels = "none"}>
+          stream.executable private @gemm {
+          ^
+        
+        
+        Invoked with:
+         iree-compile /home/gaurverm/upstream/iree-kernel-benchmark/bench_venv/lib/python3.12/site-packages/iree/compiler/tools/../_mlir_libs/iree-compile - --iree-input-type=auto --iree-vm-bytecode-module-output-format=flatbuffer-binary --mlir-print-debuginfo --mlir-print-op-on-diagnostic=false --iree-vm-bytecode-module-strip-source-map=true --iree-opt-strip-assertions=true --iree-vm-target-truncate-unsupported-floats --iree-hip-target=gfx942 --iree-hal-target-device=hip
+        
+        Need more information? Set IREE_SAVE_TEMPS=/some/dir in your environment to save all artifacts and reproducers.
+        
+        
+[ERROR] 0 Success, 1 Failed out of 1 configs
+[INFO] Compilation process completed.
+Benchmarking kernels:   0%|          | 0/1 [00:00<?, ?it/s]Benchmarking kernels: 100%|██████████| 1/1 [00:00<00:00, 5526.09it/s]
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/gaurverm/upstream/iree-kernel-benchmark/kernel_bench/cli/run_gemms.py", line 321, in <module>
+    create_gemm_plot(results, args.plot, backend_names, problem_shapes)
+  File "/home/gaurverm/upstream/iree-kernel-benchmark/kernel_bench/cli/run_gemms.py", line 92, in create_gemm_plot
+    common_shapes = backend_shapes[result_backends[0]]
+                                   ~~~~~~~~~~~~~~~^^^
+IndexError: list index out of range
+[INFO] Results written to results/csv/gemm/gemm_wave.csv
+[INFO] Results written to results/json/gemm/gemm_wave.json

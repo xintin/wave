@@ -1,0 +1,31 @@
+[INFO] Running GEMM benchmarks for backend wave
+[INFO] Generated 1 GEMM configs for backend wave.
+sched type: SchedulingType.PREFETCH
+
+[INFO] 1 Success, 0 Failed out of 1 configs
+[INFO] Compilation process completed.
+Benchmarking kernels:   0%|          | 0/1 [00:00<?, ?it/s]Benchmarking kernels: 100%|██████████| 1/1 [00:01<00:00,  1.81s/it]Benchmarking kernels: 100%|██████████| 1/1 [00:01<00:00,  1.81s/it]
+[INFO] Results written to results/csv/gemm/gemm_wave.csv
+[INFO] Results written to results/json/gemm/gemm_wave.json
+[INFO] Results written to results/csv/gemm/gemm_wave_706x14336x4096.csv
+[INFO] Results written to results/json/gemm/gemm_wave_706x14336x4096.json
+[INFO] Running GEMM benchmarks for backend triton
+[INFO] Generated 1 GEMM configs for backend triton.
+Benchmarking kernels:   0%|          | 0/1 [00:00<?, ?it/s]Benchmarking kernels: 100%|██████████| 1/1 [00:10<00:00, 10.05s/it]Benchmarking kernels: 100%|██████████| 1/1 [00:10<00:00, 10.05s/it]
+[INFO] Results written to results/csv/gemm/gemm_triton.csv
+[INFO] Results written to results/json/gemm/gemm_triton.json
+[INFO] Results written to results/csv/gemm/gemm_triton_706x14336x4096.csv
+[INFO] Results written to results/json/gemm/gemm_triton_706x14336x4096.json
+[INFO] Results written to results/csv/gemm/gemm_wave_706x14336x4096.csv
+[INFO] Results written to results/json/gemm/gemm_wave_706x14336x4096.json
+[INFO] Running GEMM benchmarks for backend torch
+[INFO] Generated 1 GEMM configs for backend torch.
+Benchmarking kernels:   0%|          | 0/1 [00:00<?, ?it/s]Benchmarking kernels: 100%|██████████| 1/1 [00:00<00:00,  2.21it/s]Benchmarking kernels: 100%|██████████| 1/1 [00:00<00:00,  2.21it/s]
+[INFO] Results written to results/csv/gemm/gemm_torch.csv
+[INFO] Results written to results/json/gemm/gemm_torch.json
+[INFO] Results written to results/csv/gemm/gemm_torch_706x14336x4096.csv
+[INFO] Results written to results/json/gemm/gemm_torch_706x14336x4096.json
+[INFO] Results written to results/csv/gemm/gemm_triton_706x14336x4096.csv
+[INFO] Results written to results/json/gemm/gemm_triton_706x14336x4096.json
+[INFO] Results written to results/csv/gemm/gemm_wave_706x14336x4096.csv
+[INFO] Results written to results/json/gemm/gemm_wave_706x14336x4096.json

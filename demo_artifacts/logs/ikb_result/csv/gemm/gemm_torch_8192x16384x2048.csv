@@ -1,0 +1,2 @@
+backend,M,N,K,tflops
+torch,8192,16384,2048,591.6259

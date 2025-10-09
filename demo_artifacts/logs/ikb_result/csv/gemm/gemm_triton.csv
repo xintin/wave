@@ -1,0 +1,2 @@
+index,machine,kernel_type,backend,tag,name,M,N,K,tA,tB,dtype,mean_microseconds,arithmetic_intensity,tflops,ok
+,MI300X,gemm,triton,gemm,gemm_1024_1024_1024_f16_f16_tB,1024,1024,1024,N,T,f16,44.583,256.0,48.1683,True

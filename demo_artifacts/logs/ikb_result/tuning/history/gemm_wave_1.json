@@ -1,0 +1,1002 @@
+{
+    "config": {
+        "M": 642,
+        "N": 1024,
+        "K": 4096,
+        "tA": "N",
+        "tB": "T",
+        "dtype": "f16"
+    },
+    "history": [
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 16,
+                "BLOCK_N": 16,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 16,
+                "BLOCK_N": 16,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 21
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 16,
+                "BLOCK_N": 16,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 40
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 16,
+                "BLOCK_N": 520,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 16,
+                "BLOCK_N": 520,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 21
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 16,
+                "BLOCK_N": 520,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 40
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 16,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 16,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 21
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 16,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 40
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 328,
+                "BLOCK_N": 16,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 328,
+                "BLOCK_N": 520,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 328,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 640,
+                "BLOCK_N": 16,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 640,
+                "BLOCK_N": 520,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 640,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": false
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 16,
+                "BLOCK_N": 16,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 16,
+                "BLOCK_N": 16,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 21
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 16,
+                "BLOCK_N": 16,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 40
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 16,
+                "BLOCK_N": 520,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 16,
+                "BLOCK_N": 520,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 21
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 16,
+                "BLOCK_N": 520,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 40
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 16,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 16,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 21
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 16,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 40
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 328,
+                "BLOCK_N": 16,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 328,
+                "BLOCK_N": 520,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 328,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 640,
+                "BLOCK_N": 16,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 640,
+                "BLOCK_N": 520,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 640,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": false
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 16,
+                "BLOCK_N": 16,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 16,
+                "BLOCK_N": 16,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 21
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 16,
+                "BLOCK_N": 16,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 40
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 16,
+                "BLOCK_N": 520,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 16,
+                "BLOCK_N": 520,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 21
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 16,
+                "BLOCK_N": 520,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 40
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 16,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 16,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 21
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 16,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 40
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 328,
+                "BLOCK_N": 16,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 328,
+                "BLOCK_N": 520,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 328,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 640,
+                "BLOCK_N": 16,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 640,
+                "BLOCK_N": 520,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 640,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": false
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 484,
+                "BLOCK_N": 772,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 484,
+                "BLOCK_N": 898,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 484,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 564,
+                "BLOCK_N": 772,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 564,
+                "BLOCK_N": 898,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 564,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 640,
+                "BLOCK_N": 772,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 640,
+                "BLOCK_N": 898,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 640,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": false
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 484,
+                "BLOCK_N": 772,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 484,
+                "BLOCK_N": 898,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 484,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 564,
+                "BLOCK_N": 772,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 564,
+                "BLOCK_N": 898,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 564,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 640,
+                "BLOCK_N": 772,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 640,
+                "BLOCK_N": 898,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 640,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": false
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 484,
+                "BLOCK_N": 772,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 484,
+                "BLOCK_N": 898,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 484,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 564,
+                "BLOCK_N": 772,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 564,
+                "BLOCK_N": 898,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 564,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 640,
+                "BLOCK_N": 772,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 640,
+                "BLOCK_N": 898,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 640,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": false
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 564,
+                "BLOCK_N": 898,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 564,
+                "BLOCK_N": 962,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 564,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 604,
+                "BLOCK_N": 898,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 604,
+                "BLOCK_N": 962,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 604,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 640,
+                "BLOCK_N": 898,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 640,
+                "BLOCK_N": 962,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_16x16x16_F16",
+                "BLOCK_M": 640,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": false
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 564,
+                "BLOCK_N": 898,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 564,
+                "BLOCK_N": 962,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 564,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 604,
+                "BLOCK_N": 898,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 604,
+                "BLOCK_N": 962,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 604,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 640,
+                "BLOCK_N": 898,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 640,
+                "BLOCK_N": 962,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x8_F16",
+                "BLOCK_M": 640,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": false
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 564,
+                "BLOCK_N": 898,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 564,
+                "BLOCK_N": 962,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 564,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 604,
+                "BLOCK_N": 898,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 604,
+                "BLOCK_N": 962,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 604,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 640,
+                "BLOCK_N": 898,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 640,
+                "BLOCK_N": 962,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": true
+        },
+        {
+            "config": {
+                "MFMA_VARIANT": "F32_32x32x16_K8_F16",
+                "BLOCK_M": 640,
+                "BLOCK_N": 1024,
+                "BLOCK_K": 16,
+                "GROUP_SIZE_M": 1
+            },
+            "success": false
+        }
+    ]
+}
