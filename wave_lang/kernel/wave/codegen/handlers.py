@@ -59,6 +59,7 @@ from ...ops.wave_ops import (
     atomic_min,
     atomic_add,
     bitcast,
+    bounds_check,
     broadcast,
     cast,
     cbrt,
@@ -112,7 +113,10 @@ from ..compile_options import WaveCompileOptions
 from ..constraints import GenericDot, HardwareConstraint, MMAType
 from ..scheduling.resources import get_scheduling_mask
 from ..utils.classes import ShuffleMode
-from ..utils.general_utils import get_fastest_index
+from ..utils.general_utils import (
+    get_fastest_index,
+    get_largest_index_and_size,
+)
 from ..utils.mapping_utils import transform_index_on_mapping
 from ..utils.symbol_utils import subs_idxc
 from .emitter import (
@@ -1941,3 +1945,110 @@ def handle_reshape(emitter: WaveEmitter, node: fx.Node):
         [1],
     )
     emitter.bind_node_proxy(node, IRProxyValue(slice))
+
+
+@handle_op(bounds_check)
+def handle_bounds_check(emitter: WaveEmitter, node: fx.Node):
+    try:
+        index_exprs, bounds, mapping, dyn_vals, mask_bounds = node.args
+    except ValueError as e:
+        raise ValidationError("Malformed arguments") from e
+
+    fast_dim, size = get_largest_index_and_size(index_exprs)
+
+    i64_type = IntegerType.get_signless(64)
+
+    dynamic_vals = tuple(
+        cast_vector(emitter, reg, element_type=IndexType.get()) for reg in dyn_vals
+    )
+
+    # helper function to extract the scalar (index) from the vector <1xindex>
+    def extract0(src):
+        src_type = src.type
+        assert all(
+            s == 1 for s in src_type.shape
+        ), f"Expected number of elements in vector to be 1, got {src_type}"
+        static_pos = [0] * src_type.rank
+        return vector_d.extract(src, static_position=static_pos, dynamic_position=[])
+
+    # create the dictionary of dynamic symbol and corresponding scalar value
+    dynamic_vals = (
+        {
+            sym: extract0(val)
+            for sym, val in zip(mapping.dynamic_val_indices.keys(), dynamic_vals)
+        }
+        if mapping
+        else {}
+    )
+    subs = add_emitter_subs(emitter, dynamic_vals)
+
+    def sanitize_string(s: str) -> str:
+        return s.replace("%", "%%")
+
+    def gen(expr: IndexExpr) -> Value:
+        ret = gen_sympy_index(subs, expr)
+        return arith_d.index_cast(i64_type, ret)
+
+    src_index_dims = ", ".join(str(dim) for dim in index_exprs.keys())
+    src_index_fmt = ", ".join(["%lld"] * len(index_exprs))
+
+    if mapping:
+        dims = mapping.input_mapping.keys()
+        dst_index_dims = ", ".join(str(dim) for dim in dims)
+        dst_index_fmt = ", ".join(["%lld"] * len(dims))
+    else:
+        dst_index_dims = src_index_dims
+        dst_index_fmt = src_index_fmt
+
+    bounds_fmt = ", ".join(["%lld"] * len(bounds))
+
+    fmt = f"Index {src_index_dims} [{src_index_fmt}] -> "
+    fmt += f"{dst_index_dims} [{dst_index_fmt}] is out of bounds [{bounds_fmt}]\n"
+    if location := node.location:
+        fmt = f"{sanitize_string(location.filename)}: {location.line}\n" + fmt
+
+    for i in range(size):
+        # Generate individual checks for each vector element.
+        index = copy.deepcopy(index_exprs)
+        index[fast_dim].start = index[fast_dim].start + i
+
+        start_indices_orig = _get_start_indices(index)
+
+        if mask_bounds:
+            # If read/write op has mask bounds only check index which is outside of mask bounds.
+            bound_expr = sympy.And(
+                *(index[dim].start < bound for dim, bound in mask_bounds.items())
+            )
+        else:
+            bound_expr = True
+
+        if mapping:
+            symbolic_shape = list(bounds.keys())
+            # All mapping are transformed into read mapping during ops generation.
+            index = transform_index_on_mapping(
+                mapping, symbolic_shape, index, is_read=True
+            )
+
+        start_indices = _get_start_indices(index)
+        oob = sympy.Or(
+            *(
+                sympy.Or(start_index < 0, start_index >= bounds[dim])
+                for dim, start_index in zip(index.keys(), start_indices)
+            )
+        )
+        oob = sympy.And(oob, bound_expr)
+
+        condition = gen_sympy_index(subs, oob)
+        if_op = scf_d.IfOp(condition)
+        with InsertionPoint(if_op.then_block) as ip:
+            args = []
+            args += [gen(arg) for arg in start_indices_orig]
+            args += [gen(arg) for arg in start_indices]
+            args += [gen(bounds[dim]) for dim in index.keys()]
+
+            # Print index info
+            gpu_d.printf(format=fmt, args=args)
+
+            # Kill the wave.
+            llvm_d.intr_trap()
+            scf_d.YieldOp([])
