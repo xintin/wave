@@ -1,0 +1,40 @@
+diff --git a/wave_lang/kernel/wave/wave.py b/wave_lang/kernel/wave/wave.py
+index f9351d2..4c4ce6c 100644
+--- a/wave_lang/kernel/wave/wave.py
++++ b/wave_lang/kernel/wave/wave.py
+@@ -112,6 +112,12 @@ __all__ = ["wave", "wave_trace_only"]
+ _warned = False
+ 
+ 
++import json, os, functools
++
++def _pass_name(p):
++    f = p.func if isinstance(p, functools.partial) else p
++    return getattr(f, "__name__", f.__class__.__name__).lower()
++
+ def _are_versions_compatible(ver1: "Version", ver2: "Version") -> bool:
+     if ver1.is_prerelease or ver2.is_prerelease:
+         return ver1 == ver2
+@@ -828,6 +834,22 @@ class LaunchableWave(Launchable):
+             )
+         )
+ 
++        # Part of pass expt:
++        config_id = os.getenv("WAVE_CONFIG_ID", "0")
++        skip_file = os.getenv("WAVE_PASS_SKIP_FILE", "pass_skip.json")
++        skip_set = set()
++        if config_id != "-1":
++            try:
++                with open(skip_file, "r") as fh:
++                    data = json.load(fh)
++                skip_set = {s.lower() for s in data.get(config_id, [])}
++            except FileNotFoundError:
++                skip_set = set()
++
++        if skip_set:
++            graph_passes = [p for p in graph_passes if _pass_name(p) not in skip_set] 
++
++
+         pass_times = {}
+         for p in graph_passes:
+             try_apply_pass(
