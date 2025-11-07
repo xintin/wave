@@ -1409,7 +1409,11 @@ class Allocate(CustomOp):
 
     @property
     def indexing_dims(self) -> list[IndexSymbol]:
-        return list(self.shape)
+        from ..wave.utils.general_utils import infer_dim
+
+        shape = list(self.shape)
+        dims = [infer_dim(expr) for expr in shape]
+        return dims
 
     @property
     def type(self) -> "Memory":
@@ -1446,6 +1450,10 @@ class Allocate(CustomOp):
     def unpadded_shape(self) -> tuple[IndexExpr]:
         unpadded_dims = self.unpadded_dims
         return tuple(unpadded_dims[s] for s in self.shape)
+
+    def infer_type(self, *args):
+        type_expr = Memory[(*self.shape, self.address_space, self.dtype)]
+        self.fx_node.type = type_expr
 
 
 @define_op("self_index")

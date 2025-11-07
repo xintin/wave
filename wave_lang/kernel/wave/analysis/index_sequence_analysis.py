@@ -643,9 +643,7 @@ def add_nodes_to_sources(
             break
         for arg in args:
             custom = get_custom(arg)
-            if isinstance(custom, (Allocate, Placeholder)) and not isinstance(
-                custom, IterArg
-            ):
+            if isinstance(custom, Placeholder) and not isinstance(custom, IterArg):
                 continue
             vector_shapes = (
                 custom.vector_shapes if custom.vector_shapes else source_vector_shapes
