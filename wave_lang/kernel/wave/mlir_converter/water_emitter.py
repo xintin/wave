@@ -242,12 +242,44 @@ def _preprocess_symbols(
     """
     Preprocess symbols by:
     (1) adding assumptions about all symbols being positive to later enable more simplifications.
-    (2) replacing `$` prefix of special symbols (e.g. `$WG0`) by `_` since MLIR affine expressions
-    do not accept `$`.
+    (2) replacing `$ARG` prefix of argument symbols (e.g. `ARG0`) by `_ARG` for consistency.
     """
-    return {
-        sym: sympy.Symbol(sym.name.replace("$", "_"), positive=True) for sym in symbols
+    result = {}
+    for sym in symbols:
+        # Special case: rename ARG* symbols to _ARG*
+        if sym.name.startswith("$ARG"):
+            new_name = sym.name.replace("$", "_")
+            result[sym] = sympy.Symbol(new_name, positive=True)
+        else:
+            result[sym] = sympy.Symbol(sym.name, positive=True)
+    return result
+
+
+def _symbol_name_to_attribute(name: str) -> ir.Attribute:
+    """
+    Convert a symbol name to either a WaveSymbolAttr or WaveIndexSymbolAttr.
+
+    Special symbols starting with $ are converted to WaveIndexSymbolAttr,
+    while regular symbols are converted to WaveSymbolAttr.
+    """
+    # Mapping of special symbol names to WaveIndexSymbol enum values
+    INDEX_SYMBOL_MAP = {
+        "$WG0": wave.WaveIndexSymbol.WORKGROUP_0,
+        "$WG1": wave.WaveIndexSymbol.WORKGROUP_1,
+        "$WG2": wave.WaveIndexSymbol.WORKGROUP_2,
+        "$T0": wave.WaveIndexSymbol.THREAD_0,
+        "$T1": wave.WaveIndexSymbol.THREAD_1,
+        "$T2": wave.WaveIndexSymbol.THREAD_2,
+        "$DD0": wave.WaveIndexSymbol.DEVICE_DIM_0,
+        "$DD1": wave.WaveIndexSymbol.DEVICE_DIM_1,
+        "$DD2": wave.WaveIndexSymbol.DEVICE_DIM_2,
+        "$GPR_NUM": wave.WaveIndexSymbol.GPR_NUMBER,
     }
+
+    if name in INDEX_SYMBOL_MAP:
+        return wave.WaveIndexSymbolAttr.get(INDEX_SYMBOL_MAP[name])
+    else:
+        return wave.WaveSymbolAttr.get(name)
 
 
 def _build_index_mapping_dict(index: dict) -> ir.DictAttr:
@@ -272,8 +304,11 @@ def _build_index_mapping_dict(index: dict) -> ir.DictAttr:
         start = _convert_sympy_expr_to_affine_map(exprs.start, symbol_mapping)
         size = _convert_sympy_expr_to_affine_map(exprs.size, symbol_mapping)
         stride = _convert_sympy_expr_to_affine_map(exprs.stride, symbol_mapping)
+        symbol_attrs = [
+            _symbol_name_to_attribute(sym.name) for sym in symbol_mapping.values()
+        ]
         index_mappings[dim.name] = wave.WaveIndexMappingAttr.get(
-            [sym.name for sym in symbol_mapping.values()], start, size, stride
+            symbol_attrs, start, size, stride
         )
     return ir.DictAttr.get(index_mappings)
 
@@ -308,42 +343,45 @@ def _attach_attributes(node: CustomOp, op: ir.Operation):
                 list(expr.free_symbols) if isinstance(expr, sympy.Expr) else []
             )
             result = _convert_sympy_expr_to_affine_map(expr, symbol_mapping)
-            bounds[dim.name] = wave.WaveExprListAttr.get(
-                [sym.name for sym in symbol_mapping.values()], result
-            )
+            symbol_attrs = [
+                _symbol_name_to_attribute(sym.name) for sym in symbol_mapping.values()
+            ]
+            bounds[dim.name] = wave.WaveExprListAttr.get(symbol_attrs, result)
         op.attributes["bounds"] = wave.WaveReadWriteBoundsAttr.get(bounds)
 
 
-def _convert_sympy_expr_to_expr_list_attr(expr: sympy.Expr | int) -> WaveExprListAttr:
-    """
-    Converts a wave IndexExpr to a `WaveExprListAttr`.
-    """
-    if isinstance(expr, int):
-        symbol_mapping = {}
-    else:
-        symbol_mapping = _preprocess_symbols(expr.free_symbols)
-    affine_map = _convert_sympy_expr_to_affine_map(expr, symbol_mapping)
-    symbol_attrs = [sym.name for sym in symbol_mapping.values()]
-    return WaveExprListAttr.get(symbol_attrs, affine_map)
-
-
 def _convert_to_wave_expr_list_tuple(
-    exprs: Sequence[sympy.Expr | int], ctx: ir.Context
+    exprs: Sequence[sympy.Expr | int],
 ) -> WaveExprListAttr:
     """
     Returns a WaveExprListAttr from a sequence of wave IndexExpr.
+    Creates a multi-result affine map from the sequence of expressions.
     """
-    symbols = list(
-        set().union(
-            *[
-                expr.free_symbols if isinstance(expr, sympy.Expr) else []
-                for expr in exprs
-            ]
-        )
-    )
-    return ir.Attribute.parse(
-        f"#wave.expr_list<{symbols} -> ({', '.join(map(str, exprs))})>", context=ctx
-    )
+    # Collect all symbols from all expressions
+    all_symbols = set()
+    for expr in exprs:
+        if isinstance(expr, sympy.Expr):
+            all_symbols.update(expr.free_symbols)
+
+    # Preprocess symbols and create mapping
+    symbol_mapping = _preprocess_symbols(list(all_symbols))
+
+    # Convert each expression to an affine expression
+    affine_exprs = []
+    for expr in exprs:
+        affine_map = _convert_sympy_expr_to_affine_map(expr, symbol_mapping)
+        # Extract the single result from the map (each expr creates a 1-result map)
+        affine_exprs.append(affine_map.results[0])
+
+    # Create a multi-result affine map
+    multi_result_map = ir.AffineMap.get(0, len(symbol_mapping), affine_exprs)
+
+    # Convert symbol names to attributes
+    symbol_attrs = [
+        _symbol_name_to_attribute(sym.name) for sym in symbol_mapping.values()
+    ]
+
+    return WaveExprListAttr.get(symbol_attrs, multi_result_map)
 
 
 def _emit_ops_from_graph(
@@ -476,13 +514,13 @@ def _emit_ops_from_graph(
                     mlir_op = op_builder(
                         result_type,
                         distributed_shape=_convert_to_wave_expr_list_tuple(
-                            node.distributed_shape, ctx
+                            node.distributed_shape
                         ),
                     )
                 elif isinstance(node, ExtractSlice):
-                    size = _convert_to_wave_expr_list_tuple(node.size, ctx)
-                    stride = _convert_to_wave_expr_list_tuple(node.stride, ctx)
-                    offset = _convert_to_wave_expr_list_tuple(node.offset, ctx)
+                    size = _convert_to_wave_expr_list_tuple(node.size)
+                    stride = _convert_to_wave_expr_list_tuple(node.stride)
+                    offset = _convert_to_wave_expr_list_tuple(node.offset)
                     mlir_op = op_builder(
                         result_type, *mlir_operands, size, stride, offset
                     )
@@ -538,7 +576,7 @@ def _emit_wave_constraints(constraint: Constraint) -> ir.Attribute:
         return attr
 
     if isinstance(constraint, WorkgroupConstraint):
-        size = _convert_sympy_expr_to_expr_list_attr(constraint.tile_size)
+        size = _convert_to_wave_expr_list_tuple([constraint.tile_size])
         wg_dim = WaveWorkgroupDimAttr.get(constraint.workgroup_dim)
         attr = WorkgroupConstraintAttr.get(
             dim=constraint.dim.name, tile_size=size, workgroup_dim=wg_dim
@@ -546,16 +584,16 @@ def _emit_wave_constraints(constraint: Constraint) -> ir.Attribute:
         return attr
 
     if isinstance(constraint, WaveConstraint):
-        size = _convert_sympy_expr_to_expr_list_attr(constraint.tile_size)
+        size = _convert_to_wave_expr_list_tuple([constraint.tile_size])
         attr = WaveConstraintAttr.get(dim=constraint.dim.name, tile_size=size)
         return attr
 
     if isinstance(constraint, TilingConstraint):
-        size = _convert_sympy_expr_to_expr_list_attr(constraint.tile_size)
+        size = _convert_to_wave_expr_list_tuple([constraint.tile_size])
         return TilingConstraintAttr.get(dim=constraint.dim.name, tile_size=size)
 
     if isinstance(constraint, DeviceConstraint):
-        size = _convert_sympy_expr_to_expr_list_attr(constraint.tile_size)
+        size = _convert_to_wave_expr_list_tuple([constraint.tile_size])
         return DeviceConstraintAttr.get(
             dim=constraint.dim.name, tile_size=size, device_dim=constraint.device_dim
         )
