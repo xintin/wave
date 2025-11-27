@@ -61,6 +61,7 @@ from .analysis.partition_strided_operators import (
     partition_strided_operators,
 )
 from .barriers import add_shared_memory_barriers
+from .cluster_barriers import add_cluster_barriers
 from .cache import get_temp_binary_dir
 from .codegen import WaveEmitter
 from .compile_options import WaveCompileOptions
@@ -940,6 +941,7 @@ class LaunchableWave(Launchable):
             ]
         graph_passes += [
             partial(add_shared_memory_barriers, trace, target=options.target),
+            partial(add_cluster_barriers, trace, self.constraints, options),
             partial(compute_shared_memory_usage, trace, options.kernel_launch_info),
             partial(partition_gather_like_ops, trace, self.constraints, options.target),
             partial(generate_bounds_exprs, trace, self.constraints),

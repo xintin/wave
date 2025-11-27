@@ -97,6 +97,12 @@ class WaveCompileOptions:
     dump_schedule: Optional[str] = None
     use_bound_check: bool = False
 
+    # Cluster barrier signal/wait delay in number of loop iterations
+    # None - no barriers inside the loop
+    # 0 - signal and wait on same iteration
+    # 1 - one iteration apart, 2 - two, etc
+    cluster_barrier_delay: Optional[int] = None
+
     # === Print options ===
     mlir_print_ir_after_all: bool = False
     print_ir_after: list[str] = field(default_factory=list)
