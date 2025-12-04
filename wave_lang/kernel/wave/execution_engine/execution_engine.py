@@ -21,11 +21,16 @@ import platform
 from pathlib import Path
 
 try:
-    from .wave_execution_engine import ExecutionEngine, ExecutionEngineOptions
+    from .wave_execution_engine import (
+        ExecutionEngine,
+        ExecutionEngineOptions,
+        CodeGenOptLevel,
+    )
 except ImportError:
     # Allow import to succeed even if C++ module not built yet
     ExecutionEngine = None
     ExecutionEngineOptions = None
+    CodeGenOptLevel = None
 
 
 def is_execution_engine_available() -> bool:
@@ -135,6 +140,8 @@ def _create_options_from_env() -> "ExecutionEngineOptions":
         WAVE_ENABLE_OBJECT_CACHE: Enable object cache (default: 0)
         WAVE_ENABLE_GDB_LISTENER: Enable GDB notification listener (default: 0)
         WAVE_ENABLE_PERF_LISTENER: Enable Perf notification listener (default: 0)
+        WAVE_JIT_OPT_LEVEL: JIT optimization level 0-3 (default: 3)
+                            0=None/O0, 1=Less/O1, 2=Default/O2, 3=Aggressive/O3
 
     Returns:
         ExecutionEngineOptions configured from environment
@@ -156,6 +163,16 @@ def _create_options_from_env() -> "ExecutionEngineOptions":
     options.enable_perf_notification_listener = _env_enabled(
         "WAVE_ENABLE_PERF_LISTENER"
     )
+
+    # Set JIT optimization level (default: O3/Aggressive)
+    jit_opt_level = int(os.environ.get("WAVE_JIT_OPT_LEVEL", "3"))
+    opt_level_map = {
+        0: CodeGenOptLevel.O0,
+        1: CodeGenOptLevel.O1,
+        2: CodeGenOptLevel.O2,
+        3: CodeGenOptLevel.O3,
+    }
+    options.jit_code_gen_opt_level = opt_level_map[jit_opt_level]
 
     return options
 
