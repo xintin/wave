@@ -71,7 +71,7 @@ struct LowerWaveToMLIRPass
         // clang-format on
         >();
     target.addIllegalOp<wave::AllocateOp, wave::RegisterOp, wave::Exp2Op,
-                        wave::CastOp>();
+                        wave::CastOp, wave::ExtractSliceOp>();
     ConversionConfig config;
     config.allowPatternRollback = false;
 

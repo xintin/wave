@@ -11,6 +11,7 @@
 #include "mlir/Dialect/AMDGPU/IR/AMDGPUDialect.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "water/Dialect/Wave/IR/WaveOps.h"
@@ -300,12 +301,70 @@ public:
   }
 };
 
+/// Evaluate a Wave expression list to constant integer values.
+/// Since the Wave dialect verifier ensures expressions contain no symbols,
+/// this only handles pure constant expressions.
+static FailureOr<SmallVector<int64_t>>
+evaluateWaveExprList(wave::WaveExprListAttr exprListAttr) {
+  AffineMap map = exprListAttr.getMap();
+  if (!map.isConstant())
+    return failure();
+
+  return map.getConstantResults();
+}
+
+class ExtractSliceOpLoweringPattern
+    : public OpConversionPattern<wave::ExtractSliceOp> {
+public:
+  using OpConversionPattern::OpConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(wave::ExtractSliceOp op,
+                  wave::ExtractSliceOp::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    // Evaluate offset, size, and stride expressions to constant values.
+    FailureOr<SmallVector<int64_t>> offsetValues =
+        evaluateWaveExprList(op.getOffset());
+    if (failed(offsetValues))
+      return rewriter.notifyMatchFailure(
+          op, "failed to evaluate offset expression to constants");
+
+    FailureOr<SmallVector<int64_t>> sizeValues =
+        evaluateWaveExprList(op.getSize());
+    if (failed(sizeValues))
+      return rewriter.notifyMatchFailure(
+          op, "failed to evaluate size expression to constants");
+
+    FailureOr<SmallVector<int64_t>> strideValues =
+        evaluateWaveExprList(op.getStride());
+    if (failed(strideValues))
+      return rewriter.notifyMatchFailure(
+          op, "failed to evaluate stride expression to constants");
+
+    Type convertedResultType =
+        getTypeConverter()->convertType(op.getResult().getType());
+    if (!convertedResultType)
+      return rewriter.notifyMatchFailure(op, "failed to convert result type");
+
+    // Direct mapping from wave.extract_slice to vector.extract_strided_slice.
+    // The offset, size, and stride values are copied directly.
+    auto extractOp = vector::ExtractStridedSliceOp::create(
+        rewriter, op.getLoc(), adaptor.getMemory(),
+        ArrayRef<int64_t>(*offsetValues), ArrayRef<int64_t>(*sizeValues),
+        ArrayRef<int64_t>(*strideValues));
+    rewriter.replaceOp(op, extractOp);
+
+    return success();
+  }
+};
+
 } // namespace
 
 void wave::populateWaveMiscellaneousOpsLoweringPatterns(
     WaveTypeConverter &typeConverter, RewritePatternSet &patterns) {
-  patterns.add<RegisterOpLoweringPattern, CastOpLoweringPattern>(
-      typeConverter, patterns.getContext());
+  patterns.add<RegisterOpLoweringPattern, CastOpLoweringPattern,
+               ExtractSliceOpLoweringPattern>(typeConverter,
+                                              patterns.getContext());
 }
 
 //===----------------------------------------------------------------------===//
