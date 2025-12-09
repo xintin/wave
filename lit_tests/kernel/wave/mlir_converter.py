@@ -38,6 +38,7 @@ BLOCK_N = tkl.sym.BLOCK_N
 ADDRESS_SPACE_A = tkl.sym.ADDRESS_SPACE_A
 ADDRESS_SPACE_B = tkl.sym.ADDRESS_SPACE_B
 ADDRESS_SPACE_C = tkl.sym.ADDRESS_SPACE_C
+ADDRESS_SPACE_TEST = tkl.sym.ADDRESS_SPACE_TEST
 
 # Define constraints for the kernel
 constraints = [
@@ -231,7 +232,7 @@ def mlir_converter_matrix_add():
 
     # CHECK-LABEL: mlir_converter_matrix_add
     # CHECK: module
-    # CHECK: func.func @kernel(%[[ARG0:.*]]: !wave.tensor<[@M, @N] of f16>, %[[ARG1:.*]]: !wave.tensor<[@M, @N] of f16>, %[[ARG2:.*]]: !wave.tensor<[@M, @N] of f16>
+    # CHECK-NEXT: func.func @kernel(%[[ARG0:.*]]: !wave.tensor<[@M, @N] of f16, <global>>, %[[ARG1:.*]]: !wave.tensor<[@M, @N] of f16, <global>>, %[[ARG2:.*]]: !wave.tensor<[@M, @N] of f16, <global>>)
     # CHECK-SAME: wave.constraints =
     # CHECK-SAME: #wave.workgroup_constraint<dim = <"M">, tile_size = <[#wave.symbol<"BLOCK_M">] -> (BLOCK_M)>, workgroup_dim = <x>>
     # CHECK-SAME: #wave.workgroup_constraint<dim = <"N">, tile_size = <[#wave.symbol<"BLOCK_N">] -> (BLOCK_N)>, workgroup_dim = <y>>
@@ -251,7 +252,7 @@ def mlir_converter_matrix_add():
     # CHECK-SAME: M = #wave.expr_list
     # CHECK-SAME: N = #wave.expr_list
     # CHECK-SAME: elements_per_thread = 32 : i64
-    # CHECK-SAME: (!wave.tensor<[@M, @N] of f16>) -> !wave.tensor<[@M, @N] of f16, <register>>
+    # CHECK-SAME: (!wave.tensor<[@M, @N] of f16, <global>>) -> !wave.tensor<[@M, @N] of f16, <register>>
 
     # CHECK: %[[READ_B:.*]] = wave.read %[[ARG1]]
     # CHECK-SAME: index
@@ -262,7 +263,7 @@ def mlir_converter_matrix_add():
     # CHECK-SAME: M = #wave.expr_list
     # CHECK-SAME: N = #wave.expr_list
     # CHECK-SAME: elements_per_thread = 32 : i64
-    # CHECK-SAME: (!wave.tensor<[@M, @N] of f16>) -> !wave.tensor<[@M, @N] of f16, <register>>
+    # CHECK-SAME: (!wave.tensor<[@M, @N] of f16, <global>>) -> !wave.tensor<[@M, @N] of f16, <register>>
 
     # CHECK: %[[ADD:.*]] = wave.add %[[READ_A]], %[[READ_B]]
     # CHECK-SAME: index
@@ -279,7 +280,7 @@ def mlir_converter_matrix_add():
     # CHECK-SAME: M = #wave.expr_list
     # CHECK-SAME: N = #wave.expr_list
     # CHECK-SAME: elements_per_thread = 32 : i64
-    # CHECK-SAME: !wave.tensor<[@M, @N] of f16, <register>>, !wave.tensor<[@M, @N] of f16>
+    # CHECK-SAME: !wave.tensor<[@M, @N] of f16, <register>>, !wave.tensor<[@M, @N] of f16, <global>>
 
     # CHECK: return
 
@@ -485,3 +486,106 @@ def mlir_converter_matmul():
     # CHECK-NEXT: %[[SLICE_15:.*]] = wave.extract_slice %[[ITERATE]]{{.*}} offset = #wave.expr_list<[] -> (15)>, size = #wave.expr_list<[] -> (1)>, stride = #wave.expr_list<[] -> (1)>
     # CHECK-NEXT: wave.write %[[SLICE_15]], %[[ARG2]]
     # CHECK-NEXT: return
+
+
+@run_test
+def mlir_converter_mixed_memory_spaces():
+    global constraints
+
+    @tkw.wave(constraints)
+    def mixed_memory_kernel(
+        global_direct: tkl.Memory[M, N, GLOBAL_ADDRESS_SPACE, tkl.f16],
+        symbolic_a: tkl.Memory[M, N, ADDRESS_SPACE_A, tkl.f16],
+        symbolic_b: tkl.Memory[M, N, ADDRESS_SPACE_B, tkl.f16],
+    ):
+        read_1 = wave.read(symbolic_a)
+        read_2 = wave.read(symbolic_b)
+
+        result = tkl.Register[M, N, tkl.f16](42.0)
+        result = read_1 + read_2
+        wave.write(result, global_direct)
+
+    subs = {
+        # Mix of symbolic address spaces resolving to different spaces
+        ADDRESS_SPACE_A: GLOBAL_ADDRESS_SPACE,  # Symbolic -> Global
+        ADDRESS_SPACE_B: SHARED_ADDRESS_SPACE,  # Symbolic -> Global (after `promote_placeholders`)
+        M: 128,
+        N: 128,
+        BLOCK_M: 64,
+        BLOCK_N: 64,
+    }
+
+    options = WaveCompileOptions(
+        subs=subs,
+        compile_to_mlir=True,
+        location_capture_config=LocationCaptureConfig(level=LocationCaptureLevel.NONE),
+        enforce_locations=False,
+    )
+    options = set_default_run_config(options)
+
+    compiled_kernel = wave_compile(options, mixed_memory_kernel)
+    trace = compiled_kernel.compiled_graph
+    constraints = mixed_memory_kernel.constraints
+
+    with Context(), Location.unknown():
+        mlir_output, diagnostics = emit_wave_dialect(trace, constraints, options)
+
+    assert len(diagnostics) == 0, f"Should have no diagnostics, got: {diagnostics}"
+
+    # CHECK-LABEL: mlir_converter_mixed_memory_spaces
+    print(mlir_output)
+    # All function arguments should be <global>
+    # CHECK: func.func @kernel(
+    # Verify that ADDRESS_SPACE_* are NOT in hyperparameters but others are
+    # CHECK-SAME: #wave.hyperparameters<{BLOCK_M = 64 : i64, BLOCK_N = 64 : i64, M = 128 : i64, N = 128 : i64}>
+    # CHECK-NOT: ADDRESS_SPACE_A
+    # CHECK-NOT: ADDRESS_SPACE_B
+
+
+@run_test
+def mlir_converter_invalid_non_int_hyperparameter():
+    global constraints
+
+    @tkw.wave(constraints)
+    def invalid_hyperparameter_kernel(
+        out: tkl.Memory[M, N, GLOBAL_ADDRESS_SPACE, tkl.f16],
+        arg: tkl.Memory[M, N, GLOBAL_ADDRESS_SPACE, tkl.f16],
+    ):
+        read = wave.read(arg)
+
+        result = tkl.Register[M, N, tkl.f16](42.0)
+        result = read + result
+        wave.write(result, out)
+
+    # Create an invalid non-int hyperparameter (not an address space)
+    INVALID_SYMBOL = tkl.sym.INVALID_SYMBOL
+    subs = {
+        INVALID_SYMBOL: "invalid_string_value",  # This should trigger validation error
+        M: 128,
+        N: 128,
+        BLOCK_M: 64,
+        BLOCK_N: 64,
+    }
+
+    options = WaveCompileOptions(
+        subs=subs,
+        compile_to_mlir=True,
+        location_capture_config=LocationCaptureConfig(level=LocationCaptureLevel.NONE),
+        enforce_locations=False,
+    )
+    options = set_default_run_config(options)
+
+    compiled_kernel = wave_compile(options, invalid_hyperparameter_kernel)
+    trace = compiled_kernel.compiled_graph
+    constraints = invalid_hyperparameter_kernel.constraints
+
+    # This should raise a RuntimeError due to invalid non-int hyperparameter
+    try:
+        with Context(), Location.unknown():
+            mlir_output, diagnostics = emit_wave_dialect(trace, constraints, options)
+        assert False, "Expected RuntimeError for invalid non-int hyperparameter"
+    except RuntimeError as e:
+        # Verify the error message is what we expect
+        assert "Unexpected non-int mapping in hyperparameters" in str(e)
+        assert "INVALID_SYMBOL -> invalid_string_value" in str(e)
+        assert "Expected all non-int values to be address spaces" in str(e)

@@ -695,6 +695,10 @@ def _create_kernel_module(
         - List of diagnostic messages.
     """
     from wave_lang.kernel.ops.wave_ops import get_custom, IterArg  # type: ignore
+    from wave_lang.kernel.lang.global_symbols import (
+        GLOBAL_ADDRESS_SPACE,
+        SHARED_ADDRESS_SPACE,
+    )
 
     diagnostics: list[str] = []
 
@@ -736,6 +740,21 @@ def _create_kernel_module(
     for p in top_level_placeholders:
         c = get_custom(p)
         t = getattr(c, "_type", None) or getattr(c, "type", None)
+        # At this pipeline stage, symbolic address spaces should
+        # have been handled by Python `promote_placeholders` transformation, and all function arguments
+        # should be global by now (shared memory allocation happens inside the kernel).
+        # Thus, resolve symbolic address spaces from hyperparameters.
+        from wave_lang.kernel.lang.wave_types import Memory
+
+        # print(t, t.address_space)
+        if issubclass(t, Memory) and t.address_space in options.subs:
+            # Create a new type with resolved address space
+            resolved_address_space = options.subs[t.address_space]
+            if resolved_address_space != GLOBAL_ADDRESS_SPACE:
+                raise RuntimeError(
+                    f"Unexpected address space in hyperparameters: {t.address_space} -> {resolved_address_space}"
+                )
+            t = Memory[t.symbolic_shape, resolved_address_space, t.dtype]
         arg_types.append(_type_to_wave_mlir(ctx, t))
         arg_locs.append(c.location.to_water() if c.location else ir.Location.current)
 
@@ -743,8 +762,16 @@ def _create_kernel_module(
     func_type = ir.FunctionType.get(arg_types, [])
     with ir.InsertionPoint(module.body):
         func_op = func.FuncOp("kernel", func_type)
-        # TODO: WaveHyperparameterAttr only supports int currently, so we
-        #       lose mappings like ADDRESS_SPACE_A: SHARED_ADDRESS_SPACE
+        # Validate that all non-int mappings are address spaces (either SHARED_ADDRESS_SPACE or GLOBAL_ADDRESS_SPACE).
+        # These mappings can be dropped safely because the information has been encoded in either `arg_types` (for GLOBAL_ADDRESS_SPACE) or LDS allocations inside the kernel (done by `promote_placeholders for SHARED_ADDRESS_SPACE).
+        # print([(str(k), v) for k, v in options.subs.items()])
+        for k, v in options.subs.items():
+            if not isinstance(v, int):
+                if v not in (SHARED_ADDRESS_SPACE, GLOBAL_ADDRESS_SPACE):
+                    raise RuntimeError(
+                        f"Unexpected non-int mapping in hyperparameters: {k} -> {v}. "
+                        f"Expected all non-int values to be address spaces"
+                    )
         # Convert the symbols in subs to strings and attach as
         # WaveHyperparameterAttr to func_op
         func_op.operation.attributes["wave.hyperparameters"] = (
