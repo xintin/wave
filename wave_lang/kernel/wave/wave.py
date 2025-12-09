@@ -67,6 +67,7 @@ from .codegen import WaveEmitter
 from .compile_options import WaveCompileOptions
 from .constraints import (
     Constraint,
+    GridConstraint,
     HardwareConstraint,
     ReorderingConstraint,
     TilingConstraint,
@@ -633,6 +634,16 @@ class LaunchableWave(Launchable):
     def infer_grid_shape(self, idxc: IndexingContext):
         self.grid_type.dims = [1, 1, 1]
         max_workgroup_dim = 2
+
+        for constraint in self.constraints:
+            if isinstance(constraint, GridConstraint):
+                grid = []
+                for dim in constraint.grid_size:
+                    dim_val = safe_subs(dim, idxc.subs)
+                    grid.append(int(dim_val))
+                self.grid_type.dims = grid
+                return
+
         aliases = [x.source for x in self.constraints if isinstance(x, SymbolicAlias)]
         for constraint in self.workgroup_constraints:
             if constraint.dim in aliases:
@@ -985,8 +996,9 @@ class LaunchableWave(Launchable):
         # Determine grid shape.
         self.infer_grid_shape(IndexingContext.current())
         self.infer_device_layout(IndexingContext.current())
+
         if options.print_grid:
-            print(f"Grid: {self.grid_type}")
+            print(f"Grid Dimensions: {self.grid_type.dims}")
             print(f"Device layout: {self.device_layout}")
 
         # Add grid and block dims to kernel launch info.

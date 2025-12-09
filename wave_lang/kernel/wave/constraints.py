@@ -750,7 +750,7 @@ class TilingConstraint(DistributionConstraint):
     def apply(self) -> IndexSequence:
         if self.induction_var is None:
             raise ValueError(
-                "Index is being computed without setting induction variable"
+                f"Index is being computed without setting induction variable for dimension {self.dim}"
             )
         return IndexSequence(self.start + self.induction_var * self.tile_size, 1)
 
@@ -804,6 +804,7 @@ class WaveConstraint(DistributionConstraint):
     wave_id_0 = floor(thread_id_0 / threads_per_wave)
     wave_id_1 = thread_id_1
     wave_id_2 = thread_id_2
+
     """
 
     dim: IndexExpr
@@ -919,6 +920,23 @@ def get_constrained_shape(
             if isinstance(x, TilingConstraint)
         ][0]
     return tuple(constrained_shape)
+
+
+@dataclass
+class GridConstraint:
+    """
+    Explicitly specify grid launch dimensions
+    """
+
+    grid_size: IndexExpr | tuple[IndexExpr, IndexExpr, IndexExpr]
+
+    def __post_init__(self):
+        if not isinstance(self.grid_size, tuple):
+            self.grid_size = (self.grid_size, 1, 1)
+        elif len(self.grid_size) == 1:
+            self.grid_size = (self.grid_size[0], 1, 1)
+        else:
+            raise ValueError(f"Grid size must be 1D, got {len(self.grid_size)}D")
 
 
 @dataclass
