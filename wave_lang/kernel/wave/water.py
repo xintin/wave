@@ -12,6 +12,7 @@ import os
 import subprocess
 import sys
 import math
+import re
 from typing import Any, Sequence
 from functools import lru_cache
 
@@ -189,7 +190,13 @@ def find_binary(name: str) -> str | None:
 @lru_cache
 def is_water_available() -> bool:
     """Returns True if the water_mlir package is available."""
-    return (Path(__file__).parent / "water_mlir" / "water_mlir").exists()
+    return (get_water_mlir_dir()).exists()
+
+
+@lru_cache
+def is_water_binary_available() -> bool:
+    """Returns True if the water-opt binary is available and executable."""
+    return find_binary("water-opt") is not None
 
 
 @lru_cache
@@ -491,3 +498,66 @@ def water_lowering_pipeline(module: Module, options: WaveCompileOptions) -> Modu
 
     with module.context:
         return Module.parse(result)
+
+
+def apply_water_middle_end_passes(mlir_text: str) -> str:
+    """Apply Water middle-end pipeline using subprocess water-opt.
+
+    This function applies the following passes:
+    - water-wave-detect-normal-forms
+    - water-wave-propagate-elements-per-thread
+    - lower-wave-to-mlir
+    - canonicalize
+    - cse
+
+    Args:
+        mlir_text: Input Wave dialect MLIR as string
+
+    Returns:
+        Optimized MLIR as string after applying the passes
+
+    Raises:
+        RuntimeError: If water-opt is not available or passes fail
+    """
+    binary = get_water_opt()
+
+    # Define the pass pipeline for Wave lowering
+    pipeline = [
+        "water-wave-detect-normal-forms",
+        "water-wave-propagate-elements-per-thread",
+        "lower-wave-to-mlir",
+        "canonicalize",
+        "cse",
+    ]
+
+    try:
+        result = subprocess.check_output(
+            [
+                binary,
+                "--allow-unregistered-dialect",
+                make_linear_pass_pipeline(pipeline),
+            ],
+            input=mlir_text,
+            text=True,
+        )
+
+        # Clean Wave-specific attributes that cause issues in later pipelines
+        # TODO(#595): do this in the very last pass of water pipeline instead
+        result = re.sub(
+            r",\s*wave\.normal_form\s*=\s*#wave\.normal_form<[^>]*>",
+            "",
+            result,
+        )
+        result = re.sub(
+            r"wave\.normal_form\s*=\s*#wave\.normal_form<[^>]*>,?\s*",
+            "",
+            result,
+        )
+
+        return result
+
+    except subprocess.CalledProcessError as e:
+        error_msg = f"water-opt subprocess failed with return code {e.returncode}."
+        if e.stderr:
+            error_msg += f" Error: {e.stderr}"
+        raise RuntimeError(error_msg) from e
