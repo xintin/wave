@@ -104,6 +104,7 @@ def NORMAL_FORM_FULL_TYPES : I32BitEnumAttrCaseGroup<
         NORMAL_FORM_FUNC_BOUNDARY, NORMAL_FORM_OP_TYPES
     ], "full_types">;
 
+// When anything changes below, also update the C and Python API.
 def WaveNormalFormEnum : I32BitEnumAttr<"WaveNormalForm", "", [
   I32BitEnumAttrCaseNone<"None", "none">,
   // Bits.
@@ -402,6 +403,18 @@ def WaveIndexMappingAttr : AttrDef<WaveDialect, "WaveIndexMapping"> {
 
   let hasCustomAssemblyFormat = 1;
   let genVerifyDecl = 1;
+
+  let extraClassDeclaration = [{
+    // Return a new mapping with all uses of the given input removed.
+    ::wave::WaveIndexMappingAttr removeInput(::mlir::Attribute input) const;
+
+    // Return positions of symbols that are used in any of the expressions in
+    // this mapping. They are not returned in any particular order.
+    ::llvm::SmallVector<unsigned> getUsedSymbolPositions() const;
+
+    // Return a copy of the mapping with unused symbols removed.
+    ::wave::WaveIndexMappingAttr removeUnusedInputs() const;
+  }];
 }
 
 def WaveHyperparameterAttr : AttrDef<WaveDialect, "WaveHyperparameter"> {

@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 #include "water/Dialect/Wave/IR/WaveInterfaces.h"
+#include "mlir/IR/AffineExpr.h"
 #include "water/Dialect/Wave/IR/IndexExpr.h"
 #include "water/Dialect/Wave/IR/WaveAttrs.h"
 #include "water/Dialect/Wave/IR/WaveDialect.h"
@@ -13,7 +14,9 @@
 #include "mlir/IR/AffineMap.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/OpImplementation.h"
+#include "llvm/ADT/SetOperations.h"
 #include "llvm/ADT/SmallString.h"
+#include "llvm/ADT/SmallVectorExtras.h"
 #include "llvm/ADT/StringSet.h"
 
 using namespace mlir;
@@ -611,22 +614,276 @@ wave::IndexExprsAnalysisInit::create(mlir::Location loc,
   return initObject;
 }
 
-// Populate `positions` with the positions of thread and GPR-related symbols in
-// the given list.
-static void
-getThreadLikeSymbolPositions(llvm::ArrayRef<mlir::Attribute> symbols,
-                             llvm::SmallVectorImpl<unsigned> &positions) {
-  for (auto &&[i, symbol] : llvm::enumerate(symbols)) {
-    auto indexSymbol = llvm::dyn_cast<wave::WaveIndexSymbolAttr>(symbol);
-    if (!indexSymbol)
-      continue;
-    if (llvm::is_contained({wave::WaveIndexSymbol::THREAD_0,
-                            wave::WaveIndexSymbol::THREAD_1,
-                            wave::WaveIndexSymbol::THREAD_2,
-                            wave::WaveIndexSymbol::GPR_NUMBER},
-                           indexSymbol.getValue()))
-      positions.push_back(i);
+// Create a new map with per-result sum between a and b maps.
+static AffineMap addMaps(AffineMap a, AffineMap b) {
+  assert(a.getNumResults() == b.getNumResults() &&
+         "expected both maps to have the same number of expressions");
+  SmallVector<AffineExpr> subtracted = llvm::map_to_vector(
+      llvm::zip_equal(a.getResults(), b.getResults()),
+      [&](auto &&pair) { return std::get<0>(pair) + std::get<1>(pair); });
+  return AffineMap::get(a.getNumDims(), a.getNumSymbols(), subtracted,
+                        a.getContext());
+}
+
+// Create a new map with per-result difference between a and b maps.
+static AffineMap subtractMaps(AffineMap a, AffineMap b) {
+  assert(a.getNumResults() == b.getNumResults() &&
+         "expected both maps to have the same number of expressions");
+  SmallVector<AffineExpr> subtracted = llvm::map_to_vector(
+      llvm::zip_equal(a.getResults(), b.getResults()),
+      [&](auto &&pair) { return std::get<0>(pair) - std::get<1>(pair); });
+  return AffineMap::get(a.getNumDims(), a.getNumSymbols(), subtracted,
+                        a.getContext());
+}
+
+// Return the list of thread-like index symbols.
+// TODO: It would be nice to cache the list somehow, but we need to tie it to
+// the context and ensure thread safety, potentially by storing it as an
+// attribute or some other named/typed entity in the context object.
+static SmallVector<Attribute> getThreadLikeIndexSymbols(MLIRContext *ctx) {
+  return llvm::map_to_vector(
+      ArrayRef{wave::WaveIndexSymbol::THREAD_0, wave::WaveIndexSymbol::THREAD_1,
+               wave::WaveIndexSymbol::THREAD_2,
+               wave::WaveIndexSymbol::GPR_NUMBER},
+      [&](wave::WaveIndexSymbol symbol) -> Attribute {
+        return wave::WaveIndexSymbolAttr::get(ctx, symbol);
+      });
+}
+
+// Return the list of index symbols other than thread-like.
+static SmallVector<Attribute> getNonThreadLikeIndexSymbols(MLIRContext *ctx) {
+  return llvm::map_to_vector(ArrayRef{wave::WaveIndexSymbol::WORKGROUP_0,
+                                      wave::WaveIndexSymbol::WORKGROUP_1,
+                                      wave::WaveIndexSymbol::WORKGROUP_2,
+                                      wave::WaveIndexSymbol::DEVICE_DIM_0,
+                                      wave::WaveIndexSymbol::DEVICE_DIM_1,
+                                      wave::WaveIndexSymbol::DEVICE_DIM_2},
+                             [&](wave::WaveIndexSymbol symbol) -> Attribute {
+                               return wave::WaveIndexSymbolAttr::get(ctx,
+                                                                     symbol);
+                             });
+}
+
+// Get the positions of `symbols` in `allSymbols`. Missing symbols are ignored.
+SmallVector<unsigned> getPositionsOfSymbols(ArrayRef<Attribute> symbols,
+                                            ArrayRef<Attribute> allSymbols) {
+  // Find positions of threadLikeIndexSymbols in symbols
+  SmallVector<unsigned> positions;
+  for (Attribute symbol : symbols) {
+    auto it = llvm::find(allSymbols, symbol);
+    if (it != allSymbols.end())
+      positions.push_back(std::distance(allSymbols.begin(), it));
   }
+  return positions;
+}
+
+// Return true if any expression in the map is a function of a symbol at any of
+// the given positions.
+static bool isIndexExprMapFunctionOf(AffineMap map,
+                                     ArrayRef<unsigned> positions) {
+  return llvm::any_of(positions, [&](unsigned position) {
+    return map.isFunctionOfSymbol(position);
+  });
+}
+
+// Affine maps used in an index expression conceptually consists of multiple
+// additive components:
+//
+//   - thread independent component (workgroup and device indices)
+//   - thread dependent component (thread and GPR indices)
+//   - one component per iter dimension
+//
+// Two start maps can be joined if, for all pairwise components:
+//
+//   - the components are equal;
+//   - the component is absent from one of the maps.
+//
+// The join is then the sum of unique components from both maps.
+//
+// We check this by examining the difference between the two maps, which should
+// only contain symbols absent from one of the maps, i.e. symbols from the
+// symmetric difference of the symbol sets or, alternatively, not contain any
+// symbols from the intersection of the symbol sets. The difference should also
+// not contain a constant term.
+//
+// Additional care is taken for index (non-iter) dimensions as they must appear
+// or not appear simultaneously. For example, lhs may only have thread 0 index
+// and rhs may only have thread 1 index, so the difference will depend on both
+// thread 0 and thread 1 indices without either of them being common, so the
+// regular check won't detect that. Check for dependency on any such symbol
+// instead.
+//
+// The function takes the list of symbols used in LHS and RHS and separately a
+// list containing a union thereof and a list of positions in that list of the
+// common symbols. This is done for efficiency reasons to avoid re-computing
+// these several times when handling start/size/stride maps that share the
+// symbol lists.
+//
+// TODO: consider having separate expressions for each component for simplicity;
+// even further, consider having a lattice that is a collection of constraints
+// applicable to the value + metadata (like it being used in LHS/RHS/Acc of an
+// MMA) without creating the expression immediately.
+static FailureOr<AffineMap> getIndexExprStartJoinedMap(
+    AffineMap lhs, AffineMap rhs, ArrayRef<Attribute> lhsSymbols,
+    ArrayRef<Attribute> rhsSymbols, ArrayRef<Attribute> allSymbols,
+    ArrayRef<unsigned> disallowedSymbols) {
+  if (!lhs)
+    return rhs;
+  if (!rhs)
+    return lhs;
+
+  lhs = wave::alignMapSymbols(lhs, lhsSymbols, allSymbols);
+  rhs = wave::alignMapSymbols(rhs, rhsSymbols, allSymbols);
+
+  if (lhs == rhs)
+    return lhs;
+
+  AffineMap difference = simplifyAffineMap(subtractMaps(lhs, rhs));
+
+  MLIRContext *ctx = rhs.getContext();
+  SmallVector<unsigned> threadLikePositions =
+      getPositionsOfSymbols(getThreadLikeIndexSymbols(ctx), allSymbols);
+  SmallVector<unsigned> nonThreadLikePositions =
+      getPositionsOfSymbols(getNonThreadLikeIndexSymbols(ctx), allSymbols);
+  if (isIndexExprMapFunctionOf(difference, threadLikePositions) &&
+      isIndexExprMapFunctionOf(lhs, threadLikePositions) &&
+      isIndexExprMapFunctionOf(rhs, threadLikePositions)) {
+    return failure();
+  }
+  if (isIndexExprMapFunctionOf(difference, nonThreadLikePositions) &&
+      isIndexExprMapFunctionOf(lhs, nonThreadLikePositions) &&
+      isIndexExprMapFunctionOf(rhs, nonThreadLikePositions)) {
+    return failure();
+  }
+
+  // The symbolic part of the difference should not depend on any of the
+  // disallowed symbols (usually meaning symbols appearing in both).
+  for (AffineExpr expr : difference.getResults()) {
+    for (unsigned symbol : disallowedSymbols) {
+      if (expr.isFunctionOfSymbol(symbol))
+        return failure();
+    }
+  }
+
+  // The constant parts of the expression must be equal.
+  // TODO: consider whether we want to allow one of the sides being 0 here. If
+  // we do, we will have to be more careful to construct a constant difference
+  // map here instead of taking the RHS constant in subtraction below.
+  AffineExpr zeroExpr = getAffineConstantExpr(0, ctx);
+  SmallVector<AffineExpr> symReplacements(allSymbols.size(), zeroExpr);
+  AffineMap lhsConstant =
+      lhs.replaceDimsAndSymbols(/*dimReplacements=*/{}, symReplacements,
+                                /*numResultDims=*/0, /*numResultSyms=*/0);
+  AffineMap rhsConstant =
+      rhs.replaceDimsAndSymbols(/*dimReplacements=*/{}, symReplacements,
+                                /*numResultDims=*/0, /*numResultSyms=*/0);
+  for (auto [lhsConstantExpr, rhsConstantExpr] :
+       llvm::zip_equal(lhsConstant.getResults(), rhsConstant.getResults())) {
+    auto lhsConstantExprCast = cast<AffineConstantExpr>(lhsConstantExpr);
+    auto rhsConstantExprCast = cast<AffineConstantExpr>(rhsConstantExpr);
+    if (lhsConstantExprCast.getValue() != rhsConstantExprCast.getValue())
+      return failure();
+  }
+
+  // Obtain a part of the RHS map that is only a function of RHS-specific
+  // symbols. For this, we replace all symbols appearing in the LHS map with
+  // zero. Symbol replacements contain zeros at this point. Reuse that but set
+  // RHS-only symbols to be replaced with themselves. Don't forget to subtract
+  // the constant part of RHS, which is known to be identical to that of RHS, so
+  // we don't duplicate it. At this point, we expect the caller to have removed
+  // unused symbols from the symbol list.
+  SmallVector<unsigned> lhsSymbolPositions =
+      getPositionsOfSymbols(lhsSymbols, allSymbols);
+  for (unsigned i = 0, e = symReplacements.size(); i < e; ++i) {
+    if (llvm::is_contained(lhsSymbolPositions, i))
+      continue;
+    symReplacements[i] = getAffineSymbolExpr(i, ctx);
+  }
+  AffineMap rhsOnly = rhs.replaceDimsAndSymbols(
+      {}, symReplacements, /*numResultDims=*/0, rhs.getNumSymbols());
+  rhsOnly = subtractMaps(rhsOnly, rhsConstant);
+  return simplifyAffineMap(addMaps(lhs, rhsOnly));
+}
+
+// Two step/stride maps can be joined if one of them is a constant one, at which
+// point the join is the other map, or if they are equal. All other combinations
+// join to lattice top.
+static FailureOr<AffineMap> getIndexExprStepStrideJoinedMap(
+    AffineMap lhs, AffineMap rhs, ArrayRef<Attribute> lhsSymbols,
+    ArrayRef<Attribute> rhsSymbols, ArrayRef<Attribute> allSymbols,
+    ArrayRef<unsigned> disallowedSymbols) {
+  if (!lhs)
+    return rhs;
+  if (!rhs)
+    return lhs;
+
+  lhs = wave::alignMapSymbols(lhs, lhsSymbols, allSymbols);
+  rhs = wave::alignMapSymbols(rhs, rhsSymbols, allSymbols);
+
+  if (lhs == rhs)
+    return lhs;
+
+  AffineExpr lhsExpr = lhs.getResult(0);
+  AffineExpr rhsExpr = rhs.getResult(0);
+  auto isConstantOne = [](AffineExpr expr) -> bool {
+    if (auto constantExpr = llvm::dyn_cast<AffineConstantExpr>(expr)) {
+      return constantExpr.getValue() == 1;
+    }
+    return false;
+  };
+  bool lhsIsConstantOne = isConstantOne(lhsExpr);
+  bool rhsIsConstantOne = isConstantOne(rhsExpr);
+  if (lhsIsConstantOne)
+    return rhs;
+  if (rhsIsConstantOne)
+    return lhs;
+  return failure();
+}
+
+// Join two concrete index expressions mappings by joining their
+// start/step/stride maps independently. See getIndexExprStartJoinedMap and
+// getIndexExprStepStrideJoinedMap for more details.
+static wave::WaveIndexMappingAttr
+getIndexExprsJoinMappings(wave::WaveIndexMappingAttr lhs,
+                          wave::WaveIndexMappingAttr rhs) {
+
+  lhs = lhs.removeUnusedInputs();
+  rhs = rhs.removeUnusedInputs();
+
+  // Collect all unique symbol names from both index mappings in order.
+  llvm::SmallVector<mlir::Attribute> allSymbols;
+  llvm::SetVector<mlir::Attribute> lhsSymbols(llvm::from_range,
+                                              lhs.getSymbols());
+  llvm::SetVector<mlir::Attribute> rhsSymbols(llvm::from_range,
+                                              rhs.getSymbols());
+  wave::aggregateAllSymbols(llvm::ArrayRef{lhsSymbols, rhsSymbols}, allSymbols);
+  llvm::SetVector<mlir::Attribute> commonSymbols =
+      llvm::set_intersection(lhsSymbols, rhsSymbols);
+  llvm::SmallVector<unsigned> commonSymbolPositions;
+  for (mlir::Attribute symbol : commonSymbols) {
+    auto it = llvm::find(lhsSymbols, symbol);
+    assert(it != lhsSymbols.end());
+    commonSymbolPositions.push_back(std::distance(lhsSymbols.begin(), it));
+  }
+
+  FailureOr<AffineMap> joinedStart = getIndexExprStartJoinedMap(
+      lhs.getStart(), rhs.getStart(), lhsSymbols.getArrayRef(),
+      rhsSymbols.getArrayRef(), allSymbols, commonSymbolPositions);
+  if (failed(joinedStart))
+    return nullptr;
+  FailureOr<AffineMap> joinedStep = getIndexExprStepStrideJoinedMap(
+      lhs.getStep(), rhs.getStep(), lhsSymbols.getArrayRef(),
+      rhsSymbols.getArrayRef(), allSymbols, commonSymbolPositions);
+  if (failed(joinedStep))
+    return nullptr;
+  FailureOr<AffineMap> joinedStride = getIndexExprStepStrideJoinedMap(
+      lhs.getStride(), rhs.getStride(), lhsSymbols.getArrayRef(),
+      rhsSymbols.getArrayRef(), allSymbols, commonSymbolPositions);
+  if (failed(joinedStride))
+    return nullptr;
+
+  return wave::WaveIndexMappingAttr::get(
+      lhs.getContext(), allSymbols, *joinedStart, *joinedStep, *joinedStride);
 }
 
 wave::IndexExprsLatticeStorage wave::IndexExprsLatticeStorage::join(
@@ -635,9 +892,11 @@ wave::IndexExprsLatticeStorage wave::IndexExprsLatticeStorage::join(
   if (lhs.value == rhs.value)
     return lhs;
 
+  // Top is saturating.
   if (lhs.isTop() || rhs.isTop())
     return top();
 
+  // Only named symbols may be ignored.
   llvm::StringSet<> ignoredRhsSymbolNames;
   for (mlir::Attribute attr : ignoredRhsSymbols) {
     auto symbolAttr = llvm::dyn_cast<wave::WaveSymbolAttr>(attr);
@@ -646,6 +905,7 @@ wave::IndexExprsLatticeStorage wave::IndexExprsLatticeStorage::join(
     ignoredRhsSymbolNames.insert(symbolAttr.getName());
   }
 
+  // Even if LHS is bottom, we still need to filter out ignored symbols.
   if (lhs.isBottom()) {
     if (ignoredRhsSymbols.empty() || rhs.isBottom())
       return rhs;
@@ -666,6 +926,7 @@ wave::IndexExprsLatticeStorage wave::IndexExprsLatticeStorage::join(
   mlir::DictionaryAttr lhsValue = lhs.getConcreteValue();
   mlir::DictionaryAttr rhsValue = rhs.getConcreteValue();
 
+  // Join specific values per symbol.
   llvm::DenseMap<mlir::StringAttr, mlir::Attribute> result;
   for (mlir::NamedAttribute namedAttr : lhsValue) {
     result[namedAttr.getName()] = namedAttr.getValue();
@@ -681,105 +942,19 @@ wave::IndexExprsLatticeStorage wave::IndexExprsLatticeStorage::join(
     if (inserted)
       continue;
 
-    // Actually join otherwise.
+    // The symbol has a mapping on both LHS and RHS, join them.
     auto lhsValue = llvm::cast<wave::WaveIndexMappingAttr>(it->getSecond());
     auto rhsValue =
         llvm::cast<wave::WaveIndexMappingAttr>(namedAttr.getValue());
     if (lhsValue == rhsValue)
       continue;
 
-    auto isThreadDependent = [&](wave::WaveIndexMappingAttr val) -> bool {
-      llvm::SmallVector<unsigned> threadLikeSymbolPositions;
-      getThreadLikeSymbolPositions(val.getSymbols(), threadLikeSymbolPositions);
-      return llvm::any_of(
-          llvm::ArrayRef{val.getStart(), val.getStep(), val.getStride()},
-          [&](mlir::AffineMap map) {
-            return llvm::any_of(threadLikeSymbolPositions, [&](unsigned pos) {
-              return map.isFunctionOfSymbol(pos);
-            });
-          });
-    };
+    wave::WaveIndexMappingAttr joinedMapping =
+        getIndexExprsJoinMappings(lhsValue, rhsValue);
+    if (!joinedMapping)
+      return IndexExprsLatticeStorage::top();
 
-    // If both are thread-dependent or thread-independent, the only acceptable
-    // join is when they are equal, which was handled above.
-    bool lhsIsThreadDependent = isThreadDependent(lhsValue);
-    bool rhsIsThreadDependent = isThreadDependent(rhsValue);
-    if (!(lhsIsThreadDependent ^ rhsIsThreadDependent))
-      return top();
-
-    wave::WaveIndexMappingAttr threadDependentMapping =
-        lhsIsThreadDependent ? lhsValue : rhsValue;
-    wave::WaveIndexMappingAttr threadIndependentMapping =
-        lhsIsThreadDependent ? rhsValue : lhsValue;
-
-    // Collect all unique symbol names from both index mappings in order.
-    llvm::SmallVector<mlir::Attribute> allSymbols;
-    llvm::ArrayRef<mlir::Attribute> threadDependentSymbols =
-        threadDependentMapping.getSymbols();
-    llvm::ArrayRef<mlir::Attribute> threadIndependentSymbols =
-        threadIndependentMapping.getSymbols();
-    wave::aggregateAllSymbols(
-        llvm::ArrayRef{threadIndependentSymbols, threadDependentSymbols},
-        allSymbols);
-
-    mlir::AffineMap threadDependentStart = alignMapSymbols(
-        threadDependentMapping.getStart(), threadDependentSymbols, allSymbols);
-    mlir::AffineMap threadIndependentStart =
-        alignMapSymbols(threadIndependentMapping.getStart(),
-                        threadIndependentSymbols, allSymbols);
-
-    mlir::AffineMap threadDependentStep = alignMapSymbols(
-        threadDependentMapping.getStep(), threadDependentSymbols, allSymbols);
-    mlir::AffineMap threadIndependentStep =
-        alignMapSymbols(threadIndependentMapping.getStep(),
-                        threadIndependentSymbols, allSymbols);
-
-    mlir::AffineMap threadDependentStride = alignMapSymbols(
-        threadDependentMapping.getStride(), threadDependentSymbols, allSymbols);
-    mlir::AffineMap threadIndependentStride =
-        alignMapSymbols(threadIndependentMapping.getStride(),
-                        threadIndependentSymbols, allSymbols);
-
-    // Subtract the thread-independent from thread-dependent for each.
-    auto subtractMaps = [&](mlir::AffineMap a,
-                            mlir::AffineMap b) -> mlir::AffineMap {
-      // Assert there is only one result expression in each map.
-      assert(a.getNumResults() == 1 &&
-             "expected a single result expression in affine map 'a'");
-      assert(b.getNumResults() == 1 &&
-             "expected a single result expression in affine map 'b'");
-      mlir::AffineExpr subtracted = a.getResult(0) - b.getResult(0);
-      return mlir::AffineMap::get(a.getNumDims(), a.getNumSymbols(), subtracted,
-                                  ctx);
-    };
-    mlir::AffineMap newStart =
-        subtractMaps(threadDependentStart, threadIndependentStart);
-    mlir::AffineMap newStep =
-        subtractMaps(threadDependentStep, threadIndependentStep);
-    mlir::AffineMap newStride =
-        subtractMaps(threadDependentStride, threadIndependentStride);
-
-    llvm::SmallVector<unsigned> threadLikeSymbolPositions;
-    getThreadLikeSymbolPositions(allSymbols, threadLikeSymbolPositions);
-    auto isOnlyThreadDependent = [&](mlir::AffineMap map) {
-      mlir::WalkResult walkResult =
-          map.getResult(0).walk([&](mlir::AffineExpr expr) {
-            auto symExpr = llvm::dyn_cast<mlir::AffineSymbolExpr>(expr);
-            if (!symExpr)
-              return mlir::WalkResult::advance();
-            if (!llvm::is_contained(threadLikeSymbolPositions,
-                                    symExpr.getPosition()))
-              return mlir::WalkResult::interrupt();
-            return mlir::WalkResult::advance();
-          });
-      return !walkResult.wasInterrupted();
-    };
-
-    if (!isOnlyThreadDependent(newStart) || !isOnlyThreadDependent(newStep) ||
-        !isOnlyThreadDependent(newStride))
-      return top();
-
-    result[namedAttr.getName()] = threadDependentMapping;
+    result[namedAttr.getName()] = joinedMapping;
   }
   return IndexExprsLatticeStorage(mlir::DictionaryAttr::get(
       ctx, llvm::map_to_vector(result, [](auto &&pair) {
@@ -817,6 +992,26 @@ wave::IndexExprsLatticeStorage wave::IndexExprsLatticeStorage::keepOnlySymbols(
 
   return IndexExprsLatticeStorage(
       mlir::DictionaryAttr::get(getConcreteValue().getContext(), filtered));
+}
+
+wave::IndexExprsLatticeStorage
+wave::IndexExprsLatticeStorage::withoutIterSymbols(
+    llvm::ArrayRef<wave::WaveSymbolAttr> iterSymbols) const {
+  if (isBottom() || isTop())
+    return *this;
+
+  MLIRContext *ctx = getConcreteValue().getContext();
+  llvm::SmallVector<mlir::NamedAttribute> updated =
+      llvm::map_to_vector(getConcreteValue(), [&](mlir::NamedAttribute attr) {
+        auto value = llvm::cast<wave::WaveIndexMappingAttr>(attr.getValue());
+        for (wave::WaveSymbolAttr iterSymbol : iterSymbols) {
+          auto actualIterSymbol =
+              wave::WaveIterSymbolAttr::get(ctx, iterSymbol.getName());
+          value = value.removeInput(actualIterSymbol);
+        }
+        return mlir::NamedAttribute(attr.getName(), value);
+      });
+  return IndexExprsLatticeStorage(mlir::DictionaryAttr::get(ctx, updated));
 }
 
 void wave::IndexExprsLatticeStorage::print(llvm::raw_ostream &os) const {
@@ -862,7 +1057,7 @@ llvm::FailureOr<mlir::ChangeResult> wave::detail::identityIndexExprsPropagate(
   // indicative of a "sideways" conflict.
   if (joined.isTop() && !fromTop) {
     mlir::InFlightDiagnostic diag =
-        emitError() << "incompatible " << fromName
+        emitError() << "incompatible " << fromName << " lattices"
                     << " when propagating from those to " << toName;
     for (auto &&[i, fromLattice] : llvm::enumerate(from)) {
       diag.attachNote() << fromName << " #" << i << " lattice: " << fromLattice;
