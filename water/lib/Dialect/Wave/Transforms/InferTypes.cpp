@@ -662,11 +662,8 @@ public:
 
     llvm::LogicalResult result = setNormalFormPassPostcondition(
         wave::WaveNormalForm::AllTypesSpecified, getOperation());
-    if (llvm::failed(result) && !force) {
-      emitError(getOperation()->getLoc())
-          << "failed to produce code with the expected normal form";
+    if (llvm::failed(result) && !force)
       return signalPassFailure();
-    }
   }
 };
 
