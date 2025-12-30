@@ -153,4 +153,20 @@ def WaterDropTransformOpsPass : Pass<"water-drop-transform-ops"> {
   }];
 }
 
+def WaterMemrefDecompositionPass : Pass<"water-memref-decomposition"> {
+  let summary = "Decompose memref operations by materializing index calculations";
+  let description = [{
+    This pass decomposes memref operations by explicitly materializing all
+    indexing calculations. It transforms operations like memref.load and
+    memref.store by computing linear offsets from multi-dimensional indices,
+    making the address arithmetic explicit in the IR.
+  }];
+  let dependentDialects = [
+    "::mlir::affine::AffineDialect",
+    "::mlir::arith::ArithDialect",
+    "::mlir::memref::MemRefDialect",
+    "::mlir::LLVM::LLVMDialect",
+  ];
+}
+
 #endif // WATER_PASSES

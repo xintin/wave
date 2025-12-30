@@ -6,6 +6,7 @@ add_mlir_dialect_library(MLIRWaterTransforms
   DropTransformOps.cpp
   GPUModuleToBinary.cpp
   GPUToGPURuntime.cpp
+  MemrefDecomposition.cpp
   SLPVectorizer.cpp
 
   ADDITIONAL_HEADER_DIRS
@@ -15,6 +16,8 @@ add_mlir_dialect_library(MLIRWaterTransforms
   MLIRWaterPassesIncGen
 
   LINK_LIBS PUBLIC
+  MLIRAMDGPUDialect
+  MLIRAMDGPUToROCDL
   MLIRAnalysis
   MLIRArithDialect
   MLIRControlFlowDialect
@@ -26,6 +29,7 @@ add_mlir_dialect_library(MLIRWaterTransforms
   MLIRPass
   MLIRROCDLTarget
   MLIRRewrite
+  MLIRSCFTransforms
   MLIRTransformDialect
   MLIRTransformUtils
   MLIRVectorDialect
