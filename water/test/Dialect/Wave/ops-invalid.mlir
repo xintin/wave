@@ -107,7 +107,7 @@ func.func @iterate_iter_args_block_iter_args_mismatch(%arg0: !wave.tensor<any of
 // -----
 
 func.func @iterate_iter_arg_block_arg_element_type_mismatch(%arg0: !wave.tensor<[@A] of f32>) {
-  // expected-error @below {{expected operand iter_arg #0 and result #0 elemental types to match, got 'f32', 'bf16'}}
+  // expected-error @below {{expected iter arg #0 and block iter arg #0 elemental types to match, got 'f32', 'bf16'}}
   wave.iterate @I iter_args(%arg0) {
   ^bb0(%arg1: !wave.tensor<[@A] of bf16>):
     wave.yield %arg1 : !wave.tensor<[@A] of bf16>
@@ -117,7 +117,7 @@ func.func @iterate_iter_arg_block_arg_element_type_mismatch(%arg0: !wave.tensor<
 // -----
 
 func.func @iterate_iter_arg_block_arg_rank_mismatch(%arg0: !wave.tensor<[@A] of f32>) {
-  // expected-error @below {{rank mismatch between operand iter_arg #0 and result #0}}
+  // expected-error @below {{rank mismatch between iter arg #0 and block iter arg #0}}
   wave.iterate @I iter_args(%arg0) {
   ^bb0(%arg1: !wave.tensor<[@A, @B] of f32>):
     wave.yield %arg1 : !wave.tensor<[@A, @B] of f32>
@@ -127,7 +127,7 @@ func.func @iterate_iter_arg_block_arg_rank_mismatch(%arg0: !wave.tensor<[@A] of 
 // -----
 
 func.func @iterate_iter_arg_block_arg_shape_mismatch(%arg0: !wave.tensor<[@A] of f32>) {
-  // expected-error @below {{expected operand iter_arg #0 dimension #0 (#wave.symbol<"A">) to match result #0 dimension #0 (#wave.symbol<"B">)}}
+  // expected-error @below {{expected iter_args #0 dimension #0 (#wave.symbol<"A">) to match result #0 dimension #0 (#wave.symbol<"B">)}}
   wave.iterate @I iter_args(%arg0) {
   ^bb0(%arg1: !wave.tensor<[@B] of f32>):
     wave.yield %arg1 : !wave.tensor<[@B] of f32>
@@ -137,7 +137,7 @@ func.func @iterate_iter_arg_block_arg_shape_mismatch(%arg0: !wave.tensor<[@A] of
 // -----
 
 func.func @iterate_iter_arg_block_arg_address_space_mismatch(%arg0: !wave.tensor<[@A] of f32, <register>>) {
-  // expected-error @below {{address space mismatch between operand iter_arg #0 and result #0}}
+  // expected-error @below {{address space mismatch between iter arg #0 and block iter arg #0}}
   wave.iterate @I iter_args(%arg0) {
   ^bb0(%arg1: !wave.tensor<[@A] of f32, <shared>>):
     wave.yield %arg1 : !wave.tensor<[@A] of f32, <shared>>
@@ -147,7 +147,7 @@ func.func @iterate_iter_arg_block_arg_address_space_mismatch(%arg0: !wave.tensor
 // -----
 
 func.func @iterate_iter_arg_result_element_type_mismatch(%arg0: !wave.tensor<[@A] of f32>) {
-  // expected-error @below {{expected operand iter_arg #0 and result #0 elemental types to match, got 'f32', 'bf16'}}
+  // expected-error @below {{expected result #0 and terminator operand #0 elemental types to match, got 'bf16', 'f32'}}
   wave.iterate @I iter_args(%arg0) {
   ^bb0(%arg1: !wave.tensor<[@A] of f32>):
     wave.yield %arg1 : !wave.tensor<[@A] of f32>
@@ -157,7 +157,7 @@ func.func @iterate_iter_arg_result_element_type_mismatch(%arg0: !wave.tensor<[@A
 // -----
 
 func.func @iterate_iter_arg_result_rank_mismatch(%arg0: !wave.tensor<[@A] of f32>) {
-  // expected-error @below {{rank mismatch between operand iter_arg #0 and result #0}}
+  // expected-error @below {{rank mismatch between result #0 and terminator operand #0}}
   wave.iterate @I iter_args(%arg0) {
   ^bb0(%arg1: !wave.tensor<[@A] of f32>):
     wave.yield %arg1 : !wave.tensor<[@A] of f32>
@@ -167,7 +167,7 @@ func.func @iterate_iter_arg_result_rank_mismatch(%arg0: !wave.tensor<[@A] of f32
 // -----
 
 func.func @iterate_iter_arg_result_shape_mismatch(%arg0: !wave.tensor<[@A] of f32>) {
-  // expected-error @below {{expected operand iter_arg #0 dimension #0 (#wave.symbol<"A">) to match result #0 dimension #0 (#wave.symbol<"B">)}}
+  // expected-error @below {{expected iter_args #0 dimension #0 (#wave.symbol<"A">) to match result #0 dimension #0 (#wave.symbol<"B">)}}
   wave.iterate @I iter_args(%arg0) {
   ^bb0(%arg1: !wave.tensor<[@A] of f32>):
     wave.yield %arg1 : !wave.tensor<[@A] of f32>
@@ -177,7 +177,7 @@ func.func @iterate_iter_arg_result_shape_mismatch(%arg0: !wave.tensor<[@A] of f3
 // -----
 
 func.func @iterate_iter_arg_result_address_space_mismatch(%arg0: !wave.tensor<[@A] of f32, <register>>) {
-  // expected-error @below {{address space mismatch between operand iter_arg #0 and result #0}}
+  // expected-error @below {{address space mismatch between result #0 and terminator operand #0}}
   wave.iterate @I iter_args(%arg0) {
   ^bb0(%arg1: !wave.tensor<[@A] of f32, <register>>):
     wave.yield %arg1 : !wave.tensor<[@A] of f32, <register>>
@@ -590,5 +590,64 @@ func.func @cast_wave_tensor_rank_mismatch(%arg0: !wave.tensor<[@A, @B] of f32>) 
 func.func @cast_underspecified_to_different_shape(%arg0: !wave.tensor<[@A, @B] of f32>) {
   // expected-error @below {{shape of input (#wave.symbol<"A">, #wave.symbol<"B">) must match shape of result (#wave.symbol<"X">, #wave.symbol<"Y">)}}
   wave.cast %arg0 : !wave.tensor<[@A, @B] of f32> to !wave.tensor<[@X, @Y] of i32>
+  return
+}
+
+// -----
+
+// Test mixed wave tensor and vector types in iterate - should fail
+func.func @iterate_mixed_tensor_vector_types() attributes {wave.hyperparameters = #wave.hyperparameters<{M = 128, I = 4}>} {
+  %tensor_input = wave.allocate {distributed_shape = #wave.expr_list<[] -> (128)>} : !wave.tensor<[@M] of f32, <register>>
+  %vector_input = arith.constant dense<1.0> : vector<8xf32>
+
+  // expected-error @below {{iter_args #0 and result #0 must be the same category of types (both wave tensors or both vectors)}}
+  %iter_result:2 = wave.iterate @I iter_args(%tensor_input, %vector_input) {
+  ^bb0(%in_arg0: !wave.tensor<[@M] of f32, <register>>, %in_arg1: vector<8xf32>):
+    wave.yield %in_arg1, %in_arg0 : vector<8xf32>, !wave.tensor<[@M] of f32, <register>>
+  } : (!wave.tensor<[@M] of f32, <register>>, vector<8xf32>) -> (vector<8xf32>, !wave.tensor<[@M] of f32, <register>>)
+  return
+}
+
+// -----
+
+// Test vector type mismatch in iterate
+func.func @iterate_vector_type_mismatch() attributes {wave.hyperparameters = #wave.hyperparameters<{I = 4}>} {
+  %input = arith.constant dense<1.0> : vector<8xf32>
+
+  // expected-error @below {{iter_args #0 type ('vector<8xf32>') must match result #0 type ('vector<4xf32>')}}
+  %result = wave.iterate @I iter_args(%input) {
+  ^bb0(%in_arg: vector<8xf32>):
+    %different = arith.constant dense<2.0> : vector<4xf32>
+    wave.yield %different : vector<4xf32>
+  } : (vector<8xf32>) -> (vector<4xf32>)
+  return
+}
+
+// -----
+
+// Test vector element type mismatch in iterate
+func.func @iterate_vector_element_type_mismatch() attributes {wave.hyperparameters = #wave.hyperparameters<{I = 4}>} {
+  %input = arith.constant dense<1.0> : vector<8xf32>
+
+  // expected-error @below {{iter_args #0 type ('vector<8xf32>') must match result #0 type ('vector<8xf16>')}}
+  %result = wave.iterate @I iter_args(%input) {
+  ^bb0(%in_arg: vector<8xf32>):
+    %different = arith.constant dense<2.0> : vector<8xf16>
+    wave.yield %different : vector<8xf16>
+  } : (vector<8xf32>) -> (vector<8xf16>)
+  return
+}
+
+// -----
+
+// Test that multidimensional vectors are rejected in iterate
+func.func @iterate_multidim_vectors_rejected() attributes {wave.hyperparameters = #wave.hyperparameters<{I = 4}>} {
+  %input = arith.constant dense<1.0> : vector<4x8xf32>
+
+  // expected-error @below {{'wave.iterate' op operand #0 must be variadic of wave tensor or 1d vector type, but got 'vector<4x8xf32>'}}
+  %result = wave.iterate @I iter_args(%input) {
+  ^bb0(%in_arg: vector<4x8xf32>):
+    wave.yield %in_arg : vector<4x8xf32>
+  } : (vector<4x8xf32>) -> (vector<4x8xf32>)
   return
 }

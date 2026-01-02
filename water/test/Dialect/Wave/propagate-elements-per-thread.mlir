@@ -301,3 +301,35 @@ module attributes {wave.normal_form = #wave.normal_form<full_types>} {
     return
   }
 }
+
+// -----
+
+// Test iterate working with vectors after PropagateElementsPerThread conversion
+module attributes {wave.normal_form = #wave.normal_form<full_types>} {
+
+  // CHECK-LABEL: @iterate_with_vectors_after_ept
+  func.func @iterate_with_vectors_after_ept(%mem: !wave.tensor<[@M] of f32, <global>>)
+    attributes {wave.hyperparameters = #wave.hyperparameters<{M = 128, I = 4}>,
+                wave.constraints = [#wave.hardware_constraint<threads_per_wave = 64, waves_per_block = [1, 1, 1], mma_type = #wave.mma_kind<f32_32x32x8_f16>, vector_shapes = {M = 1}>]} {
+
+    // Read into register tensor - this will become a vector after PropagateElementsPerThread.
+    // CHECK: %[[INIT:.*]] = wave.read {{.*}} : (!wave.tensor<[@M] of f32, <global>>) -> vector<8xf32>
+    %init = wave.read %mem {elements_per_thread = 8} : (!wave.tensor<[@M] of f32, <global>>) -> !wave.tensor<[@M] of f32, <register>>
+
+    // Iterate should work with vectors after transformation.
+    // CHECK: wave.iterate @I iter_args(%[[INIT]]) {
+    %result = wave.iterate @I iter_args(%init) {
+    ^bb0(%arg: !wave.tensor<[@M] of f32, <register>>):
+      // Wave operations should work within the loop body after type conversion
+      // CHECK: wave.add {{.*}} : (vector<8xf32>, vector<8xf32>) -> vector<8xf32>
+      %doubled = wave.add %arg, %arg : (!wave.tensor<[@M] of f32, <register>>, !wave.tensor<[@M] of f32, <register>>) -> !wave.tensor<[@M] of f32, <register>>
+      // CHECK: wave.yield {{.*}} : vector<8xf32>
+      wave.yield %doubled : !wave.tensor<[@M] of f32, <register>>
+    } : (!wave.tensor<[@M] of f32, <register>>) -> (!wave.tensor<[@M] of f32, <register>>)
+
+    // Write should work with the vector result after iterate
+    // CHECK: wave.write {{.*}} : vector<8xf32>, !wave.tensor<[@M] of f32, <global>>
+    wave.write %result, %mem {elements_per_thread = 8} : !wave.tensor<[@M] of f32, <register>>, !wave.tensor<[@M] of f32, <global>>
+    return
+  }
+}

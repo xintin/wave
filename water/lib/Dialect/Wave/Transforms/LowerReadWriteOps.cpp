@@ -14,6 +14,7 @@
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/Transforms/DialectConversion.h"
 
@@ -56,6 +57,15 @@ make1DTransferCommonAttrs(MemRefType memrefType, int64_t vectorizedDim,
   ArrayAttr inFalse = rewriter.getBoolArrayAttr({false});
 
   return TransferOpCommonAttrs{permAttr, inTrue, inFalse};
+}
+
+/// Find parent operation of type OpTy starting from the given block.
+template <typename OpTy> static OpTy findParentOfType(Block *currentBlock) {
+  auto parentOp = currentBlock->getParentOp();
+  if (auto op = dyn_cast<OpTy>(parentOp)) {
+    return op;
+  }
+  return parentOp->getParentOfType<OpTy>();
 }
 
 /// Materialize affine.apply for expressions inside a `map` with `symbols`.
@@ -125,6 +135,34 @@ materializeAffine(Location loc, ArrayRef<Attribute> symbols, AffineMap map,
       }
       continue;
     }
+
+    if (auto iterSymbol = dyn_cast<wave::WaveIterSymbolAttr>(attr)) {
+      // Check if we're inside an scf.for loop that corresponds to this
+      // iteration symbol.
+      Block *currentBlock = rewriter.getInsertionBlock();
+
+      if (findParentOfType<wave::IterateOp>(currentBlock)) {
+        return rewriter.notifyMatchFailure(
+            loc, "iteration symbol found inside wave.iterate - "
+                 "please run lower-wave-control-flow pass first");
+      }
+
+      scf::ForOp parentFor = findParentOfType<scf::ForOp>(currentBlock);
+      assert(parentFor &&
+             "iteration symbol found but no iteration context available");
+
+      // Get the induction variable from the scf.for loop.
+      Value inductionVar = parentFor.getInductionVar();
+
+      // Pass the induction variable directly to the affine map. The index
+      // expressions are designed as affine maps that already incorporate tile
+      // size scaling. Pre-multiplying here would cause double multiplication
+      // when the affine map applies its own scaling.  For example, if the map
+      // is (s0 * 32), it expects s0 = iteration, not s0 = iteration *
+      // tile_size.
+      baseSymVals.push_back(inductionVar);
+      continue;
+    }
   }
 
   // In case map contains multiple results, create one apply per result.
@@ -134,6 +172,7 @@ materializeAffine(Location loc, ArrayRef<Attribute> symbols, AffineMap map,
     AffineMap submap =
         AffineMap::get(map.getNumDims(), map.getNumSymbols(), expr);
     SmallVector<Value> symVals = baseSymVals;
+
     affine::canonicalizeMapAndOperands(&submap, &symVals);
 
     Value apply = affine::AffineApplyOp::create(rewriter, loc, submap, symVals);
