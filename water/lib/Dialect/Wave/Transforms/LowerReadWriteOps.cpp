@@ -428,9 +428,14 @@ struct MemAccessInfo {
 // enough information is present on the operation and constructs the starting
 // index (populates the trailing vector argument) and eventually the mask.
 template <typename OpTy>
-static FailureOr<MemAccessInfo> createMemoryIndicesAndMask(
-    ConversionPatternRewriter &rewriter, const TypeConverter *typeConverter,
-    OpTy op, wave::WaveTensorType memoryType, VectorType vectorType) {
+static FailureOr<MemAccessInfo>
+createMemoryIndicesAndMask(ConversionPatternRewriter &rewriter,
+                           const TypeConverter *typeConverter, OpTy op,
+                           Type memoryTypeArg, VectorType vectorType) {
+  auto memoryType = dyn_cast<wave::WaveTensorType>(memoryTypeArg);
+  if (!memoryType)
+    return rewriter.notifyMatchFailure(
+        op, "lowering with MemRefType memory not yet implemented");
 
   int64_t elementsPerThread = vectorType.getNumElements();
 

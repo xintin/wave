@@ -1493,19 +1493,30 @@ static LogicalResult verifyReadWriteBounds(Location loc,
   return success();
 }
 
-LogicalResult ReadOp::verify() {
-  if (failed(verifyIndexElementsPerThread(
-          *this, getIndexAttr(), getElementsPerThread(), getMemory().getType(),
-          getResult().getType())))
+/// Common verification logic for ReadOp and WriteOp.
+static LogicalResult verifyReadWriteOp(Operation *op, ArrayAttr indexAttr,
+                                       std::optional<int64_t> elementsPerThread,
+                                       Type memoryType, Type valueType,
+                                       WaveReadWriteBoundsAttr bounds) {
+  // Skip verification if memory is already resolved to MemRefType.
+  auto tensorType = dyn_cast<WaveTensorType>(memoryType);
+  if (!tensorType)
+    return success();
+
+  if (failed(verifyIndexElementsPerThread(op, indexAttr, elementsPerThread,
+                                          tensorType, valueType)))
     return failure();
 
-  wave::WaveReadWriteBoundsAttr bounds =
-      getBounds().value_or(wave::WaveReadWriteBoundsAttr());
   if (!bounds)
     return success();
 
-  return verifyReadWriteBounds(getLoc(), getMemory().getType(),
-                               bounds.getMapping());
+  return verifyReadWriteBounds(op->getLoc(), tensorType, bounds.getMapping());
+}
+
+LogicalResult ReadOp::verify() {
+  return verifyReadWriteOp(*this, getIndexAttr(), getElementsPerThread(),
+                           getMemory().getType(), getResult().getType(),
+                           getBoundsAttr());
 }
 
 llvm::FailureOr<mlir::ChangeResult>
@@ -1603,18 +1614,9 @@ LogicalResult ExtractSliceOp::verify() {
 //-----------------------------------------------------------------------------
 
 LogicalResult WriteOp::verify() {
-  if (failed(verifyIndexElementsPerThread(
-          *this, getIndexAttr(), getElementsPerThread(), getMemory().getType(),
-          getValueToStore().getType())))
-    return failure();
-
-  wave::WaveReadWriteBoundsAttr bounds =
-      getBounds().value_or(wave::WaveReadWriteBoundsAttr());
-  if (!bounds)
-    return success();
-
-  return verifyReadWriteBounds(getLoc(), getMemory().getType(),
-                               bounds.getMapping());
+  return verifyReadWriteOp(*this, getIndexAttr(), getElementsPerThread(),
+                           getMemory().getType(), getValueToStore().getType(),
+                           getBoundsAttr());
 }
 
 llvm::FailureOr<mlir::ChangeResult>
