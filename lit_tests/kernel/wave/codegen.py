@@ -7,7 +7,7 @@ import wave_lang.kernel.lang as tkl
 import wave_lang.kernel.wave as tkw
 from wave_lang.kernel.lang.global_symbols import *
 from wave_lang.kernel.wave.compile import WaveCompileOptions, wave_compile
-from wave_lang.kernel.wave.constraints import MMAType
+from wave_lang.kernel.wave.constraints import DeviceConstraint, MMAType
 from wave_lang.kernel.wave.templates.test_kernels import get_broadcast_scaled_add
 from wave_lang.kernel.wave.utils.compile_utils import (
     set_default_compile_config,
@@ -19,7 +19,6 @@ from wave_lang.support.location_config import (
     LocationCaptureConfig,
     LocationCaptureLevel,
 )
-from wave_lang.kernel.wave.constraints import MMAType, DeviceConstraint
 
 M = tkl.sym.M
 N = tkl.sym.N
@@ -3052,3 +3051,43 @@ def test_dist_gemm():
 
     # Terminate the DAG with the final return
     # CHECK: return %{{.*}} : tensor<1024x5120xf32>
+
+
+@run_test
+def test_extract_dynamic_offset():
+    constraints: list[tkw.Constraint] = [
+        tkw.HardwareConstraint(threads_per_wave=64, vector_shapes={M: 16, N: 16})
+    ]
+    constraints += [tkw.WorkgroupConstraint(M, BLOCK_M, 0)]
+    constraints += [tkw.WorkgroupConstraint(N, BLOCK_N, 1)]
+    constraints += [tkw.WaveConstraint(M, BLOCK_M)]
+    constraints += [tkw.WaveConstraint(N, BLOCK_N)]
+
+    @tkw.wave(constraints)
+    def extract_dynamic_offset(
+        a: tkl.Memory[M, N, ADDRESS_SPACE, tkl.f16],
+        b: tkl.Memory[M, ADDRESS_SPACE, tkl.f16],
+    ):
+        v = tkw.read(a)
+
+        # Using a dynamic position: depends on gpu.thread_id x (THREAD_0).
+        # 0..63 --> mod 16 --> 0..15, s.t. it stays in-bounds for vector<16xf16>.
+        dyn_i = THREAD_0 % 16
+
+        x = tkw.extract(v, [dyn_i])
+        tkw.write(x, b)
+
+    extract_dynamic_offset = wave_compile(
+        get_wave_compile_options(),
+        extract_dynamic_offset,
+    )
+    print(extract_dynamic_offset.asm)
+
+    # CHECK-LABEL: test_extract_dynamic_offset
+    # CHECK:         func.func @extract_dynamic_offset
+    # CHECK-DAG:       %[[TID:.+]] = gpu.thread_id  x
+    # CHECK-DAG:       %[[IDX:.+]] = affine.apply #map1()[%[[TID]], %{{.*}}]
+    # CHECK-DAG:       %[[V:.+]] = vector.load {{.*}} : {{.*}}, vector<16xf16>
+    # CHECK:           %[[S:.+]] = vector.extract %[[V]][%[[IDX]]] : f16 from vector<16xf16>
+    # CHECK:           %[[B:.+]] = vector.broadcast %[[S]] : f16 to vector<1xf16>
+    # CHECK:           vector.store %[[B]], {{.*}} : {{.*}}, vector<1xf16>
