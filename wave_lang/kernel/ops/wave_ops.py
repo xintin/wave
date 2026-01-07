@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-import math
 import builtins
 import copy
+import math
 import operator
 import sys
 from abc import ABC
 from dataclasses import dataclass, field, fields
 from enum import IntFlag, auto
+from itertools import combinations
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -22,17 +23,16 @@ from typing import (
 import numpy as np
 import torch.fx as fx
 from typing_extensions import Self
-from itertools import combinations
 
 from .._support.dtype import DataType, i1, i32
 from .._support.indexing import IndexExpr, IndexSequence, IndexSymbol
-from .._support.location import capture_location, CapturedLocation
+from .._support.location import CapturedLocation, capture_location
 from .._support.regions import RegionGraph
 from ..lang.global_symbols import *
 from ..lang.kernel_buffer import AddressSpace
 from ..lang.wave_types import IndexMapping, Memory, Register
-from .base import OpDispatcher
 from ..wave.constraints import Constraint
+from .base import OpDispatcher
 
 if TYPE_CHECKING:
     from ..wave.scheduling.resources import Operation
@@ -1464,7 +1464,7 @@ class Allocate(CustomOp):
 
     @property
     def unpadded_dims(self) -> dict[IndexSymbol, IndexExpr]:
-        from ..wave.utils.general_utils import is_scaled_dim, infer_dim
+        from ..wave.utils.general_utils import infer_dim, is_scaled_dim
 
         unpadded_dim = {}
         last_sym_type = self.type.symbolic_shape[-1]
@@ -2066,8 +2066,8 @@ class Read(CustomOp):
             return True
 
         from ..wave.utils.mapping_utils import (
-            check_is_mapping_contiguous,
             check_is_dynamic_vals_broadcasted,
+            check_is_mapping_contiguous,
         )
 
         if not check_is_dynamic_vals_broadcasted(self.mapping_dynamic_vals):
@@ -2454,8 +2454,8 @@ class Write(CustomOp):
             return True
 
         from ..wave.utils.mapping_utils import (
-            check_is_mapping_contiguous,
             check_is_dynamic_vals_broadcasted,
+            check_is_mapping_contiguous,
         )
 
         if not check_is_dynamic_vals_broadcasted(self.mapping_dynamic_vals):
@@ -2696,9 +2696,14 @@ class Extract(CustomOp):
             self.type = src_type
             return
 
+        # For dynamic pos extract, if it is a fx.Node,
+        # we need to get the index from the CustomOp wrapper.
+        src_index = get_custom(self.register_).index
+        non_unit_dim = []
         # Typically fastest dim is the last dimension,
         # If non-unit dim exists => non-unit dim is fastest dim.
-        non_unit_dim = [k for k, v in self.register_.index.items() if v.size != 1]
+        if src_index is not None:
+            non_unit_dim = [k for k, v in self.register_.index.items() if v.size != 1]
         if len(non_unit_dim) > 1:
             raise NotImplementedError(
                 f"NYI: Extract only support 1 non-unit dim, but found: {len(non_unit_dim)}"
