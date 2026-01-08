@@ -543,6 +543,15 @@ public:
     propagateIfChanged(lattice,
                        lattice->join(InferTypeLatticeStorage(tensorType)));
   }
+
+  // Visit the non-forwarded arguments of a region, such as the
+  // induction variables of a loop.
+  void
+  visitNonControlFlowArguments(RegionSuccessor & /*successor*/,
+                               ArrayRef<BlockArgument> /*arguments*/) override {
+    // This is called for induction variables of an IterateOp, which is handled
+    // by the forward analysis.
+  }
 };
 } // namespace
 
@@ -979,6 +988,15 @@ public:
     }
     return llvm::success();
   }
+
+  // Visit the non-forwarded arguments of a region, such as the
+  // induction variables of a loop.
+  void
+  visitNonControlFlowArguments(RegionSuccessor & /*successor*/,
+                               ArrayRef<BlockArgument> /*arguments*/) override {
+    // This is called for induction variables of an IterateOp, which is handled
+    // by the forward analysis.
+  }
 };
 
 // Elements-per-thread propagation pass implementation.
@@ -1237,7 +1255,7 @@ public:
         LDBG() << "    result #" << i << ": " << *result;
       }
     });
-    auto scope = llvm::make_scope_exit([&] {
+    llvm::scope_exit scope([&] {
       LLVM_DEBUG({
         LDBG() << "  updated result lattices:";
         for (auto [i, result] : llvm::enumerate(results)) {
@@ -1572,7 +1590,7 @@ public:
         LDBG() << "    result #" << i << ": " << *result;
       }
     });
-    auto scope = llvm::make_scope_exit([&] {
+    llvm::scope_exit scope([&] {
       LLVM_DEBUG({
         LDBG() << "  updated operand lattices:";
         for (auto [i, operand] : llvm::enumerate(operands)) {
@@ -1626,6 +1644,15 @@ public:
 #endif
     }
     return llvm::success();
+  }
+
+  // Visit the non-forwarded arguments of a region, such as the
+  // induction variables of a loop.
+  void
+  visitNonControlFlowArguments(RegionSuccessor & /*successor*/,
+                               ArrayRef<BlockArgument> /*arguments*/) override {
+    // This is called for induction variables of an IterateOp, which is handled
+    // by the forward analysis.
   }
 
 private:
