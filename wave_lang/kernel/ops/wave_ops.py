@@ -2703,7 +2703,7 @@ class Extract(CustomOp):
         # Typically fastest dim is the last dimension,
         # If non-unit dim exists => non-unit dim is fastest dim.
         if src_index is not None:
-            non_unit_dim = [k for k, v in self.register_.index.items() if v.size != 1]
+            non_unit_dim = [k for k, v in src_index.items() if v.size != 1]
         if len(non_unit_dim) > 1:
             raise NotImplementedError(
                 f"NYI: Extract only support 1 non-unit dim, but found: {len(non_unit_dim)}"

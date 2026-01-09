@@ -333,9 +333,7 @@ def emit_interwave_scan(
     )
     ph_total.type = get_custom(wave_total).type
 
-    ph_sums = get_graph_node(
-        Placeholder.from_fx_node(get_custom(sums_buf)), exec_on_last, location
-    )
+    ph_sums = get_graph_node(Placeholder.from_fx_node(sums_buf), exec_on_last, location)
     ph_sums.type = get_custom(sums_buf).type
     ph_sums.meta["lifted"] = sums_buf
 
