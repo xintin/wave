@@ -12,13 +12,7 @@ from typing import Any, Callable, Sequence
 import sympy
 import torch.fx as fx
 import torch.utils._pytree as pytree
-
-from .ir_utils import (
-    is_float_type,
-    is_integer_like_type,
-    is_signed_or_signless_type,
-    get_conversion_op,
-)
+from iree.compiler import ir
 
 # TK infrastructure imports.
 from wave_lang.kernel.lang.global_symbols import *
@@ -48,16 +42,14 @@ from wave_lang.support.ir_imports import (
 
 # Indexing imports.
 from ..._support.indexing import IndexExpr, IndexingContext, IndexSequence, index_symbol
-from ..base import CodegenError, ValidationError
-from ..builder import IRProxyValue
 from ...ops.wave_ops import (
     MMABase,
     abs,
     allocate,
     apply_expr,
     atan2,
-    atomic_min,
     atomic_add,
+    atomic_min,
     bitcast,
     bounds_check,
     broadcast,
@@ -76,8 +68,8 @@ from ...ops.wave_ops import (
     gt,
     iterate,
     le,
-    log10,
     log2,
+    log10,
     lt,
     maximum,
     memory_counter_wait,
@@ -86,9 +78,9 @@ from ...ops.wave_ops import (
     ne,
     permute,
     powf,
-    remf,
     reciprocal,
     register,
+    remf,
     reshape,
     round,
     roundeven,
@@ -113,8 +105,8 @@ from ...ops.wave_ops import (
     tanh_approx,
     workgroup_barrier,
 )
-from ...wave.compile_options import WaveCompileOptions
 from ...wave.cluster_barriers import CLUSTER_BARRIER_ID
+from ...wave.compile_options import WaveCompileOptions
 from ...wave.constraints import GenericDot, HardwareConstraint, MMAType
 from ...wave.scheduling.resources import get_scheduling_mask
 from ...wave.utils.classes import ShuffleMode
@@ -124,6 +116,8 @@ from ...wave.utils.general_utils import (
 )
 from ...wave.utils.mapping_utils import transform_index_on_mapping
 from ...wave.utils.symbol_utils import subs_idxc
+from ..base import CodegenError, ValidationError
+from ..builder import IRProxyValue
 from .emitter import (
     WaveEmitter,
     add_emitter_subs,
@@ -135,6 +129,12 @@ from .emitter import (
     get_constant_attr,
     get_type_or_element_type,
     handle_op,
+)
+from .ir_utils import (
+    get_conversion_op,
+    is_float_type,
+    is_integer_like_type,
+    is_signed_or_signless_type,
 )
 
 ###############################################################################
@@ -1822,11 +1822,31 @@ def handle_extract(emitter: WaveEmitter, node: fx.Node):
     assert isinstance(offset, list) and len(offset) == 1
     extract_vector = cast_vector(emitter, register)
     result_type = VectorType.get([1], extract_vector.type.element_type)
+
+    # Handle static and dynamic offsets separately.
+    if isinstance(offset[0], int):
+        static_position = offset
+        dynamic_position = []
+    else:
+        dyn = (
+            ir.ShapedType.get_dynamic_size()
+        )  # sentinel for "dynamic" in static_position
+        idx = gen_sympy_index(add_emitter_subs(emitter), offset[0])
+
+        # vector.extract dynamic indices are expected to be of `index` type.
+        if idx.type != ir.IndexType.get():
+            idx = arith_d.index_cast(ir.IndexType.get(), idx)
+
+        static_position = [dyn]
+        dynamic_position = [idx]
+
     # Instead of using `extract_strided_slice` op, we use `extract` + `splat`
     # to construct the result vector, to enable more opportunities for them to
     # be fused with nearby elementwise and memory ops.
     element = vector_d.extract(
-        extract_vector, static_position=offset, dynamic_position=[]
+        extract_vector,
+        static_position=static_position,
+        dynamic_position=dynamic_position,
     )
     element = vector_d.broadcast(result_type, element)
 
