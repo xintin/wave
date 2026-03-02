@@ -588,24 +588,29 @@ def compile_cpp_backend(
 
         mlir_file.write_text(simplified_mlir)
 
-        # Run waveasm-translate
+        # Run waveasm-translate.
         cmd = [
             str(waveasm_translate),
             f"--target={target}",
-            "--mlir-cse",  # Pre-translation MLIR CSE for redundant index elimination
+            "--mlir-cse",  # Pre-translation MLIR CSE for redundant index elimination.
             "--waveasm-scoped-cse",
             "--waveasm-peephole",
             "--waveasm-scale-pack-elimination",
-            "--waveasm-licm",
+            "--loop-invariant-code-motion",
             "--waveasm-m0-redundancy-elim",
             "--waveasm-buffer-load-strength-reduction",
-            "--waveasm-memory-offset-opt",  # Fold constant addresses into offset fields
+            "--waveasm-memory-offset-opt",  # Fold constant addresses into offset fields.
+            "--canonicalize",  # Clean up dead instructions from offset opt.
+            "--waveasm-scoped-cse",  # Re-deduplicate after offset folding.
             "--waveasm-loop-address-promotion",
-            "--waveasm-linear-scan",
-            "--max-vgprs=512",  # Allow up to 512 VGPRs (4-wave occupancy)
-            "--max-agprs=512",  # Allow up to 512 AGPRs (accumulators)
+            "--waveasm-linear-scan=max-vgprs=512 max-agprs=512",
+            # Regalloc replaces virtual types with physical types that differ
+            # in register index but match in class/size.  LoopLikeOpInterface
+            # verification rejects these; disable until upstream adds
+            # areTypesCompatible to LoopLikeOpInterface.
+            "--disable-pass-verifier",
             "--waveasm-insert-waitcnt",
-            "--waveasm-hazard-mitigation",
+            f"--waveasm-hazard-mitigation=target={target}",
             "--emit-assembly",
             str(mlir_file),
         ]
