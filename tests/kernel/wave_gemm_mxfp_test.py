@@ -30,10 +30,12 @@ from wave_lang.kernel.wave.templates import (
     get_tagged_mxfp4_gemm,
     get_tagged_mxfp4_gemm_preshuffle_b,
     get_tagged_mxfp4_gemm_preshuffle_scales,
+    get_tagged_mxfp4_gemm_preshuffle_scales_and_B,
 )
 from wave_lang.kernel.wave.schedules import (
     get_mxfp4_dbuf_schedule,
     get_mxfp4_dbuf_pingpong_schedule,
+    get_mxfp4_dbuf_pingpong_schedule_Bshuffled,
     get_mxfp4_asymmetric_schedule,
 )
 from wave_lang.kernel.wave.utils.mxfp_utils import (
@@ -960,9 +962,19 @@ MACROTILES_PRESHUFFLE_8WAVE_PINGPONG = [
     (256, 160, 256),
     (256, 224, 256),
     (128, 128, 256),
+    (128, 256, 256),
+    (256, 32, 256),
     (64, 192, 256),
     (64, 128, 256),
 ]
+
+
+_DYNAMIC_ALLOWED_PRESHUFFLE_8WAVE_BLOCKS = {
+    (128, 128, 256),
+    (128, 256, 256),
+    (64, 192, 256),
+    (64, 128, 256),
+}
 
 
 @require_e2e
@@ -976,14 +988,20 @@ MACROTILES_PRESHUFFLE_8WAVE_PINGPONG = [
     "mfma_variant",
     [ScaledMMAType.F32_16x16x128_F8F6F4],
 )
+@pytest.mark.parametrize("dynamic", [False, True], ids=["static", "dynamic"])
 def testScaledGemmMXFP4PreshuffleMacrotiles8WavePingpong(
     shape: tuple[int, int, int],
     block_shape: tuple[int, int, int],
     mfma_variant: ScaledMMAType,
+    dynamic: bool,
 ):
     """8-wave double-buffered MXFP4 GEMM with ping-pong schedule and scale preshuffling.
     (A&B scales preshuffled, A and B global-to-LDS).
+    Note: In dynamic mode, this test only covers selected block shapes to avoid exceeding LDS memory limits.
     """
+    if dynamic and block_shape not in _DYNAMIC_ALLOWED_PRESHUFFLE_8WAVE_BLOCKS:
+        pytest.skip("Dynamic mode is only covered for selected block shapes.")
+
     gemm, options = get_tagged_mxfp4_gemm_preshuffle_scales(
         shape,
         block_shape,
@@ -993,7 +1011,66 @@ def testScaledGemmMXFP4PreshuffleMacrotiles8WavePingpong(
     options.specialize = True
     options.use_buffer_ops = True
     options.minimize_shared_allocs = True
+    if dynamic:
+        options.dynamic_symbols = [tkl.sym.M, tkl.sym.N, tkl.sym.K]
+        for sym in options.dynamic_symbols:
+            del options.subs[sym]
     schedule = get_mxfp4_dbuf_pingpong_schedule(use_stagger=True, shape=shape)
+    options = set_default_run_config(options)
+    gemm = wave_compile(options, gemm, schedule)
+
+    x, w, x_scales, w_scales = generate_gemm_afp4wfp4_inputs(shape)
+    torch_out = torchScaledGemmMXFP4(x, w, x_scales, w_scales)
+
+    w_t = w.T.contiguous()
+    x_scales_ps = e8m0_shuffle(x_scales)
+    w_scales_ps = e8m0_shuffle(w_scales)
+
+    out = device_zeros(x.shape[0], w_t.shape[0], dtype=torch.float32)
+    gemm(x, x_scales_ps, w_t, w_scales_ps, out)
+
+    torch.testing.assert_close(torch_out, out, check_dtype=False)
+
+
+@require_e2e
+@require_cdna4
+@pytest.mark.parametrize(
+    "shape",
+    [(1024, 1024, 8192)],
+)
+@pytest.mark.parametrize("block_shape", MACROTILES_PRESHUFFLE_8WAVE_PINGPONG)
+@pytest.mark.parametrize(
+    "mfma_variant",
+    [ScaledMMAType.F32_16x16x128_F8F6F4],
+)
+@pytest.mark.parametrize("dynamic", [False, True], ids=["static", "dynamic"])
+def testScaledGemmMXFP4PreshuffleScalesAndBMacrotiles8WavePingpong(
+    shape: tuple[int, int, int],
+    block_shape: tuple[int, int, int],
+    mfma_variant: ScaledMMAType,
+    dynamic: bool,
+):
+    """8-wave double-buffered MXFP4 GEMM with ping-pong schedule, scale and B preshuffling.
+    (A&B scales preshuffled and B preshuffled in K-pack order).
+    """
+    if dynamic and block_shape not in _DYNAMIC_ALLOWED_PRESHUFFLE_8WAVE_BLOCKS:
+        pytest.skip("Dynamic mode is only covered for selected block shapes.")
+
+    gemm, options = get_tagged_mxfp4_gemm_preshuffle_scales_and_B(
+        shape,
+        block_shape,
+        wave_shape=(4, 2),
+        mfma_variant=mfma_variant,
+    )
+    options.specialize = True
+    options.use_buffer_ops = True
+    options.minimize_shared_allocs = True
+    options.linearize_shared_access = True
+    if dynamic:
+        options.dynamic_symbols = [tkl.sym.M, tkl.sym.N, tkl.sym.K]
+        for sym in options.dynamic_symbols:
+            del options.subs[sym]
+    schedule = get_mxfp4_dbuf_pingpong_schedule_Bshuffled(use_stagger=True, shape=shape)
     options = set_default_run_config(options)
     gemm = wave_compile(options, gemm, schedule)
 
@@ -1007,11 +1084,6 @@ def testScaledGemmMXFP4PreshuffleMacrotiles8WavePingpong(
 
     out = device_zeros(x.shape[0], w_t_ps.shape[0], dtype=torch.float32)
     gemm(x, x_scales_ps, w_t_ps, w_scales_ps, out)
-    x_scales_ps = e8m0_shuffle(x_scales)
-    w_scales_ps = e8m0_shuffle(w_scales)
-
-    out = device_zeros(x.shape[0], w_t.shape[0], dtype=torch.float32)
-    gemm(x, x_scales_ps, w_t, w_scales_ps, out)
 
     torch.testing.assert_close(torch_out, out, check_dtype=False)
 
