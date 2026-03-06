@@ -820,7 +820,7 @@ def testScaledGemmMXFP4PreshuffleB(
     torch.testing.assert_close(torch_out, out, check_dtype=False)
 
 
-MACROTILES_PRESHUFFLE = [
+MACROTILES_PRESHUFFLE_1x4 = [
     (256, 256, 128),
     (256, 192, 128),
     (256, 128, 128),
@@ -839,6 +839,15 @@ MACROTILES_PRESHUFFLE = [
     (32, 64, 256),
 ]
 
+MACROTILES_PRESHUFFLE_2x2 = [
+    (128, 32, 256),
+    (256, 224, 256),
+]
+
+MACROTILES_PRESHUFFLE = [(block, (1, 4)) for block in MACROTILES_PRESHUFFLE_1x4] + [
+    (block, (2, 2)) for block in MACROTILES_PRESHUFFLE_2x2
+]
+
 
 @require_e2e
 @require_cdna4
@@ -846,7 +855,7 @@ MACROTILES_PRESHUFFLE = [
     "shape",
     [(1024, 1024, 8192)],
 )
-@pytest.mark.parametrize("block_shape", MACROTILES_PRESHUFFLE)
+@pytest.mark.parametrize("block_shape,wave_shape", MACROTILES_PRESHUFFLE)
 @pytest.mark.parametrize(
     "mfma_variant",
     [ScaledMMAType.F32_16x16x128_F8F6F4],
@@ -855,6 +864,7 @@ MACROTILES_PRESHUFFLE = [
 def testScaledGemmMXFP4PreshuffleMacrotiles(
     shape: tuple[int, int, int],
     block_shape: tuple[int, int, int],
+    wave_shape: tuple[int, int],
     mfma_variant: ScaledMMAType,
     a_scale_preshuffle: bool,
 ):
@@ -862,7 +872,7 @@ def testScaledGemmMXFP4PreshuffleMacrotiles(
     gemm, options = get_tagged_mxfp4_gemm_preshuffle_b(
         shape,
         block_shape,
-        wave_shape=(1, 4),
+        wave_shape=wave_shape,
         mfma_variant=mfma_variant,
         a_scale_preshuffle=a_scale_preshuffle,
     )
@@ -896,8 +906,8 @@ def testScaledGemmMXFP4PreshuffleMacrotiles(
     [(1024, 1024, 8192)],
 )
 @pytest.mark.parametrize(
-    "block_shape",
-    [(128, 256, 256)],
+    "block_shape,wave_shape",
+    [((128, 256, 256), (1, 4)), ((128, 32, 256), (2, 2)), ((256, 224, 256), (2, 2))],
 )
 @pytest.mark.parametrize(
     "mfma_variant",
@@ -906,13 +916,14 @@ def testScaledGemmMXFP4PreshuffleMacrotiles(
 def testScaledGemmMXFP4PreshuffleBDynamic(
     shape: tuple[int, int, int],
     block_shape: tuple[int, int, int],
+    wave_shape: tuple[int, int],
     mfma_variant: ScaledMMAType,
 ):
     """End-to-end test for MXFP4 GEMM with preshuffled B and dynamic M, N, K."""
     gemm, options = get_tagged_mxfp4_gemm_preshuffle_b(
         shape,
         block_shape,
-        wave_shape=(1, 4),
+        wave_shape=wave_shape,
         mfma_variant=mfma_variant,
     )
     dynamic_symbols = [tkl.sym.M, tkl.sym.N, tkl.sym.K]
