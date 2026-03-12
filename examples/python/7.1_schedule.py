@@ -369,23 +369,30 @@ def test_dbuf_4wave_mxfp_asymmetric_gemm_cpp(
 
 
 def test_dbuf_4wave_mxfp_preshuffle_b_gemm_cpp(
-    is_debug=False, shape=(1024, 1024, 8192), block=(128, 256, 256)
+    is_debug=False,
+    shape=(512, 1024, 8192),  # 4*T0, 4*T1, 8192
+    block=(128, 256, 256),
+    eliminate_epilogue=True,
 ):
     """Preshuffle-B MXFP4 GEMM using C++ WaveASM backend."""
-    gemm, options = get_tagged_mxfp4_gemm_preshuffle_b(
-        shape, block, wave_shape=(1, 4), output_dtype=tkl.bf16
-    )
+    gemm, options = get_tagged_mxfp4_gemm_preshuffle_b(shape, block, wave_shape=(1, 4))
     options.backend = "asm"
-    options.use_buffer_ops = False
+    options.use_buffer_ops = True
     options.wave_runtime = True
+    options.use_wave_asm_backend = True
     options.dump_intermediates = "build/intermediates"
-    schedule = get_mxfp4_asymmetric_schedule(is_bscale_shuffled=True)
+    options.eliminate_epilogue = eliminate_epilogue
+    schedule = get_mxfp4_asymmetric_schedule(
+        eliminate_epilogue=eliminate_epilogue, is_bscale_shuffled=True
+    )
     options.print_ir_after = "all" if is_debug else []
     options = set_default_run_config(options)
     gemm = wave_compile(options, gemm, schedule)
 
-    _run_mxfp_gemm_preshuffle(gemm, shape, all=True, output_dtype=torch.bfloat16)
-    print("MXFP GEMM preshuffle-B 4-wave (WaveASM backend) test passed!")
+    _run_mxfp_gemm_preshuffle(gemm, shape, all=True)
+    print(
+        f"MXFP GEMM preshuffle-B 4-wave (WaveASM) epilogue elimination={eliminate_epilogue} PASSED"
+    )
 
 
 def test_dbuf_4wave_mxfp_dynamic_preshuffle_b_gemm(
@@ -430,6 +437,12 @@ if __name__ == "__main__":
         exit(1)
 
     success = run_test(
-        args.test, globals(), args.debug, args.repeat, args.shape, args.block
+        args.test,
+        globals(),
+        args.debug,
+        args.repeat,
+        args.shape,
+        args.block,
+        args.eliminate_epilogue,
     )
     exit(0 if success else 1)

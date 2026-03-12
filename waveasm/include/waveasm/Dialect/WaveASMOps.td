@@ -1147,6 +1147,20 @@ def WaveASM_S_SETPRIO : WaveASM_CountedScalarOp<"s_setprio"> {
 // Misc/Utility Operations
 //===----------------------------------------------------------------------===//
 
+def WaveASM_DCEProtectOp : WAVEASMOp<"dce_protect"> {
+  let summary = "Prevent DCE of a value written to a precolored register";
+  let description = [{
+    Dummy side-effecting op that keeps its operand alive through DCE.
+
+    When an op writes to a precolored physical register (e.g. an SRD word)
+    but no SSA consumer uses the result, DCE would eliminate the producer.
+    Placing dce_protect on the result prevents this.  The op emits nothing
+    in the final assembly.
+  }];
+  let arguments = (ins WaveASM_AnySGPR:$val);
+  let assemblyFormat = "$val attr-dict `:` type($val)";
+}
+
 def WaveASM_CommentOp : WAVEASMOp<"comment"> {
   let summary = "Emit a comment in generated assembly";
   let arguments = (ins StrAttr:$text);

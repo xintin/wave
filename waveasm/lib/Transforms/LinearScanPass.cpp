@@ -327,7 +327,100 @@ private:
         }
       }
 
-      // Update the loop op's result types to match block arg types
+      // --- Back-edge register bookkeeping for pipelined loops ---
+      //
+      // Problem: In pipelined (double-buffered) loops, the liveness pass
+      // may "untie" an iter_arg from its block_arg so they get different
+      // physical registers.  This happens in two cases:
+      //
+      //   (a) Swap pattern – the iter_arg at position i is block_arg[j]
+      //       (j != i), implementing LDS double-buffer ping-pong.
+      //
+      //   (b) WAR hazard – a buffer_load iter_arg is interleaved with
+      //       MFMAs that still consume the old block_arg value.  Tying
+      //       them would make the MFMA read the new load instead of the
+      //       old value.
+      //
+      // After register allocation the LoopLikeOpInterface verifier
+      // requires init/blockArg/iterArg types to be compatible.  Blindly
+      // coercing iter_arg types to match block_arg types would silently
+      // overwrite the physical register the allocator chose, breaking
+      // case (b).
+      //
+      // Solution (two steps):
+      //   1. Snapshot each iter_arg's physical register index into the
+      //      "_iterArgPhysRegs" attribute *before* any coercion.
+      //   2. Coerce only when it's safe: skip swap-pattern block args
+      //      and WAR-hazard-separated registers.
+      //
+      // The AssemblyEmitter reads "_iterArgPhysRegs" to emit the correct
+      // back-edge copies/swaps at the loop latch.
+      SmallVector<int64_t> origPhysRegs;
+      for (unsigned i = 0; i < condOp.getIterArgs().size(); ++i) {
+        Type ty = condOp.getIterArgs()[i].getType();
+        int64_t idx = -1;
+        if (auto psreg = dyn_cast<PSRegType>(ty))
+          idx = psreg.getIndex();
+        else if (auto pvreg = dyn_cast<PVRegType>(ty))
+          idx = pvreg.getIndex();
+        origPhysRegs.push_back(idx);
+      }
+      condOp->setAttr(
+          "_iterArgPhysRegs",
+          DenseI64ArrayAttr::get(loopOp->getContext(), origPhysRegs));
+
+      // Step 2: Coerce types for LoopLikeOpInterface verifier.
+      for (unsigned i = 0; i < bodyBlock.getNumArguments(); ++i) {
+        Type blockArgType = bodyBlock.getArgument(i).getType();
+
+        if (i < condOp.getIterArgs().size()) {
+          Value iterArg = condOp.getIterArgs()[i];
+          if (iterArg.getType() != blockArgType) {
+            // Case (a): swap-pattern — iter_arg IS a block_arg of this
+            // loop at a different position.  Leave as-is.
+            if (auto ba = dyn_cast<BlockArgument>(iterArg);
+                ba && ba.getOwner() == &bodyBlock) {
+            } else {
+              // Case (b): check for WAR-hazard separation.
+              int64_t iterPhys = origPhysRegs[i];
+              int64_t blockPhys = -1;
+              if (auto pvreg = dyn_cast<PVRegType>(blockArgType))
+                blockPhys = pvreg.getIndex();
+              else if (auto psreg = dyn_cast<PSRegType>(blockArgType))
+                blockPhys = psreg.getIndex();
+
+              if (iterPhys >= 0 && blockPhys >= 0 && iterPhys != blockPhys) {
+                // Deliberately different registers — do not coerce.
+              } else {
+                iterArg.setType(blockArgType);
+              }
+            }
+          }
+        }
+
+        if (i < loopOp.getInitArgs().size()) {
+          Value initArg = loopOp.getInitArgs()[i];
+          if (initArg.getType() != blockArgType) {
+            // When the allocator assigned init arg and block arg to different
+            // physical registers (because the init arg has post-loop uses),
+            // skip coercion. Overwriting the init arg's type would corrupt the
+            // post-loop value by making it reference the block arg's register,
+            // which the loop body mutates. The assembly emitter inserts a copy
+            // from the init arg register to the block arg register before the
+            // loop entry.
+            int64_t initPhys = mapping.getPhysReg(initArg);
+            int64_t blockPhys = -1;
+            if (auto pvreg = dyn_cast<PVRegType>(blockArgType))
+              blockPhys = pvreg.getIndex();
+            else if (auto psreg = dyn_cast<PSRegType>(blockArgType))
+              blockPhys = psreg.getIndex();
+
+            if (initPhys < 0 || blockPhys < 0 || initPhys == blockPhys)
+              initArg.setType(blockArgType);
+          }
+        }
+      }
+
       for (unsigned i = 0; i < loopOp->getNumResults(); ++i) {
         if (i < bodyBlock.getNumArguments()) {
           loopOp->getResult(i).setType(bodyBlock.getArgument(i).getType());

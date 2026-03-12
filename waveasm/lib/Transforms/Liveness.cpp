@@ -19,6 +19,63 @@ using namespace mlir;
 namespace waveasm {
 
 //===----------------------------------------------------------------------===//
+// Iter-arg classification helpers
+//===----------------------------------------------------------------------===//
+
+/// Return true when iterArg at position i is a block_arg of bodyBlock at a
+/// different position (the LDS double-buffer ping-pong swap pattern).
+static bool isSwapPatternIterArg(Value iterArg, Block &bodyBlock, unsigned i) {
+  if (auto ba = dyn_cast<BlockArgument>(iterArg))
+    if (ba.getOwner() == &bodyBlock && ba.getArgNumber() != i)
+      return true;
+  return false;
+}
+
+/// Detect a write-after-read (WAR) hazard between a buffer_load iter_arg
+/// and the block_arg it feeds back into.
+///
+/// In pipelined schedules, next-iteration loads can be interleaved with
+/// MFMAs that still consume the current iteration's block_arg.  If the
+/// allocator ties them to the same register, the MFMA silently reads the
+/// new load value instead of the old one.
+///
+/// For single-element loads (buffer_load_ubyte/sbyte/ushort/sshort), the
+/// block_arg is consumed indirectly through vector.bitcast / vector.extract
+/// that share the same physical register.  The direct use-point check
+/// misses these transitive uses, so we unconditionally flag them.
+static bool hasBufferLoadWARHazard(Value iterArg, Value blockArg,
+                                   const LivenessInfo &info) {
+  if (isa<BlockArgument>(iterArg))
+    return false;
+  auto *defOp = iterArg.getDefiningOp();
+  if (!defOp)
+    return false;
+  auto opName = defOp->getName().getStringRef();
+  if (!opName.contains("buffer_load") || opName.contains("_lds"))
+    return false;
+
+  // Single-element loads: unconditionally untie (transitive uses hidden).
+  if (opName.contains("_ubyte") || opName.contains("_sbyte") ||
+      opName.contains("_ushort") || opName.contains("_sshort")) {
+    LLVM_DEBUG(llvm::dbgs()
+               << "  WAR hazard (single-element load): " << opName << "\n");
+    return true;
+  }
+
+  // Multi-register loads: check for def/use overlap.
+  auto iterDefIt = info.defPoints.find(iterArg);
+  auto baUseIt = info.usePoints.find(blockArg);
+  if (iterDefIt != info.defPoints.end() && baUseIt != info.usePoints.end()) {
+    int64_t loadDef = iterDefIt->second;
+    for (int64_t usePoint : baUseIt->second) {
+      if (usePoint >= loadDef)
+        return true;
+    }
+  }
+  return false;
+}
+
+//===----------------------------------------------------------------------===//
 // Region Utilities
 //===----------------------------------------------------------------------===//
 
@@ -495,10 +552,14 @@ LivenessInfo computeLiveness(ProgramOp program) {
           members.push_back(loopResult);
       }
 
-      // Condition iter_arg -> block arg
+      // Condition iter_arg -> block arg.
+      // Skip swap patterns and WAR hazards so the allocator keeps them
+      // in separate registers (see hasBufferLoadWARHazard).
       if (i < condOp.getIterArgs().size()) {
         Value iterArg = condOp.getIterArgs()[i];
-        if (info.ranges.contains(iterArg))
+        bool skip = isSwapPatternIterArg(iterArg, bodyBlock, i) ||
+                    hasBufferLoadWARHazard(iterArg, blockArg, info);
+        if (!skip && info.ranges.contains(iterArg))
           members.push_back(iterArg);
       }
 
@@ -548,7 +609,10 @@ LivenessInfo computeLiveness(ProgramOp program) {
       }
       if (i < condOp.getIterArgs().size()) {
         Value iterArg = condOp.getIterArgs()[i];
-        if (info.ranges.contains(iterArg) && !tc.tiedPairs.contains(iterArg))
+        bool skip = isSwapPatternIterArg(iterArg, bodyBlock, i) ||
+                    hasBufferLoadWARHazard(iterArg, blockArg, info);
+        if (!skip && info.ranges.contains(iterArg) &&
+            !tc.tiedPairs.contains(iterArg))
           tc.tiedPairs[iterArg] = blockArg;
       }
       if (i < loopOp->getNumResults()) {
