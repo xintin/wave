@@ -211,6 +211,8 @@ mlir::LogicalResult handleMemRefStore(mlir::Operation *op,
                                       TranslationContext &ctx);
 mlir::LogicalResult handleMemRefCast(mlir::Operation *op,
                                      TranslationContext &ctx);
+mlir::LogicalResult handleMemRefExtractStridedMetadata(mlir::Operation *op,
+                                                       TranslationContext &ctx);
 
 //===----------------------------------------------------------------------===//
 // SCF Dialect Handlers
@@ -237,8 +239,28 @@ int64_t computeBufferSizeFromMemRef(mlir::MemRefType memrefType);
 /// Check if value is power of 2
 bool isPowerOf2(int64_t val);
 
+/// Barrett-reduction-based unsigned integer floor division.
+/// Exact for all uint32 values (unlike float-rcp which fails for x >= 2^23).
+mlir::Value emitUnsignedFloordiv(mlir::Value x, mlir::Value d,
+                                 mlir::OpBuilder &builder, mlir::Location loc,
+                                 TranslationContext &ctx);
+
+/// Magic-number unsigned floor division by a known constant divisor (>= 2).
+/// Uses llvm::UnsignedDivisionByConstantInfo: 2-5 VALU instructions.
+mlir::Value emitConstantUnsignedFloordiv(mlir::Value x, int64_t divisor,
+                                         mlir::OpBuilder &builder,
+                                         mlir::Location loc,
+                                         TranslationContext &ctx);
+
 /// Get log2 of power of 2
 int64_t log2(int64_t val);
+
+/// Create an immediate constant Value (combines createImmType + ConstantOp).
+inline mlir::Value createImmConst(int64_t val, mlir::OpBuilder &builder,
+                                  mlir::Location loc, TranslationContext &ctx) {
+  auto immType = ctx.createImmType(val);
+  return ConstantOp::create(builder, loc, immType, val);
+}
 
 /// Extract constant value from a Value if it is a constant
 std::optional<int64_t> getArithConstantValue(mlir::Value val);

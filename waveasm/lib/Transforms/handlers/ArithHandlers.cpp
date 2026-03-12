@@ -34,10 +34,8 @@ namespace waveasm {
 static Value materializeVCCToBoolVGPR(OpBuilder &builder, Location loc,
                                       TranslationContext &ctx) {
   auto vregType = ctx.createVRegType();
-  auto immZero = ctx.createImmType(0);
-  auto zeroConst = ConstantOp::create(builder, loc, immZero, 0);
-  auto immOne = ctx.createImmType(1);
-  auto oneConst = ConstantOp::create(builder, loc, immOne, 1);
+  Value zeroConst = createImmConst(0, builder, loc, ctx);
+  Value oneConst = createImmConst(1, builder, loc, ctx);
   Value oneVgpr = V_MOV_B32::create(builder, loc, vregType, oneConst);
   Value boolVgpr = V_CNDMASK_B32::create(builder, loc, vregType, zeroConst,
                                          oneVgpr, zeroConst);
@@ -188,7 +186,6 @@ LogicalResult handleArithMulF(Operation *op, TranslationContext &ctx) {
 LogicalResult handleArithDivUI(Operation *op, TranslationContext &ctx) {
   auto &builder = ctx.getBuilder();
   auto loc = op->getLoc();
-  auto vregType = ctx.createVRegType();
 
   auto divOp = cast<arith::DivUIOp>(op);
   std::optional<Value> lhs, rhs;
@@ -196,24 +193,30 @@ LogicalResult handleArithDivUI(Operation *op, TranslationContext &ctx) {
     return failure();
   }
 
-  // Check if RHS is a power of 2 constant - use shift instead
+  // Check if RHS is a constant
   if (auto constOp = rhs->getDefiningOp<ConstantOp>()) {
     int64_t divisor = constOp.getValue();
     if (isPowerOf2(divisor)) {
+      auto vregType = ctx.createVRegType();
       int64_t shiftAmt = log2(divisor);
-      auto immShift = ctx.createImmType(shiftAmt);
-      auto shiftConst = ConstantOp::create(builder, loc, immShift, shiftAmt);
+      Value shiftConst = createImmConst(shiftAmt, builder, loc, ctx);
       auto result =
           V_LSHRREV_B32::create(builder, loc, vregType, shiftConst, *lhs);
       ctx.getMapper().mapValue(divOp.getResult(), result);
       return success();
     }
+    if (divisor >= 2) {
+      auto result =
+          emitConstantUnsignedFloordiv(*lhs, divisor, builder, loc, ctx);
+      ctx.getMapper().mapValue(divOp.getResult(), result);
+      return success();
+    }
   }
 
-  // General case: non-power-of-2 division requires complex reciprocal sequence
-  // Emit an error rather than silently producing incorrect code
-  return op->emitError("unsigned integer division by non-power-of-2 is not "
-                       "yet implemented; divisor must be a power of 2");
+  // General case: Barrett reduction for symbolic divisors
+  auto result = emitUnsignedFloordiv(*lhs, *rhs, builder, loc, ctx);
+  ctx.getMapper().mapValue(divOp.getResult(), result);
+  return success();
 }
 
 LogicalResult handleArithRemUI(Operation *op, TranslationContext &ctx) {
@@ -227,22 +230,32 @@ LogicalResult handleArithRemUI(Operation *op, TranslationContext &ctx) {
     return failure();
   }
 
-  // Check if RHS is a power of 2 constant - use AND instead
+  // Check if RHS is a constant
   if (auto constOp = rhs->getDefiningOp<ConstantOp>()) {
     int64_t modulus = constOp.getValue();
     if (isPowerOf2(modulus)) {
-      auto immMask = ctx.createImmType(modulus - 1);
-      auto maskConst = ConstantOp::create(builder, loc, immMask, modulus - 1);
+      Value maskConst = createImmConst(modulus - 1, builder, loc, ctx);
       auto result = V_AND_B32::create(builder, loc, vregType, *lhs, maskConst);
+      ctx.getMapper().mapValue(remOp.getResult(), result);
+      return success();
+    }
+    if (modulus >= 2) {
+      Value q = emitConstantUnsignedFloordiv(*lhs, modulus, builder, loc, ctx);
+      Value dConst = createImmConst(modulus, builder, loc, ctx);
+      Value qd = V_MUL_LO_U32::create(builder, loc, vregType, q, dConst);
+      auto result = V_SUB_U32::create(builder, loc, vregType, *lhs, qd);
       ctx.getMapper().mapValue(remOp.getResult(), result);
       return success();
     }
   }
 
-  // General case: non-power-of-2 modulo requires division
-  // Emit an error rather than silently producing incorrect code
-  return op->emitError("unsigned integer remainder by non-power-of-2 is not "
-                       "yet implemented; modulus must be a power of 2");
+  // General case: Barrett reduction for symbolic divisors
+  // rem = x - floordiv(x, d) * d
+  Value q = emitUnsignedFloordiv(*lhs, *rhs, builder, loc, ctx);
+  Value qd = V_MUL_LO_U32::create(builder, loc, vregType, q, *rhs);
+  auto result = V_SUB_U32::create(builder, loc, vregType, *lhs, qd);
+  ctx.getMapper().mapValue(remOp.getResult(), result);
+  return success();
 }
 
 LogicalResult handleArithDivF(Operation *op, TranslationContext &ctx) {
@@ -435,8 +448,7 @@ LogicalResult handleArithSelect(Operation *op, TranslationContext &ctx) {
   }
 
   // Restore the materialized boolean VGPR (0/1) back into VCC
-  auto immZero = ctx.createImmType(0);
-  auto zeroConst = ConstantOp::create(builder, loc, immZero, 0);
+  Value zeroConst = createImmConst(0, builder, loc, ctx);
   V_CMP_NE_U32::create(builder, loc, *cond, zeroConst);
 
   auto result =
@@ -457,8 +469,7 @@ LogicalResult handleArithNegF(Operation *op, TranslationContext &ctx) {
   }
 
   // XOR with sign bit to negate
-  auto immSignBit = ctx.createImmType(0x80000000);
-  auto signBit = ConstantOp::create(builder, loc, immSignBit, 0x80000000);
+  Value signBit = createImmConst(0x80000000, builder, loc, ctx);
   auto neg = V_XOR_B32::create(builder, loc, vregType, *src, signBit);
   ctx.getMapper().mapValue(negOp.getResult(), neg);
   return success();
