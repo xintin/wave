@@ -3,7 +3,7 @@
 // Test: affine.apply with constant non-power-of-2 divisors.
 // These use magic number multiplication (Hacker's Delight):
 //   Simple form: mulhi(x, magic) >> shift
-//   Add form:    (mulhi(x, m) + ((x - mulhi(x, m)) >> 1)) >> (shift - 1)
+//   Add form:    (mulhi(x, m) + ((x - mulhi(x, m)) >> 1)) >> shift
 
 module {
 func.func @magic_div(%binding: !stream.binding) {
@@ -26,7 +26,8 @@ func.func @magic_div(%binding: !stream.binding) {
   // CHECK: waveasm.v_sub_u32
   // CHECK: waveasm.v_lshrrev_b32
   // CHECK: waveasm.v_add_u32
-  // CHECK: waveasm.v_lshrrev_b32
+  // CHECK: [[SHIFT:%[^ ]+]] = waveasm.constant 2
+  // CHECK: waveasm.v_lshrrev_b32 [[SHIFT]],
   %div7 = affine.apply affine_map<()[s0] -> (s0 floordiv 7)>()[%tid]
 
   // --- Test 3: mod by constant 5 ---

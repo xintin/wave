@@ -19,12 +19,13 @@ func.func @div_power_of_2(%arg0: i32) -> i32 {
 // CHECK-LABEL: waveasm.program @div_by_7
 func.func @div_by_7(%arg0: i32) -> i32 {
   // div by 7: magic = 0x24924925, shift = 2, needsAdd = true
-  // Expect: mul_hi -> sub -> lshrrev(1) -> add -> lshrrev(shift-1)
+  // Expect: mul_hi -> sub -> lshrrev(1) -> add -> lshrrev(shift)
   // CHECK: waveasm.v_mul_hi_u32
   // CHECK: waveasm.v_sub_u32
   // CHECK: waveasm.v_lshrrev_b32
   // CHECK: waveasm.v_add_u32
-  // CHECK: waveasm.v_lshrrev_b32
+  // CHECK: [[SHIFT:%[^ ]+]] = waveasm.constant 2
+  // CHECK: waveasm.v_lshrrev_b32 [[SHIFT]],
   %c7 = arith.constant 7 : i32
   %div = arith.divui %arg0, %c7 : i32
   return %div : i32
