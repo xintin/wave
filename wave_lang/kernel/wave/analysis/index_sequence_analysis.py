@@ -21,7 +21,7 @@ from wave_lang.kernel.wave.mlir_converter.mlir_converter import (
 from wave_lang.kernel.wave.compile_options import WaveCompileOptions
 from wave_lang.support.logging import get_logger
 
-from ..._support.indexing import IndexSequence, IndexSymbol
+from ..._support.indexing import IndexSequence, IndexSymbol, IndexExpr
 from ..._support.tracing import CapturedTrace
 from ...lang.global_symbols import *
 from ...ops.wave_ops import (
@@ -328,18 +328,85 @@ def _check_water_indices(trace: CapturedTrace, inferred: dict[str, IndexSequence
         if isinstance(custom, GetResult):
             continue
 
+        # Assumptions on symbols may be insufficiently tight, in particular for
+        # non-counting symbols we can assume strict positivity, which allows us
+        # to get rid of Max(1, ...) expressions that otherwise appear on the
+        # python side.
+        def ensure_symbols_positive(
+            seqs: dict[IndexSymbol, IndexSequence],
+        ) -> dict[IndexSymbol, IndexSequence]:
+            all_symbols = set()
+            for _, seq in seqs.items():
+                if isinstance(seq.start, sympy.Expr):
+                    all_symbols.update(seq.start.free_symbols)
+                if isinstance(seq.size, sympy.Expr):
+                    all_symbols.update(seq.size.free_symbols)
+                if isinstance(seq.stride, sympy.Expr):
+                    all_symbols.update(seq.stride.free_symbols)
+
+            symbol_remapping = {
+                symbol: (
+                    sympy.Symbol(symbol.name, nonnegative=True, integer=True)
+                    if symbol.name.startswith("$")
+                    else sympy.Symbol(symbol.name, positive=True, integer=True)
+                )
+                for symbol in all_symbols
+            }
+            return {
+                dim: IndexSequence(
+                    start=(
+                        sympy.simplify(
+                            seq.start.subs(symbol_remapping, simultaneous=True)
+                        )
+                        if isinstance(seq.start, IndexExpr)
+                        else seq.start
+                    ),
+                    size=(
+                        sympy.simplify(
+                            seq.size.subs(symbol_remapping, simultaneous=True)
+                        )
+                        if isinstance(seq.size, IndexExpr)
+                        else seq.size
+                    ),
+                    stride=(
+                        sympy.simplify(
+                            seq.stride.subs(symbol_remapping, simultaneous=True)
+                        )
+                        if isinstance(seq.stride, IndexExpr)
+                        else seq.stride
+                    ),
+                )
+                for dim, seq in seqs.items()
+            }
+
+        # Filter out symbols that should not belong to the index sequence,
+        # such as those corresponding to reduction dimensions in operations
+        # defining the operands of this operation. Keep everything for
+        # oeprations that are reductions.
+        # TODO: fixing this properly requires redefining `indexing_dims` to
+        # be local rather than look at operands.
+        if not isinstance(custom, (MMABase, ReduceOp)):
+            node_index = {
+                k: v for k, v in node.index.items() if k in custom.type.symbolic_shape
+            }
+        else:
+            node_index = node.index
+
+        node_index = ensure_symbols_positive(node_index)
+        inferred_index = ensure_symbols_positive(inferred_index)
+
         # Check that that indices match, raise an error if they don't. Start by
         # a trivial direct comparison, fall back to computing and simplifying
         # the difference. The latter can raise with additional information,
         # which this wants to preserve.
         try:
-            if node.index != inferred_index and not _check_index_difference_is_zero(
-                node.index, inferred_index
+            if node_index != inferred_index and not _check_index_difference_is_zero(
+                node_index, inferred_index
             ):
                 raise ValueError("mismatching indices")
         except ValueError as e:
             raise RuntimeError(
-                f"Index for node {get_custom(node)}, {get_custom(node).index} does not match inferred index {inferred_index}."
+                f"Index for node {get_custom(node)}, {node_index} does not match inferred index {inferred_index}."
             ) from e
 
 
@@ -699,14 +766,18 @@ def populate_read_write_source_indices(
     be propagated to the rest of the graph.
     """
     index: dict[IndexSymbol, IndexSequence] = {}
+    elements_per_thread_set = False
     for dim in node.indexing_dims:
-        elements_per_thread = (
-            1
-            if not is_contiguous_dim(
+        # Set elements per thread for the first contiguous dimension.
+        elements_per_thread = 1
+        if (
+            is_contiguous_dim(
                 dim, node.indexing_dims, hardware_constraint.vector_shapes
             )
-            else node.elements_per_thread
-        )
+            and not elements_per_thread_set
+        ):
+            elements_per_thread = node.elements_per_thread
+            elements_per_thread_set = True
 
         wg_constraint = [x for x in workgroup_constraints if x.dim == dim]
 
