@@ -919,6 +919,9 @@ def propagate_indices(
         if source in visited:
             continue
         if not isinstance(source, (NestedRegionOp, MMABase)):
+            assert (
+                not source.vector_shapes or source.vector_shapes == source_vector_shapes
+            ), f"Vector shapes mismatch for {source};\n{source.vector_shapes}\n{source_vector_shapes}"
             if not should_update_index(
                 source, source_index, source_vector_shapes, symbolic_constraints
             ):
