@@ -13,6 +13,7 @@ import torch.fx as fx
 from .._support.tracing import CapturedTrace
 from .compile_options import WaveCompileOptions
 from .constraints import Constraint, TilingConstraint
+from .region_canonicalization import RegionFormat, requires_region_format
 from ..ops.wave_ops import (
     get_custom,
     Iterate,
@@ -97,9 +98,13 @@ def add_cluster_barriers_to_iterate(
 
         trace.add_subgraph(signal_subgraph_name, signal_subgraph)
 
-        Conditional(condition, signal_subgraph_name, []).add_to_graph(
+        signal_cond = Conditional(condition, signal_subgraph_name, []).add_to_graph(
             subgraph, loc=location
         )
+        signal_subgraph.parent_op = signal_cond
+        local_root = get_custom(signal_cond).get_root_graph()
+        if signal_subgraph_name not in local_root.subgraphs:
+            local_root.subgraphs[signal_subgraph_name] = signal_subgraph
 
     # Add conditional barrier_wait at end of body
     output_node = next(n for n in subgraph.nodes if n.op == "output")
@@ -116,9 +121,13 @@ def add_cluster_barriers_to_iterate(
 
         trace.add_subgraph(wait_subgraph_name, wait_subgraph)
 
-        Conditional(condition, wait_subgraph_name, []).add_to_graph(
+        wait_cond = Conditional(condition, wait_subgraph_name, []).add_to_graph(
             subgraph, loc=location
         )
+        wait_subgraph.parent_op = wait_cond
+        local_root = get_custom(wait_cond).get_root_graph()
+        if wait_subgraph_name not in local_root.subgraphs:
+            local_root.subgraphs[wait_subgraph_name] = wait_subgraph
 
 
 def is_multicast_tensor_load(node: fx.Node) -> bool:
@@ -131,6 +140,7 @@ def is_multicast_tensor_load(node: fx.Node) -> bool:
     return True
 
 
+@requires_region_format(RegionFormat.DIRECT_OUTER_REF)
 def add_cluster_barriers(
     trace: CapturedTrace, constraints: list[Constraint], options: WaveCompileOptions
 ):

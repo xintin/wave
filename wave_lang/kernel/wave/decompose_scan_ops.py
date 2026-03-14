@@ -13,6 +13,7 @@ from wave_lang.kernel.wave.utils.symbol_utils import subs_idxc
 from .._support.dtype import i1
 from .._support.location import CapturedLocation
 from .._support.tracing import CapturedTrace
+from .region_canonicalization import RegionFormat, requires_region_format
 from ..ops.wave_ops import (
     Add,
     Allocate,
@@ -30,13 +31,14 @@ from ..ops.wave_ops import (
     ScanOp,
     SelectOp,
     ShuffleOp,
+    NestedRegionOp,
     Write,
     get_custom,
 )
 from .constraints import HardwareConstraint, WaveConstraint, WorkgroupConstraint
 from .utils.classes import ShuffleMode
 from .utils.general_utils import all_equal, delinearize_index
-from .utils.graph_utils import DCE, get_outer_node
+from .utils.graph_utils import DCE
 
 
 def get_graph_node(
@@ -348,7 +350,7 @@ def emit_interwave_scan(
         Conditional(
             is_last_lane,
             subgraph_name=sub_store,
-            implicit_captures=[get_outer_node(wave_total), sums_buf],
+            implicit_captures=[NestedRegionOp.capture_source(wave_total), sums_buf],
         ),
         graph,
         location,
@@ -360,7 +362,9 @@ def emit_interwave_scan(
     # that the compiler can't find.
     exec_on_last.parent_op = cond_store
     trace.add_subgraph(sub_store, exec_on_last)
-    trace.get_root_graph().subgraphs[sub_store] = exec_on_last
+    local_root = get_custom(cond_store).get_root_graph()
+    if sub_store not in local_root.subgraphs:
+        local_root.subgraphs[sub_store] = exec_on_last
 
     # read all per-wave totals
     read_totals = Read(
@@ -412,6 +416,7 @@ def emit_interwave_scan(
     return [out]
 
 
+@requires_region_format(RegionFormat.DIRECT_OUTER_REF)
 def decompose_scan_ops(
     trace: CapturedTrace,
     constraints: list,

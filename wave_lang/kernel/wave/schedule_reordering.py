@@ -19,6 +19,7 @@ from .._support.tracing import CapturedTrace
 from .._support.location import CapturedLocation
 from .._support.fx import filter_fx_graph
 from ..lang.global_symbols import *
+from .region_canonicalization import RegionFormat, requires_region_format
 from ..ops.wave_ops import (
     MMA,
     Conditional,
@@ -456,6 +457,9 @@ def insert_cond_barrier(cond_reg, trace, graph, location: Optional[CapturedLocat
     cond_barrier.location = location
     barrier_graph.parent_op = cond_barrier
     trace.add_subgraph(barrier_graph_name, barrier_graph)
+    local_root = get_custom(cond_barrier).get_root_graph()
+    if barrier_graph_name not in local_root.subgraphs:
+        local_root.subgraphs[barrier_graph_name] = barrier_graph
     return cond_barrier
 
 
@@ -854,6 +858,7 @@ def get_ops_of_type(graph, operation_type):
     ]
 
 
+@requires_region_format(RegionFormat.DIRECT_OUTER_REF)
 def schedule_reordering(
     trace: CapturedTrace,
     constraints: list[Constraint],
@@ -1048,11 +1053,21 @@ def schedule_reordering(
         original_subgraph_name = custom_iterate.subgraph_name
         reordered_subgraph_name = f"reoredered_{original_subgraph_name}"
         trace.add_subgraph(reordered_subgraph_name, reordered_graph)
-        trace.get_root_graph().subgraphs[reordered_subgraph_name] = reordered_graph
+        # When the iterate lives inside a nested region that carries its
+        # own `subgraphs` dict (e.g. a pipeline-guard conditional created
+        # by schedule.py), `get_root_graph()` resolves to that intermediate
+        # graph rather than the trace-level root. Register the reordered
+        # subgraph there so that `_iter_nested_regions` can find it.
+        local_root = get_custom(iterate_node).get_root_graph()
+        if reordered_subgraph_name not in local_root.subgraphs:
+            local_root.subgraphs[reordered_subgraph_name] = reordered_graph
         custom_iterate.update_arg("subgraph_name", reordered_subgraph_name)
 
         del trace.region_graph.subgraphs[original_subgraph_name]
-        del trace.get_root_graph().subgraphs[original_subgraph_name]
+        if original_subgraph_name in trace.get_root_graph().subgraphs:
+            del trace.get_root_graph().subgraphs[original_subgraph_name]
+        if original_subgraph_name in local_root.subgraphs:
+            del local_root.subgraphs[original_subgraph_name]
 
         if is_pingpong_strategy(reorder_strategy):
             add_conditional_barriers_to_loop(custom_iterate, trace, hardware_constraint)
@@ -1381,7 +1396,9 @@ def _update_trace_with_reordered_graph(
     # Create new subgraph name and add to trace
     reordered_subgraph_name = f"reordered_{custom_iterate.subgraph_name}"
     trace.add_subgraph(reordered_subgraph_name, reordered_graph)
-    trace.get_root_graph().subgraphs[reordered_subgraph_name] = reordered_graph
+    local_root = custom_iterate.get_root_graph()
+    if reordered_subgraph_name not in local_root.subgraphs:
+        local_root.subgraphs[reordered_subgraph_name] = reordered_graph
 
     # Update the iterate operation to use the new subgraph
     custom_iterate.update_arg("subgraph_name", reordered_subgraph_name)
