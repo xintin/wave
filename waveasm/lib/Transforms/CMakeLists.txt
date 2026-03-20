@@ -14,11 +14,9 @@ foreach(src ${HANDLERS_SRCS})
 endforeach()
 
 add_mlir_dialect_library(MLIRWaveASMTransforms
-  ArithLegalization.cpp
   AssemblyEmitter.cpp
   BufferLoadStrengthReduction.cpp
   ExtractScalarization.cpp
-  GPUModuleToBinary.cpp
   HazardMitigation.cpp
   LinearScanPass.cpp
   LinearScanRegAlloc.cpp
@@ -31,9 +29,10 @@ add_mlir_dialect_library(MLIRWaveASMTransforms
   Peephole.cpp
   RegionBuilder.cpp
   ScalePackElimination.cpp
+  SCCVerifier.cpp
   ScopedCSE.cpp
   Ticketing.cpp
-  TranslateFromLLVMDialect.cpp
+  VGPRCompaction.cpp
   TranslateFromMLIR.cpp
   ${HANDLERS_FULL_PATHS}
 
@@ -50,12 +49,8 @@ add_mlir_dialect_library(MLIRWaveASMTransforms
   MLIRFuncDialect
   MLIRGPUDialect
   MLIRIR
-  MLIRLLVMDialect
   MLIRMathDialect
   MLIRMemRefDialect
-  MLIRPass
-  MLIRROCDLDialect
-  MLIRROCDLTarget
   MLIRSCFDialect
   MLIRSupport
   MLIRVectorDialect

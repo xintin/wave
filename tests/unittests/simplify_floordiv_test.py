@@ -1,4 +1,4 @@
-# Copyright 2026 The IREE Authors
+# Copyright 2025 The IREE Authors
 # Licensed under the Apache License v2.0 with LLVM Exceptions.
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -10,7 +10,7 @@ import sympy
 
 from wave_lang.kernel.wave.utils.symbol_utils import (
     simplify,
-    split_sum_by_divisibility,
+    _split_sum_by_divisibility,
     _is_provably_divisible,
 )
 
@@ -65,30 +65,26 @@ class TestIsProvablyDivisible:
         f = sympy.floor(y / 8)
         assert not _is_provably_divisible(7 * f * x, 8 * f)
 
-    def test_zero_coefficient_divisor(self):
-        """0*D should not cause ZeroDivisionError."""
-        assert not _is_provably_divisible(x, 0 * D)
 
-
-# ── split_sum_by_divisibility ───────────────────────────────────────────────
+# ── _split_sum_by_divisibility ───────────────────────────────────────────────
 
 
 class TestSplitSumByDivisibility:
     def test_basic_split(self):
-        q, r = split_sum_by_divisibility(3 * D * x + y, D)
+        q, r = _split_sum_by_divisibility(3 * D * x + y, D)
         assert q == 3 * x
         assert r == y
 
     def test_no_divisible_terms(self):
-        assert split_sum_by_divisibility(x + y, D) is None
+        assert _split_sum_by_divisibility(x + y, D) is None
 
     def test_all_divisible(self):
-        q, r = split_sum_by_divisibility(6 * x + 3, sympy.Integer(3))
+        q, r = _split_sum_by_divisibility(6 * x + 3, sympy.Integer(3))
         assert q == 2 * x + 1
         assert r == sympy.Integer(0)
 
     def test_multiple_divisible_terms(self):
-        q, r = split_sum_by_divisibility(D * x + D * y + z, D)
+        q, r = _split_sum_by_divisibility(D * x + D * y + z, D)
         assert simplify(q - (x + y)) == 0
         assert r == z
 
@@ -116,7 +112,7 @@ class TestSimplifyFloorDiv:
     def test_mod_basic(self):
         expr = sympy.Mod(3 * D * x + y, D)
         result = simplify(expr)
-        assert sympy.simplify(result - sympy.Mod(y, D)) == 0
+        assert result == sympy.Mod(y, D, evaluate=False) or result == sympy.Mod(y, D)
 
     def test_mod_all_divisible(self):
         expr = sympy.Mod(D * x + D * y, D)

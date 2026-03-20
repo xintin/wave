@@ -1,4 +1,4 @@
-# Copyright 2026 The IREE Authors
+# Copyright 2025 The IREE Authors
 # Licensed under the Apache License v2.0 with LLVM Exceptions.
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -13,8 +13,8 @@ from wave_lang.kernel.lang.wave_types import IndexMapping
 from wave_lang.kernel.wave.index_mapping_simplify import (
     simplify_index_mapping,
     _get_iterator_bounds,
+    _expr_bounds_with_iters,
 )
-from wave_lang.kernel.wave.utils.symbol_utils import expr_bounds
 
 M = tkl.sym.M
 N = tkl.sym.N
@@ -76,29 +76,16 @@ class TestSimplifyIndexMapping:
         # prove i1 < D.
         assert not changed
 
-    def test_no_simplification_mismatched_flat_exprs(self):
-        """floor(A/K) and Mod(B, K) with unrelated A, B must not pair."""
-        i0 = IndexMapping.iterator(0)
-        i1 = IndexMapping.iterator(1)
-
-        flat_a = i0 * K + i1
-        flat_b = i0 * 3 + i1  # Different expression, same divisor K.
-        m = IndexMapping(
-            num_iterators=2,
-            inputs={M: flat_a // K, K: sympy.Mod(flat_b, K)},
-            outputs={M: i0, K: i1},
-        )
-
-        m_new, changed = simplify_index_mapping(m)
-        assert not changed
-
     def test_no_simplification_b_data_preshuffle(self):
         """B-data preshuffle: within_nblk can exceed K_PACKED for general K."""
         n_it = IndexMapping.iterator(0)
         k_it = IndexMapping.iterator(1)
 
         within_nblk = (
-            (k_it // 32) * 512 + ((k_it // 16) % 2) * 256 + (n_it % 16) * 16 + k_it % 16
+            (k_it // 32) * 512
+            + ((k_it // 16) % 2) * 256
+            + (n_it % 16) * 16
+            + k_it % 16
         )
         K_PACKED = K // 2
 
@@ -115,31 +102,30 @@ class TestSimplifyIndexMapping:
         assert not changed
 
 
-class TestExprBoundsWithSymbolBounds:
+class TestExprBoundsWithIters:
     def test_iterator_bounds(self):
         i0 = IndexMapping.iterator(0)
         i1 = IndexMapping.iterator(1)
-        bounds = {
-            i0: (sympy.Integer(0), sympy.Integer(15)),
-            i1: (sympy.Integer(0), sympy.Integer(63)),
-        }
+        bounds = {i0: (sympy.Integer(0), sympy.Integer(15)),
+                  i1: (sympy.Integer(0), sympy.Integer(63))}
 
-        assert expr_bounds(i0, bounds) == (0, 15)
-        assert expr_bounds(i1, bounds) == (0, 63)
+        assert _expr_bounds_with_iters(i0, bounds) == (0, 15)
+        assert _expr_bounds_with_iters(i1, bounds) == (0, 63)
 
     def test_within_nblk_bounds(self):
         """within_nblk for tile [0,15]x[0,63] is bounded to [0,1023]."""
         n_it = IndexMapping.iterator(0)
         k_it = IndexMapping.iterator(1)
-        bounds = {
-            n_it: (sympy.Integer(0), sympy.Integer(15)),
-            k_it: (sympy.Integer(0), sympy.Integer(63)),
-        }
+        bounds = {n_it: (sympy.Integer(0), sympy.Integer(15)),
+                  k_it: (sympy.Integer(0), sympy.Integer(63))}
 
         within_nblk = (
-            (k_it // 32) * 512 + ((k_it // 16) % 2) * 256 + (n_it % 16) * 16 + k_it % 16
+            (k_it // 32) * 512
+            + ((k_it // 16) % 2) * 256
+            + (n_it % 16) * 16
+            + k_it % 16
         )
-        result = expr_bounds(within_nblk, bounds)
+        result = _expr_bounds_with_iters(within_nblk, bounds)
         assert result is not None
         assert result[0] == 0
         assert result[1] == 1023

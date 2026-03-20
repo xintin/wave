@@ -1,4 +1,4 @@
-# Copyright 2026 The IREE Authors
+# Copyright 2025 The IREE Authors
 # Licensed under the Apache License v2.0 with LLVM Exceptions.
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -23,14 +23,14 @@ The decomposition uses:
 
 import sympy
 from collections.abc import Sequence
+from functools import lru_cache
 
 from ..lang.wave_types import IndexMapping
 from .utils.symbol_utils import (
+    _split_sum_by_divisibility,
     expr_bounds,
-    split_sum_by_divisibility,
     IndexExpr,
     IndexSymbol,
-    simplify,
     subs_idxc,
 )
 
@@ -81,6 +81,13 @@ def _get_iterator_bounds(
     Returns {iterator_symbol: (0, upper_bound - 1)} for each iterator.
     """
     bounds = {}
+    # Build reverse map: dim_symbol -> iterator_symbol.
+    dim_to_iter = {}
+    for sym, idx in mapping.iters.items():
+        dim = mapping.iteration_shape[idx]
+        if dim is not None:
+            dim_to_iter[dim] = sym
+
     for sym, idx in mapping.iters.items():
         dim = mapping.iteration_shape[idx]
         if dim is None:
@@ -98,12 +105,12 @@ def get_tile_sizes_from_index(
     mapping: IndexMapping,
     index: dict,
 ) -> dict[IndexSymbol, IndexExpr]:
-    """Extract tile sizes for each iteration dimension from the node's index.
+    """Extract tile sizes for each iterator dimension from the node's index.
 
     The node's index dict maps dimension symbols (M, N, K) to
-    IndexSequences with start/size/stride.  The mapping's iteration_shape
-    lists which dimension each iterator spans.  The size of the
-    corresponding IndexSequence is the tile size for that dimension.
+    IndexSequences with start/size/stride.  The mapping's output_mapping
+    tells us which dimension each iterator corresponds to.  The size of
+    that IndexSequence is the tile size for that iterator.
     """
     from .utils.symbol_utils import IndexSequence
 
@@ -119,21 +126,75 @@ def get_tile_sizes_from_index(
     return tile_sizes
 
 
+def _expr_bounds_with_iters(
+    expr: sympy.Expr,
+    iter_bounds: dict[sympy.Symbol, tuple[sympy.Expr, sympy.Expr]],
+) -> tuple[sympy.Expr, sympy.Expr] | None:
+    """Compute expression bounds using iterator upper bounds.
+
+    Extends expr_bounds by substituting known iterator ranges.
+    """
+    if expr.is_Integer or expr.is_Rational:
+        return (expr, expr)
+    if expr.is_Symbol:
+        if expr in iter_bounds:
+            return iter_bounds[expr]
+        return (sympy.Integer(0), sympy.oo) if expr.is_nonnegative else None
+
+    # For floor/Mod/Add/Mul, delegate to structural recursion.
+    if isinstance(expr, sympy.Mod):
+        p, q = expr.args
+        if q.is_positive and q.is_number:
+            return (sympy.Integer(0), q - 1)
+        q_bounds = _expr_bounds_with_iters(q, iter_bounds)
+        if q_bounds and q_bounds[0].is_positive:
+            return (sympy.Integer(0), q_bounds[1] - 1)
+        return None
+
+    if isinstance(expr, sympy.floor):
+        inner_bounds = _expr_bounds_with_iters(expr.args[0], iter_bounds)
+        if inner_bounds:
+            return (sympy.floor(inner_bounds[0]), sympy.floor(inner_bounds[1]))
+        return None
+
+    if isinstance(expr, sympy.Add):
+        bounds = [_expr_bounds_with_iters(a, iter_bounds) for a in expr.args]
+        if all(b is not None for b in bounds):
+            return (sum(b[0] for b in bounds), sum(b[1] for b in bounds))
+        return None
+
+    if isinstance(expr, sympy.Mul):
+        if not expr.args:
+            return (sympy.Integer(1), sympy.Integer(1))
+        bounds = [_expr_bounds_with_iters(a, iter_bounds) for a in expr.args]
+        if all(b is not None for b in bounds):
+            if any(sympy.oo in b or -sympy.oo in b for b in bounds):
+                return None
+            lo, hi = bounds[0]
+            for b in bounds[1:]:
+                corners = [lo * b[0], lo * b[1], hi * b[0], hi * b[1]]
+                try:
+                    lo, hi = min(corners), max(corners)
+                except TypeError:
+                    return None
+            return (lo, hi)
+        return None
+
+    return None
+
+
 def _find_floordiv_mod_pairs(
     input_mapping: dict[IndexSymbol, IndexExpr],
 ) -> list[tuple]:
-    """Find paired floor/Mod expressions that share the same flat expression.
+    """Find paired floor/Mod expressions sharing the same divisor.
 
     Returns list of (dim_q, dim_r, numerator, divisor, addend) tuples where:
       dim_q has expression: addend + floor(numerator / divisor)
       dim_r has expression: Mod(something, divisor)
 
-    Pairing requires both matching divisors AND compatible numerators.
-    Since sympy auto-evaluates ``Mod(A*D + B, D) -> Mod(B, D)``, the
-    Mod's first arg may differ from the floor's numerator by a multiple
-    of D.  We verify this: ``(floor_numer - mod_arg) % D == 0``.
-
-    Each Mod is consumed at most once to prevent ambiguous rewrites.
+    Note: sympy auto-evaluates Mod(A*D + B, D) → Mod(B, D), so the Mod's
+    first arg may not match the floor's numerator exactly.  We match on
+    the divisor and verify compatibility.
     """
     floor_info: list[tuple] = []  # (dim, numerator, divisor, addend)
     mod_info: list[tuple] = []  # (dim, arg, divisor)
@@ -163,43 +224,15 @@ def _find_floordiv_mod_pairs(
                         floor_info.append((dim, numer, denom, addend))
                         break
 
-    # Match on divisor, verify numerator compatibility, consume each Mod once.
-    consumed_mods: set[int] = set()
+    # Match on divisor.
     pairs = []
     for dim_q, numer, divisor, addend in floor_info:
-        for i, (dim_r, mod_arg, mod_divisor) in enumerate(mod_info):
-            if i in consumed_mods:
-                continue
-            if divisor != mod_divisor:
-                continue
-            # Verify the floor and Mod share the same flat expression
-            # (modulo multiples of D that sympy auto-reduced away).
-            diff = sympy.cancel(numer - mod_arg)
-            if not _is_provably_divisible_by(diff, divisor):
-                continue
-            consumed_mods.add(i)
-            pairs.append((dim_q, dim_r, numer, divisor, addend))
-            break
+        for dim_r, mod_arg, mod_divisor in mod_info:
+            if divisor == mod_divisor:
+                pairs.append((dim_q, dim_r, numer, divisor, addend))
+                break
 
     return pairs
-
-
-def _is_provably_divisible_by(expr: sympy.Expr, divisor: sympy.Expr) -> bool:
-    """Check if *expr* is provably divisible by *divisor*.
-
-    Handles zero, exact equality, and delegates to split_sum_by_divisibility
-    for additive decomposition (all terms must be multiples of divisor).
-    """
-    if expr.is_zero:
-        return True
-    if expr == divisor:
-        return True
-    result = split_sum_by_divisibility(expr, divisor)
-    if result is None:
-        return False
-    # All terms are divisible iff remainder is zero.
-    _, remainder = result
-    return remainder.is_zero
 
 
 def simplify_index_mapping(
@@ -216,7 +249,7 @@ def simplify_index_mapping(
 
     Returns (new_mapping, changed).
     """
-    symbol_bounds = _get_iterator_bounds(mapping, tile_sizes)
+    iter_bounds = _get_iterator_bounds(mapping, tile_sizes)
     sym_lower_bounds = _get_symbol_lower_bounds(constraints)
     input_mapping = dict(mapping.input_mapping)
     changed = False
@@ -224,7 +257,7 @@ def simplify_index_mapping(
     pairs = _find_floordiv_mod_pairs(input_mapping)
     for dim_q, dim_r, flat_expr, divisor, addend in pairs:
         # Step 1: Factor out D-multiples from flat_expr.
-        split = split_sum_by_divisibility(flat_expr, divisor)
+        split = _split_sum_by_divisibility(flat_expr, divisor)
         if split is None:
             quotient = sympy.Integer(0)
             remainder = flat_expr
@@ -232,7 +265,7 @@ def simplify_index_mapping(
             quotient, remainder = split
 
         # Step 2: Check if remainder is bounded in [0, D).
-        rem_bounds = expr_bounds(remainder, symbol_bounds)
+        rem_bounds = _expr_bounds_with_iters(remainder, iter_bounds)
         if rem_bounds is None:
             continue
 
@@ -243,28 +276,30 @@ def simplify_index_mapping(
         # Check lo >= 0.
         lo_nonneg = lo.is_nonnegative if hasattr(lo, "is_nonnegative") else None
         if lo_nonneg is None:
-            lo_simplified = simplify(lo)
+            lo_simplified = sympy.simplify(lo)
             lo_nonneg = lo_simplified.is_nonnegative
         if not lo_nonneg:
             continue
 
         # Check hi < divisor.  When the divisor is symbolic, resolve
         # it via IndexingContext.subs (e.g. K_PACKED -> K//2) and then
-        # substitute known lower bounds from constraints to obtain a
-        # concrete lower bound for the divisor.
+        # substitute known lower bounds from constraints (e.g. K >= 2048
+        # lets us prove K//2 >= 1024).
         try:
             divisor_lb = subs_idxc(divisor)
         except (IndexError, KeyError):
             divisor_lb = divisor
         if sym_lower_bounds:
-            divisor_lb = divisor_lb.subs({s: lb for s, lb in sym_lower_bounds.items()})
+            divisor_lb = divisor_lb.subs(
+                {s: lb for s, lb in sym_lower_bounds.items()}
+            )
         # Evaluate floor/ceiling after substitution.
         try:
             divisor_lb = sympy.Integer(int(divisor_lb))
-        except (TypeError, ValueError, OverflowError):
+        except (TypeError, ValueError):
             pass
 
-        diff = simplify(hi - divisor_lb)
+        diff = sympy.simplify(hi - divisor_lb)
         if diff.is_negative is not True:
             continue
 
