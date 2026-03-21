@@ -1783,8 +1783,13 @@ def get_mxfp4_asymmetric_schedule(
         # Interleave MFMAs with memory ops (matching aiter f4gemm pattern).
         # Clamp start_offsets so they fit within each partition when the M
         # tile count is odd (e.g. 7 tiles split into 4+3).
-        base_offsets = [0, 3, 2, 0]
-        base_intervals = [4, 4, 2, 4]
+        n_mma = len(loop_scaled_mma_0)
+        if n_mma <= 4:
+            base_offsets = [0, 1, 1, 0]
+            base_intervals = [2, 2, 1, 2]
+        else:
+            base_offsets = [0, 3, 2, 0]
+            base_intervals = [4, 4, 2, 4]
 
         def _clamp_offsets(n, offsets):
             return [min(o, max(0, n - 1)) for o in offsets]

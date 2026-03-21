@@ -284,6 +284,7 @@ def _eval_concrete_floor_mod(expr: sympy.Expr) -> sympy.Expr:
     collapses them bottom-up so the result contains no unnecessary
     wrappers around known integers.
     """
+
     def _try_eval(e):
         if isinstance(e, sympy.floor):
             inner = e.args[0]
@@ -374,7 +375,6 @@ def _infer_floor_to_exact(mem_strides: list[IndexExpr]) -> dict:
     return subs_map
 
 
-
 def compute_iv_stride_through_mapping(
     mapping: IndexMapping,
     symbolic_shape: tuple[IndexExpr, ...],
@@ -428,28 +428,15 @@ def compute_iv_stride_through_mapping(
     if not iv_info:
         return None
 
-    print(f"=== compute_iv_stride_through_mapping  is_read={is_read} ===")
-    print(f"  iters: {dict(iters)}")
-    for iv_sym, (iv_iter, cc) in iv_info.items():
-        print(f"  IV {iv_sym} -> iter={iv_iter}  coeff={cc}")
-
-    map_dims = (
-        mapping.input_shape if is_read else mapping.output_shape
-    )
+    map_dims = mapping.input_shape if is_read else mapping.output_shape
     raw_exprs = (
-        mapping.map_input_indices(map_dims) if is_read
+        mapping.map_input_indices(map_dims)
+        if is_read
         else mapping.map_output_indices(map_dims)
     )
 
     idxc = IndexingContext.current()
     dim_exprs = [subs_idxc(e) for e in raw_exprs]
-
-    for i, (raw, resolved) in enumerate(zip(raw_exprs, dim_exprs)):
-        changed = str(raw) != str(resolved)
-        print(
-            f"  dim[{i}]  raw={raw}  ->  resolved={resolved}"
-            f"{'  (CHANGED by subs_idxc)' if changed else ''}"
-        )
 
     if mem_strides is None:
         symbolic_shape_resolved = tuple(infer_dim(d) for d in symbolic_shape)
@@ -457,30 +444,15 @@ def compute_iv_stride_through_mapping(
             idxc, symbolic_shape_resolved, allow_mixed_shapes=True
         )
 
-    stride_free = set()
-    for s in mem_strides:
-        stride_free |= sympy.sympify(s).free_symbols
-    print(
-        f"  mem_strides={mem_strides}"
-        f"  (symbolic={sorted(str(s) for s in stride_free) if stride_free else 'none'})"
-    )
-
     div_fwd, div_bwd = get_divisibility_subs(constraints)
     if div_fwd:
         fwd_dict = dict(div_fwd)
         dim_exprs = [sympy.sympify(e).subs(fwd_dict) for e in dim_exprs]
         mem_strides = [sympy.sympify(s).subs(fwd_dict) for s in mem_strides]
-        print(f"  divisibility fwd subs: {fwd_dict}")
-        for i, e in enumerate(dim_exprs):
-            print(f"  dim_after_div_subs[{i}] = {e}")
-        print(f"  mem_strides_after_div_subs={mem_strides}")
     else:
         floor_subs = _infer_floor_to_exact(mem_strides)
         if floor_subs:
             dim_exprs = [sympy.sympify(e).subs(floor_subs) for e in dim_exprs]
-            print(f"  floor_to_exact subs (fallback): {floor_subs}")
-            for i, e in enumerate(dim_exprs):
-                print(f"  dim_after_subs[{i}] = {e}")
 
     result: dict[sympy.Symbol, IndexExpr | list[IndexExpr]] = {}
 
@@ -489,23 +461,18 @@ def compute_iv_stride_through_mapping(
             dim_exprs, mem_strides, iters, iv_iter, concrete_coeff
         )
         if stride_or_cycle is None:
-            print(
-                f"  _probe_iv_stride returned None for IV {iv_sym}"
-                f" — no pattern detected, returning None for entire mapping"
-            )
             return None
         result[iv_sym] = stride_or_cycle
 
     if div_bwd:
         bwd_dict = dict(div_bwd)
+
         def _bwd(v):
             if isinstance(v, list):
                 return [mem_simplify(sympy.sympify(x).subs(bwd_dict)) for x in v]
             return mem_simplify(sympy.sympify(v).subs(bwd_dict))
-        result = {k: _bwd(v) for k, v in result.items()}
 
-    for iv_sym, val in result.items():
-        print(f"  RESULT  {iv_sym} -> {val}")
+        result = {k: _bwd(v) for k, v in result.items()}
 
     return result
 
@@ -581,30 +548,25 @@ def _probe_iv_stride(
     (repeating cycle), or ``None`` on failure.
     """
 
-    print(
-        f"_probe_iv_stride  iv_iter={iv_iter}  coeff={concrete_coeff}"
-    )
-
     # Step 1: linearize symbolically, then compute probe depth from the
     # flat expression's divisors.  Apply subs_idxc to iv_flat so the
     # probe-depth computation sees the same symbol resolution as the
     # concrete address evaluations (prevents under-probing when a
     # divisor is symbolic pre-subs but integer post-subs).
     flat_expr = mem_simplify(linearize_dims(dim_exprs, mem_strides))
-    iv_flat = flat_expr.subs({
-        it: (concrete_coeff * sympy.Symbol("_iv") if it == iv_iter else 0)
-        for it in iters.keys()
-    })
+    iv_flat = flat_expr.subs(
+        {
+            it: (concrete_coeff * sympy.Symbol("_iv") if it == iv_iter else 0)
+            for it in iters.keys()
+        }
+    )
     iv_flat = subs_idxc(iv_flat)
     probe_depth = _compute_probe_depth(iv_flat, concrete_coeff)
-
-    print(f"  probe_depth={probe_depth}")
 
     # Step 2: evaluate P+1 concrete addresses.
     def _linearized_addr(iv_val: int) -> IndexExpr:
         subs = {
-            it: (concrete_coeff * iv_val if it == iv_iter else 0)
-            for it in iters.keys()
+            it: (concrete_coeff * iv_val if it == iv_iter else 0) for it in iters.keys()
         }
         resolved = [subs_idxc(dim_expr.subs(subs)) for dim_expr in dim_exprs]
         return mem_simplify(subs_idxc(linearize_dims(resolved, mem_strides)))
@@ -612,21 +574,11 @@ def _probe_iv_stride(
     addrs: list[int] = []
     for iv in range(probe_depth + 1):
         a = _linearized_addr(iv)
-        if getattr(a, 'free_symbols', set()):
-            print(
-                f"  addr[iv={iv}] = {a}  (free={a.free_symbols})"
-                f"\n  *** ERROR: address contains unresolved free symbols."
-                f"  Fix chained symbolic dependencies upstream."
-            )
+        if getattr(a, "free_symbols", set()):
             return None
         addrs.append(int(a))
 
     diffs = [addrs[i + 1] - addrs[i] for i in range(probe_depth)]
-
-    for i, a in enumerate(addrs):
-        print(f"  addr[iv={i}] = {a}")
-    for i, d in enumerate(diffs):
-        print(f"  diff[{i}] = {d}")
 
     if not diffs:
         return None
@@ -638,21 +590,9 @@ def _probe_iv_stride(
         if all(diffs[i] == diffs[i % cycle_len] for i in range(probe_depth)):
             cycle = [sympy.Integer(diffs[i]) for i in range(cycle_len)]
             if cycle_len == 1:
-                print(
-                    f"  -> CONSTANT stride = {cycle[0]}"
-                    f"  (concrete=True, probe_depth={probe_depth})"
-                )
                 return cycle[0]
-            print(
-                f"  -> CYCLIC stride (len={cycle_len}): {diffs[:cycle_len]}"
-                f"  (concrete=True, probe_depth={probe_depth})"
-            )
             return cycle
 
-    print(
-        f"  -> FAILED: no constant or cyclic pattern in {probe_depth}"
-        f" diffs.  diffs={diffs}"
-    )
     return None
 
 
