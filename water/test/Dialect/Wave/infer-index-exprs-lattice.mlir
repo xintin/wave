@@ -1062,6 +1062,38 @@ normalform.module [#wave.normal_form<full_func_boundary>, #wave.normal_form<full
 // -----
 
 normalform.module [#wave.normal_form<full_func_boundary>, #wave.normal_form<full_op_types>] {
+  func.func @mma_lhs_vs_implied_vector_shape(
+    %lhs: !wave.tensor<[@M, @K] of f16>,
+    %rhs: !wave.tensor<[@N, @K] of f16>,
+    %acc: !wave.tensor<[@M, @N] of f32>
+  ) -> !wave.tensor<[@M, @N] of f32> attributes {
+    wave.constraints = [
+      #wave.hardware_constraint<threads_per_wave = 64, waves_per_block = [1, 1, 1],
+                                mma_type = #wave.mma_kind<f32_16x16x16_f16>,
+                                vector_shapes = {M = 16, N = 16, K = 16}>,
+      #wave.workgroup_constraint<dim = <"M">, tile_size = <[] -> (64)>, workgroup_dim = <x>>,
+      #wave.workgroup_constraint<dim = <"N">, tile_size = <[] -> (64)>, workgroup_dim = <y>>
+    ],
+    wave.hyperparameters = #wave.hyperparameters<{M = 128, N = 128, K = 128}>
+  } {
+    %lhs_bad = wave.read %lhs {wave_test.override_result_index = [[3, {
+      K = #wave.index_mapping<[#wave.index_symbol<T0>] -> (((T0 mod 64) floordiv 16) * 4, 4, 1)>,
+      M = #wave.index_mapping<[#wave.index_symbol<WG0>, #wave.index_symbol<T0>] -> (T0 mod 16 + WG0 * 64, 1, 1)>
+    }, {M = 42, K = 42}]]} : (!wave.tensor<[@M, @K] of f16>) -> !wave.tensor<[@M, @K] of f16>
+
+    // expected-error @below {{conflict for LHS vector shape when propagating from implied by MMA kind lattice}}
+    // expected-note @below {{original LHS lattice}}
+    // expected-note @below {{implied by MMA kind lattice}}
+    %r = wave.mma %lhs_bad, %rhs, %acc {kind = #wave.mma_kind<f32_16x16x16_f16>}
+         : (!wave.tensor<[@M, @K] of f16>, !wave.tensor<[@N, @K] of f16>, !wave.tensor<[@M, @N] of f32>)
+         -> !wave.tensor<[@M, @N] of f32>
+    return %r : !wave.tensor<[@M, @N] of f32>
+  }
+}
+
+// -----
+
+normalform.module [#wave.normal_form<full_func_boundary>, #wave.normal_form<full_op_types>] {
   func.func @mma_lhs_vs_implied(
     %lhs: !wave.tensor<[@M, @K] of f16>,
     %rhs: !wave.tensor<[@N, @K] of f16>,
@@ -1088,5 +1120,86 @@ normalform.module [#wave.normal_form<full_func_boundary>, #wave.normal_form<full
          : (!wave.tensor<[@M, @K] of f16>, !wave.tensor<[@N, @K] of f16>, !wave.tensor<[@M, @N] of f32>)
          -> !wave.tensor<[@M, @N] of f32>
     return %r : !wave.tensor<[@M, @N] of f32>
+  }
+}
+
+// -----
+
+// Joining two lattices with the same vectorShape works.
+
+normalform.module [#wave.normal_form<full_func_boundary>, #wave.normal_form<full_op_types>] {
+  // CHECK-LABEL: @join_with_same_vector_shape
+  func.func @join_with_same_vector_shape(
+    %a: !wave.tensor<[@M] of f32>,
+    %b: !wave.tensor<[@M] of f32>
+  ) -> !wave.tensor<[@M] of f32> attributes {
+    wave.constraints = [
+      #wave.hardware_constraint<threads_per_wave = 64, waves_per_block = [1, 1, 1]>
+    ]
+  } {
+    // CHECK: wave.add
+    // CHECK-SAME: index
+    // CHECK-SAME: M : <[#wave.index_symbol<T0>] -> (T0 * 40, 1, 1)>
+    // The vectorShape should be preserved and match.
+    %result = wave.add %a, %b {wave_test.override_operand_index = [
+      [{M = #wave.index_mapping<[#wave.index_symbol<T0>] -> (T0 * 40, 1, 1)>}, {M = 4 : i32}],
+      [{M = #wave.index_mapping<[#wave.index_symbol<T0>] -> (T0 * 40, 1, 1)>}, {M = 4 : i32}]
+    ]}
+    : (!wave.tensor<[@M] of f32>, !wave.tensor<[@M] of f32>) -> !wave.tensor<[@M] of f32>
+    return %result : !wave.tensor<[@M] of f32>
+  }
+}
+
+// -----
+
+// Joining a lattice with vectorShape with one without vectorShape takes the non-null one.
+
+// TODO: we need to capture the vector shape on the op
+
+normalform.module [#wave.normal_form<full_func_boundary>, #wave.normal_form<full_op_types>] {
+  // CHECK-LABEL: @join_with_one_vector_shape
+  func.func @join_with_one_vector_shape(
+    %a: !wave.tensor<[@M] of f32>,
+    %b: !wave.tensor<[@M] of f32>
+  ) -> !wave.tensor<[@M] of f32> attributes {
+    wave.constraints = [
+      #wave.hardware_constraint<threads_per_wave = 64, waves_per_block = [1, 1, 1]>
+    ]
+  } {
+    // CHECK: wave.add
+    // CHECK-SAME: index
+    // CHECK-SAME: M : <[#wave.index_symbol<T0>] -> (T0 * 40, 1, 1)>
+    // The vectorShape from operand 0 should be preserved.
+    %result = wave.add %a, %b {wave_test.override_operand_index = [
+      [{M = #wave.index_mapping<[#wave.index_symbol<T0>] -> (T0 * 40, 1, 1)>}, {M = 8 : i32}],
+      {M = #wave.index_mapping<[#wave.index_symbol<T0>] -> (T0 * 40, 1, 1)>}
+    ]}
+    : (!wave.tensor<[@M] of f32>, !wave.tensor<[@M] of f32>) -> !wave.tensor<[@M] of f32>
+    return %result : !wave.tensor<[@M] of f32>
+  }
+}
+
+// -----
+
+// Joining two lattices with different vectorShapes results in top and emits a diagnostic.
+
+normalform.module [#wave.normal_form<full_func_boundary>, #wave.normal_form<full_op_types>] {
+  func.func @vector_shape_conflict(
+    %a: !wave.tensor<[@M] of f32>,
+    %b: !wave.tensor<[@M] of f32>
+  ) -> !wave.tensor<[@M] of f32> attributes {
+    wave.constraints = [
+      #wave.hardware_constraint<threads_per_wave = 64, waves_per_block = [1, 1, 1]>
+    ]
+  } {
+    // expected-error @below {{incompatible operand lattices when propagating from those to result}}
+    // expected-note @below {{operand #0 lattice:}}
+    // expected-note @below {{operand #1 lattice:}}
+    %result = wave.add %a, %b {wave_test.override_operand_index = [
+      [{M = #wave.index_mapping<[#wave.index_symbol<T0>] -> (T0 * 40, 1, 1)>}, {M = 4 : i32}],
+      [{M = #wave.index_mapping<[#wave.index_symbol<T0>] -> (T0 * 40, 1, 1)>}, {M = 8 : i32}]
+    ]}
+    : (!wave.tensor<[@M] of f32>, !wave.tensor<[@M] of f32>) -> !wave.tensor<[@M] of f32>
+    return %result : !wave.tensor<[@M] of f32>
   }
 }
