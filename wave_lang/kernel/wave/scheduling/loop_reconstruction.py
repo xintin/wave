@@ -822,13 +822,14 @@ def guard_g2s_with_bounds_check(
     Post-scheduling pass: annotate GatherToLDS nodes inside pipelined loops
     that have eliminate_epilogue=True with branchless SRD guard metadata.
 
-    When eliminate_epilogue=True, the loop runs for the full trip count. Stage 0
-    (the prefetch stage) uses iv + (num_stages-1)*step, which goes OOB in the
-    last (num_stages-1) iterations. Instead of wrapping gather_to_lds in an
-    scf.if branch, we annotate each gather_to_lds with a guard condition so
-    that codegen can emit a dynamic validBytes that becomes 0 when OOB:
+    When eliminate_epilogue=True, the loop runs for the full trip count.
+    Stage 0 (the prefetch stage) goes OOB in the last iterations. Instead
+    of wrapping gather_to_lds in an scf.if branch, we annotate each node
+    with a per-copy guard condition so that codegen can emit a dynamic
+    validBytes that becomes 0 when OOB:
 
-        validBytes = select(iv + prefetch_offset < max_iv, real_validBytes, 0)
+        validBytes = select(iv + (num_stages-1) + unroll_iter < max_iv,
+                            real_validBytes, 0)
 
     This makes the hardware DMA a no-op (reads nothing) without any branch.
     """
@@ -847,16 +848,18 @@ def guard_g2s_with_bounds_check(
             continue
 
         num_stages = node.meta["num_pipeline_stages"]
-        step = iterate.step
         max_iv = iterate.count
         induction_variable = get_induction_variable(iterate, constraints)
 
-        prefetch_offset = (num_stages - 1) * step
-        guard_condition = sympy.StrictLessThan(
-            induction_variable + prefetch_offset, max_iv
-        )
+        pipeline_depth = num_stages - 1
 
         for g2s in g2s_nodes:
+            custom = get_custom(g2s)
+            unroll_iter = getattr(custom, "unroll_iteration", 0) or 0
+            prefetch_offset = pipeline_depth + unroll_iter
+            guard_condition = sympy.StrictLessThan(
+                induction_variable + prefetch_offset, max_iv
+            )
             g2s.meta["g2s_guard"] = guard_condition
 
 

@@ -365,6 +365,11 @@ def _valid_bytes_buffer(elem_type: IrType) -> int:
     return ans
 
 
+def _symbolic_total_bytes_expr(elem_type: IrType, symbolic_shape: tuple):
+    """Return a sympy expression for total bytes: prod(shape) * elem_bytes."""
+    return sympy.prod(s for s in symbolic_shape) * _elem_bytes(elem_type)
+
+
 def _compute_total_valid_bytes(
     elem_type: IrType,
     symbolic_shape: tuple,
@@ -378,14 +383,12 @@ def _compute_total_valid_bytes(
     returned by ``_valid_bytes_buffer``.
     """
     if use_real_bounds and symbolic_shape is not None:
-        # Use _elem_bytes to avoid zero total_bytes for sub-byte types (e.g. mxfp4).
-        elem_bytes = _elem_bytes(elem_type)
-        total_elements = subs_idxc(sympy.prod(s for s in symbolic_shape))
+        total_bytes_expr = _symbolic_total_bytes_expr(elem_type, symbolic_shape)
+        total_elements = subs_idxc(total_bytes_expr)
         if isinstance(total_elements, (int, float)) or (
             hasattr(total_elements, "is_number") and total_elements.is_number
         ):
-            total_bytes = int(total_elements) * elem_bytes
-            return min(total_bytes, _valid_bytes_buffer(elem_type))
+            return min(int(total_elements), _valid_bytes_buffer(elem_type))
     return _valid_bytes_buffer(elem_type)
 
 
@@ -416,6 +419,31 @@ def _get_constant_value(candidate: Value):
     return candidate.owner.opview.value.value
 
 
+def _emit_total_valid_bytes(
+    emitter: WaveEmitter,
+    elem_type: IrType,
+    symbolic_shape: tuple,
+    total_bytes: int,
+) -> Value:
+    """Emit an MLIR value for total valid bytes, resolving dynamic shapes at runtime.
+
+    When total_bytes equals the hardware max and symbolic_shape is present,
+    the symbolic shape couldn't be resolved at compile time. In that case,
+    compute the real buffer size at runtime and clamp with minui so it never
+    exceeds the hardware SRD limit.
+    """
+    uint64 = IntegerType.get_signless(64)
+    hw_max = _valid_bytes_buffer(elem_type)
+    if total_bytes == hw_max and symbolic_shape is not None:
+        total_bytes_expr = _symbolic_total_bytes_expr(elem_type, symbolic_shape)
+        subs_map = add_emitter_subs(emitter)
+        real_valid_index = gen_sympy_index(subs_map, total_bytes_expr)
+        val = arith_d.index_cast(uint64, real_valid_index)
+        hw_max_val = arith_d.constant(uint64, get_constant_attr(hw_max, uint64))
+        return arith_d.minui(val, hw_max_val)
+    return arith_d.constant(uint64, get_constant_attr(total_bytes, uint64))
+
+
 def _compute_branchless_valid_bytes(
     emitter: WaveEmitter,
     symbolic_shape: tuple,
@@ -440,7 +468,9 @@ def _compute_branchless_valid_bytes(
         elem_type, symbolic_shape, use_real_bounds=True
     )
 
-    real_valid = arith_d.constant(uint64, get_constant_attr(total_bytes, uint64))
+    real_valid = _emit_total_valid_bytes(
+        emitter, elem_type, symbolic_shape, total_bytes
+    )
     zero_valid = arith_d.constant(uint64, get_constant_attr(0, uint64))
 
     cond_val = gen_sympy_index(add_emitter_subs(emitter), guard_condition)
@@ -470,15 +500,16 @@ def _compute_valid_bytes(
     uint64 = IntegerType.get_signless(64)
 
     if use_real_bounds:
+        total_val = _emit_total_valid_bytes(
+            emitter, elem_type, symbolic_shape, total_bytes
+        )
         metadata = memref_d.extract_strided_metadata(ptr)
         offset_elements = metadata[1]
         offset_bytes = arith_d.index_cast(uint64, offset_elements)
-        # Use _elem_bytes to avoid zero offset_bytes for sub-byte types (e.g. mxfp4).
         elem_bytes_val = arith_d.constant(
             uint64, get_constant_attr(_elem_bytes(elem_type), uint64)
         )
         offset_bytes = arith_d.muli(offset_bytes, elem_bytes_val)
-        total_val = arith_d.constant(uint64, get_constant_attr(total_bytes, uint64))
         return arith_d.subi(total_val, offset_bytes)
 
     return arith_d.constant(uint64, get_constant_attr(total_bytes, uint64))
