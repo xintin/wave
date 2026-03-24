@@ -659,6 +659,47 @@ static LogicalResult legalizeSelect(ArithSelectOp op, OpBuilder &builder) {
   return success();
 }
 
+static LogicalResult legalizeReadFirstLane(ArithReadFirstLaneOp op,
+                                           OpBuilder &builder) {
+  Value src = op.getSrc();
+  Location loc = op.getLoc();
+
+  // Already scalar -- just forward.
+  if (isSGPRType(src.getType())) {
+    op.replaceAllUsesWith(src);
+    op.erase();
+    return success();
+  }
+
+  int64_t width = getRegWidth(src);
+  if (width == 1) {
+    SRegType sregTy = SRegType::get(builder.getContext(), /*size=*/1,
+                                    /*alignment=*/1);
+    Value lane = V_READFIRSTLANE_B32::create(builder, loc, sregTy, src);
+    op.replaceAllUsesWith(lane);
+    op.erase();
+    return success();
+  }
+
+  if (width == 2) {
+    auto [lo, hi] = splitI64(src, builder, loc);
+    SRegType sregTy = SRegType::get(builder.getContext(), /*size=*/1,
+                                    /*alignment=*/1);
+    Value loS = V_READFIRSTLANE_B32::create(builder, loc, sregTy, lo);
+    Value hiS = V_READFIRSTLANE_B32::create(builder, loc, sregTy, hi);
+    SRegType sregPairTy = SRegType::get(builder.getContext(), /*size=*/2,
+                                        /*alignment=*/2);
+    Value packed =
+        PackOp::create(builder, loc, sregPairTy, ValueRange{loS, hiS});
+    op.replaceAllUsesWith(packed);
+    op.erase();
+    return success();
+  }
+
+  return op.emitError("unsupported readfirstlane width (got ")
+         << width << " dwords)";
+}
+
 static LogicalResult legalizeTrunc(ArithTruncOp op, OpBuilder &builder) {
   Value src = op.getSrc();
   int64_t width = getRegWidth(src);
@@ -760,7 +801,8 @@ struct ArithLegalizationPass
     // Post-order walk is safe for in-place erasure of the current op.
     WalkResult walkResult = getOperation()->walk([&](Operation *op) {
       if (!isa<ArithAddOp, ArithMulOp, ArithOrOp, ArithAndOp, ArithCmpOp,
-               ArithSelectOp, ArithTruncOp, ArithSExtOp, ArithZExtOp>(op))
+               ArithSelectOp, ArithReadFirstLaneOp, ArithTruncOp, ArithSExtOp,
+               ArithZExtOp>(op))
         return WalkResult::advance();
 
       OpBuilder builder(op);
@@ -778,6 +820,9 @@ struct ArithLegalizationPass
               })
               .Case([&](ArithCmpOp o) { return legalizeCmp(o, builder); })
               .Case([&](ArithSelectOp o) { return legalizeSelect(o, builder); })
+              .Case([&](ArithReadFirstLaneOp o) {
+                return legalizeReadFirstLane(o, builder);
+              })
               .Case([&](ArithTruncOp o) { return legalizeTrunc(o, builder); })
               .Case([&](ArithSExtOp o) { return legalizeSExt(o, builder); })
               .Case([&](ArithZExtOp o) { return legalizeZExt(o, builder); })

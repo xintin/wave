@@ -448,11 +448,42 @@ static LogicalResult handleMakeBufferRsrc(ROCDL::MakeBufferRsrcOp op,
 
   st.mapBufferRsrc(op.getResult(), *srdVal);
 
-  // Propagate any base offset from bare-pointer GEPs so buffer GEPs
-  // can add it to their voffset.
+  // If bare-pointer GEPs accumulated a byte offset before make.buffer.rsrc,
+  // fold it into the SRD base address (64-bit SALU add to SRD[0:1]).
+  // This keeps voffset starting at 0 from the adjusted base.
   Value baseOff = st.lookupBaseOffset(basePtr);
-  if (baseOff)
-    st.setBaseOffset(op.getResult(), baseOff);
+  if (baseOff && srdOp) {
+    int64_t srdBase = srdOp.getIndex();
+    MLIRContext *mlirCtx = builder.getContext();
+
+    // Make the offset scalar, preserving width (i32 or i64).
+    // ArithReadFirstLaneOp is a no-op if already SGPR and legalizes to
+    // v_readfirstlane_b32 (or a pair for i64) otherwise.
+    int64_t width = getRegSize(baseOff.getType());
+    SRegType scalarTy = ctx.createSRegType(width, width);
+    Value offScalar =
+        ArithReadFirstLaneOp::create(builder, loc, scalarTy, baseOff);
+
+    // Split into lo/hi 32-bit halves for the 64-bit SRD base add.
+    SRegType sregTy = ctx.createSRegType();
+    Value offLo = ArithTruncOp::create(builder, loc, sregTy, offScalar);
+    Value offHi;
+    if (width > 1)
+      offHi = ExtractOp::create(builder, loc, sregTy, offScalar, 1);
+    else
+      offHi = ConstantOp::create(builder, loc, ctx.createImmType(0), 0);
+
+    // Add to SRD base. SRDs are pinned to physical registers, so
+    // the base adjustment uses register-pinned ops (same as the
+    // s_and_b32/s_mov_b32 patches above).
+    PSRegType base0Type = PSRegType::get(mlirCtx, srdBase, 1);
+    PSRegType base1Type = PSRegType::get(mlirCtx, srdBase + 1, 1);
+    Value base0 = PrecoloredSRegOp::create(builder, loc, base0Type, srdBase, 1);
+    Value base1 =
+        PrecoloredSRegOp::create(builder, loc, base1Type, srdBase + 1, 1);
+    S_ADD_U32::create(builder, loc, base0Type, sregTy, base0, offLo);
+    S_ADDC_U32::create(builder, loc, base1Type, sregTy, base1, offHi);
+  }
 
   return success();
 }
@@ -476,12 +507,9 @@ static LogicalResult handleGEP(LLVM::GEPOp op, LLVMTranslationState &st) {
     return op->emitOpError("unmapped GEP index");
   Value newOffset = *resolved;
 
-  // Buffer voffsets are 32-bit. Truncate i64 GEP indices.
-  newOffset = truncToI32(newOffset, idx.getType(), builder, loc, ctx);
-
-  // Bare-pointer GEP (!llvm.ptr, not <7>): pointer arithmetic before
-  // make.buffer.rsrc. Propagate the mapper entry and accumulate
-  // the byte offset so it can be added to voffset at load/store time.
+  // Bare-pointer GEP (!llvm.ptr, not <7>): 64-bit pointer arithmetic before
+  // make.buffer.rsrc. Propagate the mapper entry and accumulate the byte
+  // offset so it can be folded into the SRD base later.
   auto baseTy = op.getBase().getType();
   unsigned addrSpace = 0;
   if (auto ptrTy = dyn_cast<LLVM::LLVMPointerType>(baseTy))
@@ -495,40 +523,39 @@ static LogicalResult handleGEP(LLVM::GEPOp op, LLVMTranslationState &st) {
     if (auto mapped = ctx.getMapper().getMapped(base))
       ctx.getMapper().mapValue(op.getResult(), *mapped);
 
-    // Accumulate base offset.
+    // Accumulate base offset with 64-bit add (pointer arithmetic).
     Value prevOffset = st.lookupBaseOffset(base);
     if (prevOffset) {
-      auto vregTy = ctx.createVRegType();
+      Type resTy = inferResultType({prevOffset, newOffset}, ctx);
       newOffset =
-          V_ADD_U32::create(builder, loc, vregTy, prevOffset, newOffset);
+          ArithAddOp::create(builder, loc, resTy, prevOffset, newOffset);
     }
     st.setBaseOffset(op.getResult(), newOffset);
     return success();
   }
 
+  // Buffer voffsets are 32-bit. Truncate i64 GEP indices.
+  newOffset = truncToI32(newOffset, idx.getType(), builder, loc, ctx);
+
   // Buffer GEP (ptr<7>): decompose into (SRD, voffset).
-  auto srd = st.lookupSRD(base);
+  // Check gepMap first -- covers both chained buffer GEPs and
+  // make.buffer.rsrc entries seeded with a bare-pointer base offset.
+  if (std::optional<BufferPtrInfo> baseGEP = st.lookupGEP(base)) {
+    auto vregTy = ctx.createVRegType();
+    Value sum =
+        V_ADD_U32::create(builder, loc, vregTy, baseGEP->voffset, newOffset);
+    st.mapGEP(op.getResult(), {baseGEP->srd, sum});
+    return success();
+  }
+
+  // First buffer GEP directly on make.buffer.rsrc (no bare-pointer offset).
+  Value srd = st.lookupSRD(base);
   if (srd) {
-    // Check if the make.buffer.rsrc had a base offset from bare-pointer GEPs.
-    Value baseOff = st.lookupBaseOffset(base);
-    if (baseOff) {
-      auto vregTy = ctx.createVRegType();
-      newOffset = V_ADD_U32::create(builder, loc, vregTy, baseOff, newOffset);
-    }
     st.mapGEP(op.getResult(), {srd, newOffset});
     return success();
   }
 
-  std::optional<BufferPtrInfo> baseGEP = st.lookupGEP(base);
-  if (!baseGEP)
-    return op->emitOpError("GEP base is not a tracked buffer resource");
-
-  // Chain: add this offset to the base GEP's offset.
-  auto vregTy = ctx.createVRegType();
-  auto sum =
-      V_ADD_U32::create(builder, loc, vregTy, baseGEP->voffset, newOffset);
-  st.mapGEP(op.getResult(), {baseGEP->srd, sum});
-  return success();
+  return op->emitOpError("GEP base is not a tracked buffer resource");
 }
 
 /// Compute buffer load/store size from the LLVM element type.
