@@ -538,6 +538,72 @@ wave::detail::filterVectorShape(mlir::DictionaryAttr vectorShape,
   return DictionaryAttr::get(vectorShape.getContext(), filtered);
 }
 
+static void initializeIndexExprsWithThreadIndependentConstraints(
+    Operation *op, Type type, wave::IndexExprsLatticeStorage &storage,
+    const wave::IndexExprsAnalysisInit &initObject) {
+  llvm::SmallVector<mlir::NamedAttribute> symbolMappings;
+  if (failed(wave::detail::buildThreadIndependentIndexMappings(
+          op, type, initObject, symbolMappings)))
+    return;
+
+  auto tensorType = cast<wave::WaveTensorType>(type);
+  storage.unsafeSet(wave::IndexExprsLatticeStorage(
+      DictionaryAttr::get(op->getContext(), symbolMappings),
+      wave::IndexExprsLatticeStorage::kLowestPriority,
+      wave::detail::filterVectorShape(
+          initObject.hardwareConstraint.getVectorShapes(),
+          tensorType.getShape())));
+}
+
+LogicalResult wave::detail::defaultInitializeIndexExprsForward(
+    WaveInferIndexExprsOpInterface iface,
+    llvm::MutableArrayRef<wave::IndexExprsLatticeStorage> resultExprs,
+    const wave::IndexExprsAnalysisInit &initObject,
+    wave::EmitErrorFn emitError) {
+  SmallVector<Value> indexedValues;
+  iface.getIndexExprValuesAndDescriptions(indexedValues);
+  for (Value value : indexedValues) {
+    auto opResult = dyn_cast<OpResult>(value);
+    if (!opResult || opResult.getOwner() != iface.getOperation())
+      continue;
+
+    initializeIndexExprsWithThreadIndependentConstraints(
+        iface, opResult.getType(), resultExprs[opResult.getResultNumber()],
+        initObject);
+  }
+  return success();
+}
+
+LogicalResult wave::detail::defaultInitializeIndexExprsBackward(
+    WaveInferIndexExprsOpInterface iface,
+    llvm::MutableArrayRef<wave::IndexExprsLatticeStorage> operandExprs,
+    const wave::IndexExprsAnalysisInit &initObject, wave::EmitErrorFn emitError,
+    wave::EmitDelayedErrorFn &delayedErrorEmitter) {
+  SmallVector<Value> indexedValues;
+  iface.getIndexExprValuesAndDescriptions(indexedValues);
+  for (Value value : indexedValues) {
+    auto opResult = dyn_cast<OpResult>(value);
+    if (opResult && opResult.getOwner() == iface.getOperation())
+      continue;
+
+    // A value may be used repeatedly as operand, make sure to update all
+    // corresponding operand expression even though they go to the same lattice
+    // after all.
+    [[maybe_unused]] bool updated = false;
+    for (unsigned i = 0, e = operandExprs.size(); i < e; ++i) {
+      if (iface->getOperand(i) != value)
+        continue;
+
+      initializeIndexExprsWithThreadIndependentConstraints(
+          iface, iface->getOperand(i).getType(), operandExprs[i], initObject);
+      updated = true;
+    }
+    assert(updated && "value declared in getIndexExprValuesAndDescriptions is "
+                      "neither op operand nor result");
+  }
+  return success();
+}
+
 //-----------------------------------------------------------------------------
 // WaveElementsPerThreadOpInterface helpers
 //-----------------------------------------------------------------------------
@@ -872,17 +938,30 @@ llvm::LogicalResult wave::detail::verifyCompatibleOperandsAndResultsOpTrait(
 //-----------------------------------------------------------------------------
 
 wave::IndexExprsLatticeStorage::IndexExprsLatticeStorage()
-    : value(nullptr, kUninitializedState), priority(kLowestPriority),
-      vectorShape(nullptr) {}
+    : value(nullptr, kUninitializedState), vectorShape(nullptr) {}
 
 wave::IndexExprsLatticeStorage::IndexExprsLatticeStorage(
     DictionaryAttr concreteValue, int32_t priority, DictionaryAttr vectorShape)
-    : value(concreteValue, kSpecificTypeState), priority(priority),
+    : value(concreteValue, kSpecificTypeState), vectorShape(vectorShape) {
+  MLIRContext *ctx = concreteValue.getContext();
+  IntegerType i32 = IntegerType::get(ctx, 32);
+  IntegerAttr priAttr = IntegerAttr::get(i32, priority);
+  SmallVector<NamedAttribute> entries;
+  entries.reserve(concreteValue.size());
+  for (NamedAttribute attr : concreteValue)
+    entries.emplace_back(attr.getName(), priAttr);
+  priorities = DictionaryAttr::get(ctx, entries);
+}
+
+wave::IndexExprsLatticeStorage::IndexExprsLatticeStorage(
+    DictionaryAttr concreteValue, DictionaryAttr priorities,
+    DictionaryAttr vectorShape)
+    : value(concreteValue, kSpecificTypeState), priorities(priorities),
       vectorShape(vectorShape) {}
 
 bool wave::IndexExprsLatticeStorage::operator==(
     const IndexExprsLatticeStorage &other) const {
-  return value == other.value && priority == other.priority &&
+  return value == other.value && priorities == other.priorities &&
          vectorShape == other.vectorShape;
 }
 
@@ -909,6 +988,17 @@ DictionaryAttr wave::IndexExprsLatticeStorage::getVectorShape() const {
   if (value.getInt() != kSpecificTypeState)
     return nullptr;
   return vectorShape;
+}
+
+int32_t
+wave::IndexExprsLatticeStorage::getPriorityForKey(StringAttr key) const {
+  assert(getConcreteValue() && "no priority for lattice top/bottom");
+  if (!priorities)
+    return kLowestPriority;
+  Attribute val = priorities.get(key);
+  if (!val)
+    return kLowestPriority;
+  return llvm::cast<IntegerAttr>(val).getInt();
 }
 
 wave::IndexExprsLatticeStorage wave::IndexExprsLatticeStorage::top() {
@@ -1297,20 +1387,13 @@ getIndexExprsJoinMappings(wave::WaveIndexMappingAttr lhs,
       lhs.getContext(), allSymbols, *joinedStart, *joinedStep, *joinedStride);
 }
 
-// Returns a vector shape with the higher priority. If priorities are equal,
-// returns a vector shape with (a) unique entries from LHS and RHS and (b)
-// entries that are equal between LHS and RHS. If there are entries with the
-// same symbol and different values, returns nullptr indicating the failure to
-// join (reaching top).
+// Returns a joined vector shape using per-key priorities. For each key, the
+// higher-priority entry wins. If priorities are equal and values differ,
+// returns nullptr indicating the failure to join (reaching top).
 static DictionaryAttr getJoinedVectorShape(DictionaryAttr lhs,
                                            DictionaryAttr rhs,
-                                           int32_t lhsPriority,
-                                           int32_t rhsPriority) {
-  if (lhsPriority > rhsPriority)
-    return lhs;
-  if (rhsPriority > lhsPriority)
-    return rhs;
-
+                                           DictionaryAttr lhsPriorities,
+                                           DictionaryAttr rhsPriorities) {
   if (!lhs)
     return rhs;
   if (!rhs)
@@ -1319,24 +1402,42 @@ static DictionaryAttr getJoinedVectorShape(DictionaryAttr lhs,
   if (lhs == rhs)
     return lhs;
 
-  // Join vector shapes, if values for a symbol are present on both LHS and RHS,
-  // they must be equal.
+  auto getPriority = [](DictionaryAttr map, StringAttr key) -> int32_t {
+    if (!map)
+      return wave::IndexExprsLatticeStorage::kLowestPriority;
+    Attribute val = map.get(key);
+    if (!val)
+      return wave::IndexExprsLatticeStorage::kLowestPriority;
+    return llvm::cast<IntegerAttr>(val).getInt();
+  };
+
   SmallVector<NamedAttribute> joinedVectorShapeEntries;
   joinedVectorShapeEntries.reserve(lhs.size() + rhs.size());
+
+  llvm::DenseSet<StringAttr> visited;
   for (const NamedAttribute &attr : lhs) {
-    joinedVectorShapeEntries.push_back(attr);
+    visited.insert(attr.getName());
+    Attribute rhsValue = rhs.get(attr.getName());
+    if (!rhsValue) {
+      joinedVectorShapeEntries.push_back(attr);
+      continue;
+    }
+    int32_t lhsPriority = getPriority(lhsPriorities, attr.getName());
+    int32_t rhsPriority = getPriority(rhsPriorities, attr.getName());
+    if (lhsPriority > rhsPriority) {
+      joinedVectorShapeEntries.push_back(attr);
+    } else if (rhsPriority > lhsPriority) {
+      joinedVectorShapeEntries.emplace_back(attr.getName(), rhsValue);
+    } else {
+      if (attr.getValue() != rhsValue)
+        return nullptr;
+      joinedVectorShapeEntries.push_back(attr);
+    }
   }
 
   for (const NamedAttribute &attr : rhs) {
-    if (lhs) {
-      Attribute lhsValue = lhs.get(attr.getName());
-      if (lhsValue) {
-        if (lhsValue != attr.getValue())
-          return nullptr;
-        continue;
-      }
-    }
-    joinedVectorShapeEntries.push_back(attr);
+    if (!visited.contains(attr.getName()))
+      joinedVectorShapeEntries.push_back(attr);
   }
 
   return DictionaryAttr::get(lhs.getContext(), joinedVectorShapeEntries);
@@ -1354,7 +1455,7 @@ FailureOr<DictionaryAttr> wave::IndexExprsLatticeStorage::getJoinedVectorShape(
     return lhs.getVectorShape();
   if (DictionaryAttr result =
           ::getJoinedVectorShape(lhs.getVectorShape(), rhs.getVectorShape(),
-                                 lhs.getPriority(), rhs.getPriority()))
+                                 lhs.getPriorities(), rhs.getPriorities()))
     return result;
   return failure();
 }
@@ -1376,42 +1477,58 @@ wave::IndexExprsLatticeStorage::join(const IndexExprsLatticeStorage &lhs,
     return lhs;
 
   MLIRContext *ctx = lhs.getConcreteValue().getContext();
-  DictionaryAttr lhsValue = lhs.getConcreteValue();
-  DictionaryAttr rhsValue = rhs.getConcreteValue();
+  DictionaryAttr lhsDict = lhs.getConcreteValue();
+  DictionaryAttr rhsDict = rhs.getConcreteValue();
 
-  // Join specific values per symbol.
+  // Join specific values per symbol using per-key priorities.
+  IntegerType i32 = IntegerType::get(ctx, 32);
   llvm::DenseMap<StringAttr, Attribute> result;
-  for (NamedAttribute namedAttr : lhsValue) {
+  llvm::DenseMap<StringAttr, int32_t> resultPriorities;
+  for (NamedAttribute namedAttr : lhsDict) {
     result[namedAttr.getName()] = namedAttr.getValue();
+    resultPriorities[namedAttr.getName()] =
+        lhs.getPriorityForKey(namedAttr.getName());
   }
-  for (NamedAttribute namedAttr : rhsValue) {
-    // If the mapping for the symbol doesn't exist in the result yet, just take
-    // it from the RHS.
-    auto [it, inserted] =
-        result.try_emplace(namedAttr.getName(), namedAttr.getValue());
-    if (inserted)
+  for (NamedAttribute namedAttr : rhsDict) {
+    StringAttr key = namedAttr.getName();
+    int32_t rhsPriority = rhs.getPriorityForKey(key);
+
+    auto [it, inserted] = result.try_emplace(key, namedAttr.getValue());
+    if (inserted) {
+      resultPriorities[key] = rhsPriority;
       continue;
+    }
+
+    int32_t lhsPriority = lhs.getPriorityForKey(key);
 
     // The symbol has a mapping on both LHS and RHS, join them.
-    auto lhsValue = llvm::cast<wave::WaveIndexMappingAttr>(it->getSecond());
-    auto rhsValue =
+    auto lhsMapping = llvm::cast<wave::WaveIndexMappingAttr>(it->getSecond());
+    auto rhsMapping =
         llvm::cast<wave::WaveIndexMappingAttr>(namedAttr.getValue());
-    if (lhsValue == rhsValue)
+    if (lhsMapping == rhsMapping) {
+      resultPriorities[key] = std::max(lhsPriority, rhsPriority);
       continue;
+    }
 
     wave::WaveIndexMappingAttr joinedMapping = getIndexExprsJoinMappings(
-        lhsValue, rhsValue, lhs.getPriority(), rhs.getPriority());
+        lhsMapping, rhsMapping, lhsPriority, rhsPriority);
     if (!joinedMapping)
       return IndexExprsLatticeStorage::top();
 
-    result[namedAttr.getName()] = joinedMapping;
+    result[key] = joinedMapping;
+    resultPriorities[key] = std::max(lhsPriority, rhsPriority);
   }
 
   DictionaryAttr joinedVectorShape =
       ::getJoinedVectorShape(lhs.getVectorShape(), rhs.getVectorShape(),
-                             lhs.getPriority(), rhs.getPriority());
+                             lhs.getPriorities(), rhs.getPriorities());
   if (!joinedVectorShape && (lhs.getVectorShape() || rhs.getVectorShape()))
     return IndexExprsLatticeStorage::top();
+
+  SmallVector<NamedAttribute> priEntries;
+  priEntries.reserve(resultPriorities.size());
+  for (auto &[key, pri] : resultPriorities)
+    priEntries.emplace_back(key, IntegerAttr::get(i32, pri));
 
   return IndexExprsLatticeStorage(
       DictionaryAttr::get(ctx, llvm::map_to_vector(result,
@@ -1420,7 +1537,7 @@ wave::IndexExprsLatticeStorage::join(const IndexExprsLatticeStorage &lhs,
                                                          pair.first,
                                                          pair.second);
                                                    })),
-      std::max(lhs.getPriority(), rhs.getPriority()), joinedVectorShape);
+      DictionaryAttr::get(ctx, priEntries), joinedVectorShape);
 }
 
 wave::IndexExprsLatticeStorage
@@ -1453,9 +1570,18 @@ wave::IndexExprsLatticeStorage wave::IndexExprsLatticeStorage::keepOnlySymbols(
   if (filtered.empty())
     return bottom();
 
-  return IndexExprsLatticeStorage(
-      DictionaryAttr::get(getConcreteValue().getContext(), filtered),
-      getPriority(), filteredVectorShape);
+  MLIRContext *ctx = getConcreteValue().getContext();
+  IntegerType i32 = IntegerType::get(ctx, 32);
+  SmallVector<NamedAttribute> filteredPriorities;
+  filteredPriorities.reserve(filtered.size());
+  for (const NamedAttribute &attr : filtered)
+    filteredPriorities.emplace_back(
+        attr.getName(),
+        IntegerAttr::get(i32, getPriorityForKey(attr.getName())));
+
+  return IndexExprsLatticeStorage(DictionaryAttr::get(ctx, filtered),
+                                  DictionaryAttr::get(ctx, filteredPriorities),
+                                  filteredVectorShape);
 }
 
 wave::IndexExprsLatticeStorage
@@ -1476,7 +1602,7 @@ wave::IndexExprsLatticeStorage::withoutIterSymbols(
         return NamedAttribute(attr.getName(), value);
       });
   return IndexExprsLatticeStorage(DictionaryAttr::get(ctx, updated),
-                                  getPriority(), getVectorShape());
+                                  getPriorities(), getVectorShape());
 }
 
 void wave::IndexExprsLatticeStorage::print(llvm::raw_ostream &os) const {
@@ -1485,7 +1611,16 @@ void wave::IndexExprsLatticeStorage::print(llvm::raw_ostream &os) const {
   } else if (isTop()) {
     os << "<top>";
   } else {
-    os << "[pri: " << getPriority() << "] " << getConcreteValue();
+    os << "[pri: {";
+    bool first = true;
+    for (NamedAttribute attr : getConcreteValue()) {
+      if (!first)
+        os << ", ";
+      first = false;
+      os << attr.getName().getValue() << "="
+         << getPriorityForKey(attr.getName());
+    }
+    os << "}] " << getConcreteValue();
     if (DictionaryAttr shape = getVectorShape())
       os << " vectorShape: " << shape;
   }

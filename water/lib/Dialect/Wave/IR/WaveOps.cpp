@@ -982,7 +982,7 @@ static void mixInThreadIndependentConstraints(
     Operation *where, uint64_t threadsPerWave, RangeT &&indexingSymbols,
     const llvm::DenseMap<wave::WaveSymbolAttr, llvm::SmallVector<Attribute>>
         &symbolConstraints,
-    llvm::SmallVector<NamedAttribute> &symbolMappings) {
+    llvm::SmallVectorImpl<NamedAttribute> &symbolMappings) {
 
   static_assert(
       std::is_same_v<std::decay_t<decltype(*std::declval<RangeT>().begin())>,
@@ -1108,6 +1108,20 @@ joinIndexExprsLatticeInPlace(wave::IndexExprsLatticeStorage &lattice,
 #endif
 
   lattice.unsafeSet(joined);
+  return success();
+}
+
+LogicalResult wave::detail::buildThreadIndependentIndexMappings(
+    Operation *op, Type type, const wave::IndexExprsAnalysisInit &initObject,
+    llvm::SmallVectorImpl<mlir::NamedAttribute> &symbolMappings) {
+  auto tensorType = dyn_cast<wave::WaveTensorType>(type);
+  if (!tensorType)
+    return failure();
+
+  ArrayRef<wave::WaveSymbolAttr> indexingSymbols = tensorType.getShape();
+  mixInThreadIndependentConstraints(
+      op, initObject.hardwareConstraint.getThreadsPerWave(), indexingSymbols,
+      initObject.symbolConstraints, symbolMappings);
   return success();
 }
 
@@ -2442,11 +2456,29 @@ llvm::FailureOr<ChangeResult> wave::WriteOp::propagateIndexExprsBackward(
   // conflict in this case, don't propagate. This is a questionable design
   // carried over from the initial Python prototype.
   auto forceMmaPriority = [](const IndexExprsLatticeStorage &lattice) {
-    if (lattice.isBottom() || lattice.isTop() ||
-        lattice.getPriority() < IndexExprsLatticeStorage::kMmaPriority)
+    if (lattice.isBottom() || lattice.isTop())
       return lattice;
+    DictionaryAttr priorityDict = lattice.getPriorities();
+    bool needsCapping =
+        priorityDict && llvm::any_of(priorityDict, [](NamedAttribute na) {
+          return llvm::cast<IntegerAttr>(na.getValue()).getInt() >
+                 IndexExprsLatticeStorage::kMmaPriority;
+        });
+    if (!needsCapping)
+      return lattice;
+    MLIRContext *ctx = priorityDict.getContext();
+    IntegerType i32 = IntegerType::get(ctx, 32);
+    SmallVector<NamedAttribute> capped;
+    capped.reserve(priorityDict.size());
+    for (NamedAttribute na : priorityDict) {
+      int32_t priority = llvm::cast<IntegerAttr>(na.getValue()).getInt();
+      capped.emplace_back(
+          na.getName(),
+          IntegerAttr::get(
+              i32, std::min(priority, IndexExprsLatticeStorage::kMmaPriority)));
+    }
     return IndexExprsLatticeStorage(lattice.getConcreteValue(),
-                                    IndexExprsLatticeStorage::kMmaPriority,
+                                    DictionaryAttr::get(ctx, capped),
                                     lattice.getVectorShape());
   };
   IndexExprsLatticeStorage lhs = forceMmaPriority(operandExprs[0]);
@@ -2972,7 +3004,7 @@ permuteIndexExprsStrides(const IndexExprsLatticeStorage &inputLattice,
   }
 
   return IndexExprsLatticeStorage(DictionaryAttr::get(ctx, permutedMappings),
-                                  inputLattice.getPriority(),
+                                  inputLattice.getPriorities(),
                                   inputLattice.getVectorShape());
 }
 

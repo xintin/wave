@@ -1414,14 +1414,14 @@ public:
 
     if (overrideInitialization) {
       if (llvm::failed(overrideInitialization(
-              top, [&](Value value, DictionaryAttr dict, int32_t priority,
-                       DictionaryAttr vecShape) {
+              top, [&](Value value, DictionaryAttr dict,
+                       DictionaryAttr priorities, DictionaryAttr vecShape) {
                 if (!dict)
                   return unsafeSet(getLatticeElement(value),
                                    IndexExprsLatticeStorage::top());
                 unsafeSet(
                     getLatticeElement(value),
-                    wave::IndexExprsLatticeStorage(dict, priority, vecShape));
+                    wave::IndexExprsLatticeStorage(dict, priorities, vecShape));
               })))
         return llvm::failure();
     }
@@ -1721,14 +1721,14 @@ public:
 
     if (overrideInitialization) {
       if (llvm::failed(overrideInitialization(
-              top, [&](Value value, DictionaryAttr dict, int32_t priority,
-                       DictionaryAttr vecShape) {
+              top, [&](Value value, DictionaryAttr dict,
+                       DictionaryAttr priorities, DictionaryAttr vecShape) {
                 if (!dict)
                   return unsafeSet(getLatticeElement(value),
                                    IndexExprsLatticeStorage::top());
                 unsafeSet(
                     getLatticeElement(value),
-                    wave::IndexExprsLatticeStorage(dict, priority, vecShape));
+                    wave::IndexExprsLatticeStorage(dict, priorities, vecShape));
               })))
         return llvm::failure();
     }

@@ -38,7 +38,7 @@ overrideInitialization(Operation *top,
         continue;
       if (auto strAttr = llvm::dyn_cast<StringAttr>(attr);
           strAttr && strAttr.getValue() == "<top>") {
-        setIndexForValue(value, nullptr, 0, nullptr);
+        setIndexForValue(value, nullptr, DictionaryAttr(), nullptr);
         continue;
       }
 
@@ -48,31 +48,73 @@ overrideInitialization(Operation *top,
       // 2. ArrayAttr [priority, indexExprs] - priority (IntegerAttr) and dict
       // 3. ArrayAttr [indexExprs, vectorShape] - dict and optional vectorShape
       // 4. ArrayAttr [priority, indexExprs, vectorShape] - all three
+      // 5. ArrayAttr [priorityDict, indexExprs] - per-key priorities (dict of
+      //    IntegerAttr) and dict
+      // 6. ArrayAttr [priorityDict, indexExprs, vectorShape] - per-key
+      //    priorities, dict, and vectorShape
       DictionaryAttr indexExprs = nullptr;
-      int32_t priority = wave::IndexExprsLatticeStorage::kLowestPriority;
+      DictionaryAttr prioritiesDict = nullptr;
+      bool hasPriorities = false;
       DictionaryAttr vectorShape = nullptr;
+      MLIRContext *ctx = op->getContext();
+
+      auto setUniformPriority = [&](int32_t priority) {
+        hasPriorities = true;
+        if (indexExprs) {
+          IntegerType i32 = IntegerType::get(ctx, 32);
+          IntegerAttr priAttr = IntegerAttr::get(i32, priority);
+          SmallVector<NamedAttribute> entries;
+          entries.reserve(indexExprs.size());
+          for (NamedAttribute na : indexExprs)
+            entries.emplace_back(na.getName(), priAttr);
+          prioritiesDict = DictionaryAttr::get(ctx, entries);
+        }
+      };
+
+      auto setPerKeyPriorities = [&](DictionaryAttr priDict) {
+        hasPriorities = true;
+        prioritiesDict = priDict;
+      };
 
       if (auto arrayAttr = llvm::dyn_cast<ArrayAttr>(attr)) {
         if (arrayAttr.size() == 2) {
           if (auto firstInt = llvm::dyn_cast<IntegerAttr>(arrayAttr[0])) {
             // [priority, dict]
-            priority = firstInt.getInt();
             indexExprs = llvm::dyn_cast<DictionaryAttr>(arrayAttr[1]);
-          } else {
-            // [dict, vectorShape]
-            indexExprs = llvm::dyn_cast<DictionaryAttr>(arrayAttr[0]);
-            if (!llvm::isa<UnitAttr>(arrayAttr[1])) {
-              vectorShape = llvm::dyn_cast<DictionaryAttr>(arrayAttr[1]);
+            setUniformPriority(firstInt.getInt());
+          } else if (auto firstDict =
+                         llvm::dyn_cast<DictionaryAttr>(arrayAttr[0])) {
+            auto secondDict = llvm::dyn_cast<DictionaryAttr>(arrayAttr[1]);
+            // Distinguish [priDict, indexExprs] from [indexExprs, vecShape]:
+            // if first dict has IntegerAttr values, it's per-key priorities.
+            if (secondDict && !firstDict.empty() &&
+                llvm::all_of(firstDict, [](NamedAttribute na) {
+                  return llvm::isa<IntegerAttr>(na.getValue());
+                })) {
+              indexExprs = secondDict;
+              setPerKeyPriorities(firstDict);
+            } else {
+              // [dict, vectorShape]
+              indexExprs = firstDict;
+              if (!llvm::isa<UnitAttr>(arrayAttr[1]))
+                vectorShape = secondDict;
               if (!vectorShape)
                 return op->emitError()
                        << "expected vector shape to be a DictionaryAttr";
             }
           }
         } else if (arrayAttr.size() == 3) {
-          // [priority, dict, vectorShape]
           if (auto firstInt = llvm::dyn_cast<IntegerAttr>(arrayAttr[0])) {
-            priority = firstInt.getInt();
+            // [priority, dict, vectorShape]
             indexExprs = llvm::dyn_cast<DictionaryAttr>(arrayAttr[1]);
+            setUniformPriority(firstInt.getInt());
+            if (!llvm::isa<UnitAttr>(arrayAttr[2]))
+              vectorShape = llvm::dyn_cast<DictionaryAttr>(arrayAttr[2]);
+          } else if (auto firstDict =
+                         llvm::dyn_cast<DictionaryAttr>(arrayAttr[0])) {
+            // [priDict, dict, vectorShape]
+            indexExprs = llvm::dyn_cast<DictionaryAttr>(arrayAttr[1]);
+            setPerKeyPriorities(firstDict);
             if (!llvm::isa<UnitAttr>(arrayAttr[2]))
               vectorShape = llvm::dyn_cast<DictionaryAttr>(arrayAttr[2]);
           }
@@ -92,7 +134,10 @@ overrideInitialization(Operation *top,
                   "a DictionaryAttr whose values are WaveIndexMappingAttr";
       }
 
-      setIndexForValue(value, indexExprs, priority, vectorShape);
+      if (!hasPriorities)
+        setUniformPriority(wave::IndexExprsLatticeStorage::kLowestPriority);
+
+      setIndexForValue(value, indexExprs, prioritiesDict, vectorShape);
     }
     return success();
   };

@@ -628,6 +628,9 @@ public:
   IndexExprsLatticeStorage(const IndexExprsLatticeStorage &value) = default;
   IndexExprsLatticeStorage(mlir::DictionaryAttr concreteValue, int32_t priority,
                            mlir::DictionaryAttr vectorShape);
+  IndexExprsLatticeStorage(mlir::DictionaryAttr concreteValue,
+                           mlir::DictionaryAttr priorities,
+                           mlir::DictionaryAttr vectorShape);
 
   IndexExprsLatticeStorage &
   operator=(const IndexExprsLatticeStorage &other) = default;
@@ -645,11 +648,14 @@ public:
   // specified or not, or null if the lattice instance is a top or a bottom.
   mlir::DictionaryAttr getConcreteValue() const;
 
-  // Return the priority of this lattice instance containing a concrete value,
-  // assert otherwise.
-  int32_t getPriority() const {
-    assert(getConcreteValue() && "no priority for lattice top/bottom");
-    return priority;
+  // Return the priority for a specific key, defaulting to kLowestPriority.
+  int32_t getPriorityForKey(mlir::StringAttr key) const;
+
+  // Return the per-key priorities as a DictionaryAttr mapping StringAttr keys
+  // to IntegerAttr values. Asserts on non-concrete values.
+  mlir::DictionaryAttr getPriorities() const {
+    assert(getConcreteValue() && "no priorities for lattice top/bottom");
+    return priorities;
   }
 
   // Returns the vector shape stored in the lattice instance, or null if the
@@ -706,9 +712,12 @@ private:
   // symbol indexing the value or one of the top/bottom flags.
   llvm::PointerIntPair<mlir::Attribute, 2> value;
 
-  // Priority of this value. Specific values with higher priority override
-  // values with lower priority in joins.
-  int32_t priority;
+  // Per-key priorities as a DictionaryAttr mapping symbol names to IntegerAttr
+  // priority values. Each symbol in the dictionary has its own priority.
+  // Higher-priority entries override lower-priority entries in joins; entries
+  // with equal priorities are structurally merged. Using DictionaryAttr avoids
+  // per-instance heap allocation since attrs are interned.
+  mlir::DictionaryAttr priorities;
 
   // The vector shape associated with this lattice value. This is a dictionary
   // mapping symbol names to vector dimension sizes. Two concrete lattice values
@@ -743,11 +752,36 @@ identityIndexExprsPropagate(llvm::ArrayRef<IndexExprsLatticeStorage> from,
                             llvm::StringRef toName,
                             wave::EmitErrorFn emitError);
 
+// Build thread-independent index mapping for a single tensor type and append to
+// symbolMappings. Used by identity and reduction index expr initialization.
+// Defined in WaveOps.cpp to use mixInThreadIndependentConstraints function
+// template that needs access to specific ops, which we don't want in
+// interfaces.
+// TODO: move all the index expr logic to one file and avoid this spreadout.
+llvm::LogicalResult buildThreadIndependentIndexMappings(
+    mlir::Operation *op, mlir::Type type,
+    const IndexExprsAnalysisInit &initObject,
+    llvm::SmallVectorImpl<mlir::NamedAttribute> &symbolMappings);
+
 // Create a new vector shape dictionary attribute with only the provided symbols
 // present.
 mlir::DictionaryAttr
 filterVectorShape(mlir::DictionaryAttr vectorShape,
                   llvm::ArrayRef<wave::WaveSymbolAttr> symbols);
+
+// Default implementation for interface: initialize index expressions with
+// thread-independent constraints for all values returned by
+// getIndexExprValuesAndDescriptions. Forward analysis initializes results,
+// backward analysis initializes operands.
+llvm::LogicalResult defaultInitializeIndexExprsForward(
+    wave::WaveInferIndexExprsOpInterface iface,
+    llvm::MutableArrayRef<IndexExprsLatticeStorage> resultExprs,
+    const IndexExprsAnalysisInit &initObject, wave::EmitErrorFn emitError);
+llvm::LogicalResult defaultInitializeIndexExprsBackward(
+    wave::WaveInferIndexExprsOpInterface iface,
+    llvm::MutableArrayRef<IndexExprsLatticeStorage> operandExprs,
+    const IndexExprsAnalysisInit &initObject, wave::EmitErrorFn emitError,
+    wave::EmitDelayedErrorFn &delayedErrorEmitter);
 
 // Check the index expressions is a concrete value rather lattice top/bottom and
 // append it to the indexExprs list. If it is lattice top/bottom, report an
