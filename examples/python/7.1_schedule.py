@@ -11,6 +11,7 @@ Usage:
     python 7.1_schedule.py --list_tests
 """
 
+import os
 import torch
 import wave_lang.kernel.lang as tkl
 
@@ -60,7 +61,13 @@ def _run_mxfp_gemm(gemm, shape):
 
 
 def _run_mxfp_gemm_preshuffle(
-    gemm, shape, all=False, only_scale=False, only_b=False, output_dtype=torch.float32
+    gemm,
+    shape,
+    all=False,
+    only_scale=False,
+    only_b=False,
+    output_dtype=torch.float32,
+    transpose_output=False,
 ):
     """Run compiled GEMM kernel with preshuffled B and B_scale, verify against reference.
 
@@ -68,30 +75,82 @@ def _run_mxfp_gemm_preshuffle(
       all        - shuffle a_scale (x_scales), b_scale (w_scales), and b (w_t)
       only_scale - shuffle a_scale (x_scales) and b_scale (w_scales) only
       only_b     - shuffle b_scale (w_scales) only
+
+    When transpose_output is True, the kernel writes C^T [N, M] instead of C [M, N].
     """
     x, w, x_scales, w_scales = generate_gemm_afp4wfp4_inputs(shape)
     torch_out = torchScaledGemmMXFP4(x, w, x_scales, w_scales)
 
     w_t = w.T.contiguous()
 
-    # Apply b (w_t) preshuffle only when all=True
     w_t_ps = b_preshuffle(w_t) if all else w_t
 
-    # Apply a_scale shuffle when all=True or only_scale=True
     x_scales_ps = e8m0_shuffle(x_scales) if (all or only_scale) else x_scales
 
-    # Apply b_scale shuffle when all=True, only_scale=True, or only_b=True
     w_scales_ps = e8m0_shuffle(w_scales) if (all or only_scale or only_b) else w_scales
 
     x, w_t_ps = x.cuda(), w_t_ps.cuda()
     x_scales_ps, w_scales_ps = x_scales_ps.cuda(), w_scales_ps.cuda()
-    out = torch.zeros(x.shape[0], w_t_ps.shape[0], dtype=output_dtype).cuda()
+    if transpose_output:
+        out = torch.zeros(w_t_ps.shape[0], x.shape[0], dtype=output_dtype).cuda()
+    else:
+        out = torch.zeros(x.shape[0], w_t_ps.shape[0], dtype=output_dtype).cuda()
 
     gemm(x, x_scales_ps, w_t_ps, w_scales_ps, out)
 
-    torch.testing.assert_close(
-        torch_out, out.cpu(), check_dtype=False, check_device=False
-    )
+    result = out.T.contiguous().cpu() if transpose_output else out.cpu()
+
+    if os.environ.get("WAVE_DEBUG_COMPARE"):
+        ref = torch_out.to(torch.float32).cpu()
+        got = result.to(torch.float32).cpu()
+        mismatch = ~torch.isclose(ref, got, atol=1e-1, rtol=0.1)
+        M, N = ref.shape
+        wrong_idx = torch.nonzero(mismatch)
+        if wrong_idx.numel() > 0:
+            print(f"  Mismatch count: {mismatch.sum().item()} / {mismatch.numel()}")
+            m_wrong = wrong_idx[:, 0]
+            m_mod8 = m_wrong % 8
+            print(
+                f"  Mismatch M%8 distribution: {torch.bincount(m_mod8, minlength=8).tolist()}"
+            )
+            # Check if got values at wrong M match ref at shifted M
+            print("  === Shift analysis (checking if got[m,n] == ref[m+shift,n]) ===")
+            for shift in [-4, -3, -2, -1, 1, 2, 3, 4]:
+                match_count = 0
+                total = 0
+                for i in range(min(1000, wrong_idx.shape[0])):
+                    mi, ni = wrong_idx[i].tolist()
+                    ms = mi + shift
+                    if 0 <= ms < M:
+                        total += 1
+                        if torch.isclose(
+                            got[mi, ni : ni + 1],
+                            ref[ms, ni : ni + 1],
+                            atol=1e-1,
+                            rtol=0.1,
+                        ).item():
+                            match_count += 1
+                if total > 0:
+                    print(
+                        f"    shift={shift:+d}: {match_count}/{total} ({100*match_count/total:.0f}%)"
+                    )
+            # Print samples with neighboring values
+            print("  === Sample values (M=0..7 at N=0) ===")
+            for m in range(min(8, M)):
+                r = ref[m, 0].item()
+                g = got[m, 0].item()
+                ok = (
+                    "OK"
+                    if torch.isclose(
+                        ref[m, 0:1], got[m, 0:1], atol=1e-1, rtol=0.1
+                    ).item()
+                    else "WRONG"
+                )
+                print(f"    M={m} ref={r:.4f} got={g:.4f} {ok}")
+        else:
+            print("  No mismatches (within tolerance)")
+
+    torch.testing.assert_close(torch_out, result, check_dtype=False, check_device=False)
 
 
 def _get_8wave_shape_from_block(block):
@@ -375,7 +434,9 @@ def test_dbuf_4wave_mxfp_preshuffle_b_gemm_cpp(
     eliminate_epilogue=True,
 ):
     """Preshuffle-B MXFP4 GEMM using C++ WaveASM backend."""
-    gemm, options = get_tagged_mxfp4_gemm_preshuffle_b(shape, block, wave_shape=(2, 2), reorder_workgroups=True)
+    gemm, options = get_tagged_mxfp4_gemm_preshuffle_b(
+        shape, block, wave_shape=(2, 2), reorder_workgroups=True
+    )
     options.backend = "asm"
     options.use_buffer_ops = True
     options.wave_runtime = True
@@ -394,14 +455,22 @@ def test_dbuf_4wave_mxfp_preshuffle_b_gemm_cpp(
         f"MXFP GEMM preshuffle-B 4-wave (WaveASM) epilogue elimination={eliminate_epilogue} PASSED"
     )
 
+
 def test_dbuf_4wave_mxfp_dynamic_preshuffle_b_gemm(
     is_debug=False,
-    shape=(1024, 1024, 8192),
-    block=(128, 256, 256),
+    shape=(1024, 6144, 8192),
+    block=(256, 192, 256),
     eliminate_epilogue=True,
 ):
     """Preshuffle-B MXFP4 GEMM with dynamic M, N, K."""
-    gemm, options = get_tagged_mxfp4_gemm_preshuffle_b(shape, block, wave_shape=(1, 4))
+    gemm, options = get_tagged_mxfp4_gemm_preshuffle_b(
+        shape,
+        block,
+        wave_shape=(1, 4),
+        reorder_workgroups=True,
+        output_dtype=tkl.bf16,
+        transpose_output=True,
+    )
     # Make M, N, K dynamic so the compiler does not specialize on problem size.
     dynamic_symbols = [tkl.sym.M, tkl.sym.N, tkl.sym.K]
     for sym in dynamic_symbols:
@@ -419,18 +488,22 @@ def test_dbuf_4wave_mxfp_dynamic_preshuffle_b_gemm(
     options = set_default_run_config(options)
     gemm = wave_compile(options, gemm, schedule)
 
-    _run_mxfp_gemm_preshuffle(gemm, shape, all=True)
+    _run_mxfp_gemm_preshuffle(
+        gemm, shape, all=True, output_dtype=torch.bfloat16, transpose_output=True
+    )
     print("MXFP GEMM preshuffle-B 4-wave dynamic M, N, K (LLVM backend) test passed!")
 
 
 def test_dbuf_4wave_mxfp_dynamic_preshuffle_b_gemm_asm(
     is_debug=False,
-    shape=(1024, 1024, 8192),
-    block=(128, 256, 256),
+    shape=(1024, 6144, 8192),
+    block=(256, 192, 256),
     eliminate_epilogue=True,
 ):
     """Preshuffle-B MXFP4 GEMM with dynamic M, N, K."""
-    gemm, options = get_tagged_mxfp4_gemm_preshuffle_b(shape, block, wave_shape=(2, 2), reorder_workgroups=True)
+    gemm, options = get_tagged_mxfp4_gemm_preshuffle_b(
+        shape, block, wave_shape=(2, 2), reorder_workgroups=True
+    )
     # Make M, N, K dynamic so the compiler does not specialize on problem size.
     dynamic_symbols = [tkl.sym.M, tkl.sym.N, tkl.sym.K]
     for sym in dynamic_symbols:
@@ -441,7 +514,7 @@ def test_dbuf_4wave_mxfp_dynamic_preshuffle_b_gemm_asm(
     options.use_wave_asm_backend = True
     options.wave_runtime = True
     options.eliminate_epilogue = eliminate_epilogue
-    options.dump_intermediates = "build/intermediates/"
+    options.dump_intermediates = "build/intermediates/waveasm_256x192x256_baseline/"
     options.print_mlir_file = "gemm_mxfp4_dbuf_4wave_asymmetric.mlir"
     options.print_mlir = True
     schedule = get_mxfp4_asymmetric_schedule(
@@ -451,8 +524,114 @@ def test_dbuf_4wave_mxfp_dynamic_preshuffle_b_gemm_asm(
     options = set_default_run_config(options)
     gemm = wave_compile(options, gemm, schedule)
 
+    with open(
+        "build/intermediates/waveasm_256x192x256_baseline/gemm_mxfp4_dbuf_4wave_asymmetric.mlir",
+        "w",
+    ) as f:
+        f.write(gemm.asm)
+
     _run_mxfp_gemm_preshuffle(gemm, shape, all=True)
-    print("MXFP GEMM preshuffle-B 4-wave dynamic M, N, K (WaveASM backend) test passed!")
+    print(
+        "MXFP GEMM preshuffle-B 4-wave dynamic M, N, K (WaveASM backend) test passed!"
+    )
+
+
+def test_dbuf_4wave_mxfp_dynamic_preshuffle_b_gemm_asm_bf16(
+    is_debug=False,
+    shape=(6400, 3072, 7168),
+    block=(256, 192, 256),
+    eliminate_epilogue=True,
+):
+    """Preshuffle-B MXFP4 GEMM with dynamic M, N, K and bf16 output (WaveASM)."""
+    gemm, options = get_tagged_mxfp4_gemm_preshuffle_b(
+        shape,
+        block,
+        wave_shape=(2, 2),
+        reorder_workgroups=True,
+        output_dtype=tkl.bf16,
+    )
+    dynamic_symbols = [tkl.sym.M, tkl.sym.N, tkl.sym.K]
+    for sym in dynamic_symbols:
+        del options.subs[sym]
+    options.dynamic_symbols = dynamic_symbols
+    options.use_buffer_ops = True
+    options.backend = "asm"
+    options.use_wave_asm_backend = True
+    options.wave_runtime = True
+    options.eliminate_epilogue = eliminate_epilogue
+    options.dump_intermediates = (
+        "build/intermediates/waveasm_256x192x256_bf16_baseline/"
+    )
+    options.print_mlir_file = "gemm_mxfp4_dbuf_4wave_asymmetric_bf16.mlir"
+    options.print_mlir = True
+    schedule = get_mxfp4_asymmetric_schedule(
+        eliminate_epilogue=eliminate_epilogue, is_bscale_shuffled=True
+    )
+    options.print_ir_after = "all" if is_debug else []
+    options = set_default_run_config(options)
+    gemm = wave_compile(options, gemm, schedule)
+
+    with open(
+        "build/intermediates/waveasm_256x192x256_bf16_baseline/gemm_mxfp4_dbuf_4wave_asymmetric_bf16.mlir",
+        "w",
+    ) as f:
+        f.write(gemm.asm)
+
+    _run_mxfp_gemm_preshuffle(gemm, shape, all=True, output_dtype=torch.bfloat16)
+    print(
+        "MXFP GEMM preshuffle-B 4-wave dynamic M, N, K bf16 (WaveASM backend) test passed!"
+    )
+
+
+def test_dbuf_4wave_mxfp_dynamic_preshuffle_b_gemm_asm_bf16_coalesced(
+    is_debug=False,
+    shape=(6400, 3072, 7168),
+    block=(256, 192, 256),
+    eliminate_epilogue=True,
+):
+    """Preshuffle-B MXFP4 GEMM bf16 with coalesced epilogue stores via permlane swap (WaveASM)."""
+    gemm, options = get_tagged_mxfp4_gemm_preshuffle_b(
+        shape,
+        block,
+        wave_shape=(2, 2),
+        reorder_workgroups=True,
+        output_dtype=tkl.bf16,
+        transpose_output=True,
+    )
+    dynamic_symbols = [tkl.sym.M, tkl.sym.N, tkl.sym.K]
+    for sym in dynamic_symbols:
+        del options.subs[sym]
+    options.dynamic_symbols = dynamic_symbols
+    options.use_buffer_ops = True
+    options.backend = "asm"
+    options.use_wave_asm_backend = True
+    options.wave_runtime = True
+    options.eliminate_epilogue = eliminate_epilogue
+    options.coalesce_epilogue_stores = True
+    options.dump_intermediates = (
+        "build/intermediates/waveasm_256x192x256_bf16_coalesced/"
+    )
+    options.print_mlir_file = "gemm_mxfp4_dbuf_4wave_asymmetric_bf16_coalesced.mlir"
+    options.print_mlir = True
+    schedule = get_mxfp4_asymmetric_schedule(
+        eliminate_epilogue=eliminate_epilogue, is_bscale_shuffled=True
+    )
+    options.print_ir_after = "all" if is_debug else []
+    options = set_default_run_config(options)
+    gemm = wave_compile(options, gemm, schedule)
+
+    with open(
+        "build/intermediates/waveasm_256x192x256_bf16_coalesced/gemm_mxfp4_dbuf_4wave_asymmetric_bf16_coalesced.mlir",
+        "w",
+    ) as f:
+        f.write(gemm.asm)
+
+    _run_mxfp_gemm_preshuffle(
+        gemm, shape, all=True, output_dtype=torch.bfloat16, transpose_output=True
+    )
+    print(
+        "MXFP GEMM preshuffle-B 4-wave bf16 coalesced epilogue (WaveASM backend) test passed!"
+    )
 
 
 if __name__ == "__main__":

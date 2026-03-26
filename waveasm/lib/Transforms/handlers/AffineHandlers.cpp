@@ -606,12 +606,11 @@ LogicalResult handleAffineApply(Operation *op, TranslationContext &ctx) {
                     auto shiftConst =
                         ConstantOp::create(builder, loc, shiftImm, shiftAmount);
                     // v_lshl_or_b32: dst = (src << shift) | orend
-                    Value base = ensureVGPR(builder, loc, ctx,
-                                            baseResult.value);
+                    Value base =
+                        ensureVGPR(builder, loc, ctx, baseResult.value);
                     orend = ensureVGPR(builder, loc, ctx, orend);
                     Value fusedResult = V_LSHL_OR_B32::create(
-                        builder, loc, vregType, base, shiftConst,
-                        orend);
+                        builder, loc, vregType, base, shiftConst, orend);
                     BitRange shiftedRange =
                         baseResult.range.shiftLeft(shiftAmount);
                     BitRange resultRange = shiftedRange.merge(orendRange);
@@ -629,12 +628,11 @@ LogicalResult handleAffineApply(Operation *op, TranslationContext &ctx) {
                     auto shiftImm = ctx.createImmType(shiftAmount);
                     auto shiftConst =
                         ConstantOp::create(builder, loc, shiftImm, shiftAmount);
-                    Value base2 = ensureVGPR(builder, loc, ctx,
-                                             baseResult.value);
+                    Value base2 =
+                        ensureVGPR(builder, loc, ctx, baseResult.value);
                     orend = ensureVGPR(builder, loc, ctx, orend);
                     Value fusedResult = V_LSHL_OR_B32::create(
-                        builder, loc, vregType, base2, shiftConst,
-                        orend);
+                        builder, loc, vregType, base2, shiftConst, orend);
                     BitRange shiftedRange =
                         baseResult.range.shiftLeft(shiftAmount);
                     BitRange resultRange = shiftedRange.merge(orendRange);
@@ -728,8 +726,7 @@ LogicalResult handleAffineApply(Operation *op, TranslationContext &ctx) {
             auto shiftAmt = ctx.createImmType(shiftAmount);
             auto shiftConst =
                 ConstantOp::create(builder, loc, shiftAmt, shiftAmount);
-            Value shiftResult =
-                emitLshl(lhs, shiftConst, builder, loc, ctx);
+            Value shiftResult = emitLshl(lhs, shiftConst, builder, loc, ctx);
             BitRange resultRange = lhsRange.shiftLeft(shiftAmount);
             ctx.setBitRange(shiftResult, resultRange);
             return ExprResult(shiftResult, resultRange);
@@ -742,8 +739,7 @@ LogicalResult handleAffineApply(Operation *op, TranslationContext &ctx) {
             auto shiftAmt = ctx.createImmType(shiftAmount);
             auto shiftConst =
                 ConstantOp::create(builder, loc, shiftAmt, shiftAmount);
-            Value shiftResult =
-                emitLshl(rhs, shiftConst, builder, loc, ctx);
+            Value shiftResult = emitLshl(rhs, shiftConst, builder, loc, ctx);
             BitRange resultRange = rhsRange.shiftLeft(shiftAmount);
             ctx.setBitRange(shiftResult, resultRange);
             return ExprResult(shiftResult, resultRange);
@@ -776,8 +772,7 @@ LogicalResult handleAffineApply(Operation *op, TranslationContext &ctx) {
             auto shiftAmt = ctx.createImmType(shiftAmount);
             auto shiftConst =
                 ConstantOp::create(builder, loc, shiftAmt, shiftAmount);
-            Value shiftResult =
-                emitLshr(lhs, shiftConst, builder, loc, ctx);
+            Value shiftResult = emitLshr(lhs, shiftConst, builder, loc, ctx);
             BitRange resultRange = lhsRange.shiftRight(shiftAmount);
             ctx.setBitRange(shiftResult, resultRange);
             return ExprResult(shiftResult, resultRange);
@@ -815,10 +810,9 @@ LogicalResult handleAffineApply(Operation *op, TranslationContext &ctx) {
               S_CMP_NE_U32::create(builder, loc, ctx.createSRegType(), rem,
                                    zeroConst);
               auto sregType = ctx.createSRegType();
-              Value result =
-                  S_ADDC_U32::create(builder, loc, sregType, sregType, q,
-                                     zeroConst)
-                      .getDst();
+              Value result = S_ADDC_U32::create(builder, loc, sregType,
+                                                sregType, q, zeroConst)
+                                 .getDst();
               return ExprResult(result, BitRange());
             }
             V_CMP_NE_U32::create(builder, loc, rem, zeroConst);

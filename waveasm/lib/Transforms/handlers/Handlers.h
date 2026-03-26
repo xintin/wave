@@ -120,6 +120,8 @@ mlir::LogicalResult handleArithCmpF(mlir::Operation *op,
                                     TranslationContext &ctx);
 mlir::LogicalResult handleArithTruncF(mlir::Operation *op,
                                       TranslationContext &ctx);
+mlir::LogicalResult handleArithBitcast(mlir::Operation *op,
+                                       TranslationContext &ctx);
 mlir::LogicalResult handleArithExtF(mlir::Operation *op,
                                     TranslationContext &ctx);
 
@@ -184,8 +186,24 @@ mlir::LogicalResult handleMemRefAtomicRMW(mlir::Operation *op,
 
 mlir::LogicalResult handleReadFirstLane(mlir::Operation *op,
                                         TranslationContext &ctx);
+mlir::LogicalResult handlePermlane16Swap(mlir::Operation *op,
+                                         TranslationContext &ctx);
 mlir::LogicalResult handleSWaitcnt(mlir::Operation *op,
                                    TranslationContext &ctx);
+
+//===----------------------------------------------------------------------===//
+// LLVM Dialect Handlers
+//===----------------------------------------------------------------------===//
+
+mlir::LogicalResult handleLLVMExtractValue(mlir::Operation *op,
+                                           TranslationContext &ctx);
+
+//===----------------------------------------------------------------------===//
+// Vector Dialect Handlers (additional)
+//===----------------------------------------------------------------------===//
+
+mlir::LogicalResult handleVectorFromElements(mlir::Operation *op,
+                                             TranslationContext &ctx);
 
 //===----------------------------------------------------------------------===//
 // IREE/Stream Dialect Handlers
@@ -290,9 +308,14 @@ inline bool isScalarOrImm(mlir::Value v) {
 
 /// If \p v is an SGPR, emit a v_mov_b32 to coerce it into a VGPR so it can
 /// be used by VALU-only instructions (v_cvt_*, v_rcp_*, v_mul_f32, etc.).
+/// If \p v is an AGPR (accumulator), emit v_accvgpr_read_b32 first.
 /// Returns \p v unchanged when it is already a VGPR or immediate.
 inline mlir::Value ensureVGPR(mlir::OpBuilder &builder, mlir::Location loc,
                               TranslationContext &ctx, mlir::Value v) {
+  if (isAGPRType(v.getType())) {
+    auto vregType = ctx.createVRegType();
+    return V_ACCVGPR_READ_B32::create(builder, loc, vregType, v);
+  }
   if (isSGPRType(v.getType())) {
     auto vregType = ctx.createVRegType();
     return V_MOV_B32::create(builder, loc, vregType, v);
@@ -306,8 +329,9 @@ inline mlir::Value ensureVGPR(mlir::OpBuilder &builder, mlir::Location loc,
 
 /// Emit add: S_ADD_U32 when both operands are scalar, V_ADD_U32 otherwise.
 /// Commutative: swaps to put immediate in src1 (SALU src0 must be SGPR).
-inline mlir::Value emitAdd(mlir::Value a, mlir::Value b, mlir::OpBuilder &builder,
-                           mlir::Location loc, TranslationContext &ctx) {
+inline mlir::Value emitAdd(mlir::Value a, mlir::Value b,
+                           mlir::OpBuilder &builder, mlir::Location loc,
+                           TranslationContext &ctx) {
   if (isScalarOrImm(a) && isScalarOrImm(b) &&
       !(isImmType(a.getType()) && isImmType(b.getType()))) {
     if (isImmType(a.getType()))
@@ -321,8 +345,9 @@ inline mlir::Value emitAdd(mlir::Value a, mlir::Value b, mlir::OpBuilder &builde
 
 /// Emit sub: S_SUB_U32 when both operands are scalar, V_SUB_U32 otherwise.
 /// Not commutative: src0 (minuend) must be SGPR.
-inline mlir::Value emitSub(mlir::Value a, mlir::Value b, mlir::OpBuilder &builder,
-                           mlir::Location loc, TranslationContext &ctx) {
+inline mlir::Value emitSub(mlir::Value a, mlir::Value b,
+                           mlir::OpBuilder &builder, mlir::Location loc,
+                           TranslationContext &ctx) {
   if (isScalarOrImm(a) && isScalarOrImm(b) && isSGPRType(a.getType())) {
     auto sregType = ctx.createSRegType();
     return S_SUB_U32::create(builder, loc, sregType, sregType, a, b).getDst();
@@ -333,8 +358,9 @@ inline mlir::Value emitSub(mlir::Value a, mlir::Value b, mlir::OpBuilder &builde
 
 /// Emit mul: S_MUL_I32 when both operands are scalar, V_MUL_LO_U32 otherwise.
 /// Commutative: swaps to put immediate in src1.
-inline mlir::Value emitMul(mlir::Value a, mlir::Value b, mlir::OpBuilder &builder,
-                           mlir::Location loc, TranslationContext &ctx) {
+inline mlir::Value emitMul(mlir::Value a, mlir::Value b,
+                           mlir::OpBuilder &builder, mlir::Location loc,
+                           TranslationContext &ctx) {
   if (isScalarOrImm(a) && isScalarOrImm(b) &&
       !(isImmType(a.getType()) && isImmType(b.getType()))) {
     if (isImmType(a.getType()))
@@ -378,8 +404,9 @@ inline mlir::Value emitLshl(mlir::Value value, mlir::Value shiftAmt,
 
 /// Emit bitwise AND: S_AND_B32 when both scalar, V_AND_B32 otherwise.
 /// Commutative: swaps to put immediate in src1.
-inline mlir::Value emitAnd(mlir::Value a, mlir::Value b, mlir::OpBuilder &builder,
-                           mlir::Location loc, TranslationContext &ctx) {
+inline mlir::Value emitAnd(mlir::Value a, mlir::Value b,
+                           mlir::OpBuilder &builder, mlir::Location loc,
+                           TranslationContext &ctx) {
   if (isScalarOrImm(a) && isScalarOrImm(b) &&
       !(isImmType(a.getType()) && isImmType(b.getType()))) {
     if (isImmType(a.getType()))
@@ -393,8 +420,9 @@ inline mlir::Value emitAnd(mlir::Value a, mlir::Value b, mlir::OpBuilder &builde
 
 /// Emit bitwise OR: S_OR_B32 when both scalar, V_OR_B32 otherwise.
 /// Commutative: swaps to put immediate in src1.
-inline mlir::Value emitOr(mlir::Value a, mlir::Value b, mlir::OpBuilder &builder,
-                          mlir::Location loc, TranslationContext &ctx) {
+inline mlir::Value emitOr(mlir::Value a, mlir::Value b,
+                          mlir::OpBuilder &builder, mlir::Location loc,
+                          TranslationContext &ctx) {
   if (isScalarOrImm(a) && isScalarOrImm(b) &&
       !(isImmType(a.getType()) && isImmType(b.getType()))) {
     if (isImmType(a.getType()))
@@ -408,8 +436,9 @@ inline mlir::Value emitOr(mlir::Value a, mlir::Value b, mlir::OpBuilder &builder
 
 /// Emit bitwise XOR: S_XOR_B32 when both scalar, V_XOR_B32 otherwise.
 /// Commutative: swaps to put immediate in src1.
-inline mlir::Value emitXor(mlir::Value a, mlir::Value b, mlir::OpBuilder &builder,
-                           mlir::Location loc, TranslationContext &ctx) {
+inline mlir::Value emitXor(mlir::Value a, mlir::Value b,
+                           mlir::OpBuilder &builder, mlir::Location loc,
+                           TranslationContext &ctx) {
   if (isScalarOrImm(a) && isScalarOrImm(b) &&
       !(isImmType(a.getType()) && isImmType(b.getType()))) {
     if (isImmType(a.getType()))

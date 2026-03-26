@@ -82,10 +82,7 @@ class TestSimplifyIndexMapping:
         k_it = IndexMapping.iterator(1)
 
         within_nblk = (
-            (k_it // 32) * 512
-            + ((k_it // 16) % 2) * 256
-            + (n_it % 16) * 16
-            + k_it % 16
+            (k_it // 32) * 512 + ((k_it // 16) % 2) * 256 + (n_it % 16) * 16 + k_it % 16
         )
         K_PACKED = K // 2
 
@@ -106,8 +103,10 @@ class TestExprBoundsWithIters:
     def test_iterator_bounds(self):
         i0 = IndexMapping.iterator(0)
         i1 = IndexMapping.iterator(1)
-        bounds = {i0: (sympy.Integer(0), sympy.Integer(15)),
-                  i1: (sympy.Integer(0), sympy.Integer(63))}
+        bounds = {
+            i0: (sympy.Integer(0), sympy.Integer(15)),
+            i1: (sympy.Integer(0), sympy.Integer(63)),
+        }
 
         assert _expr_bounds_with_iters(i0, bounds) == (0, 15)
         assert _expr_bounds_with_iters(i1, bounds) == (0, 63)
@@ -116,14 +115,13 @@ class TestExprBoundsWithIters:
         """within_nblk for tile [0,15]x[0,63] is bounded to [0,1023]."""
         n_it = IndexMapping.iterator(0)
         k_it = IndexMapping.iterator(1)
-        bounds = {n_it: (sympy.Integer(0), sympy.Integer(15)),
-                  k_it: (sympy.Integer(0), sympy.Integer(63))}
+        bounds = {
+            n_it: (sympy.Integer(0), sympy.Integer(15)),
+            k_it: (sympy.Integer(0), sympy.Integer(63)),
+        }
 
         within_nblk = (
-            (k_it // 32) * 512
-            + ((k_it // 16) % 2) * 256
-            + (n_it % 16) * 16
-            + k_it % 16
+            (k_it // 32) * 512 + ((k_it // 16) % 2) * 256 + (n_it % 16) * 16 + k_it % 16
         )
         result = _expr_bounds_with_iters(within_nblk, bounds)
         assert result is not None

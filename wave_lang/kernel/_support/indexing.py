@@ -124,6 +124,7 @@ def _resolve_chained_subs(
 
     if pending:
         import warnings
+
         cycle_keys = sorted(str(k) for k in pending.keys())
         warnings.warn(
             f"_resolve_chained_subs: circular dependency among"

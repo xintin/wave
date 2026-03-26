@@ -14,7 +14,9 @@ import torch.fx as fx
 from wave_lang.kernel.wave.utils.graph_utils import propagate_loop_carried_vars
 from wave_lang.support.ir_imports import (
     Attribute,
+    BF16Type,
     DenseElementsAttr,
+    F32Type,
     IndexType,
     InsertionPoint,
     IntegerAttr,
@@ -31,6 +33,7 @@ from wave_lang.support.ir_imports import (
     gpu_d,
     llvm_d,
     memref_d,
+    rocdl_d,
     vector_d,
 )
 from .ir_utils import (
@@ -460,9 +463,7 @@ def _compute_branchless_valid_bytes(
         real_valid_index = gen_sympy_index(subs_map, total_bytes_expr)
         real_valid = arith_d.index_cast(uint64, real_valid_index)
     else:
-        real_valid = arith_d.constant(
-            uint64, get_constant_attr(total_bytes, uint64)
-        )
+        real_valid = arith_d.constant(uint64, get_constant_attr(total_bytes, uint64))
 
     zero_valid = arith_d.constant(uint64, get_constant_attr(0, uint64))
 
@@ -501,9 +502,7 @@ def _compute_valid_bytes(
             real_valid_index = gen_sympy_index(subs_map, total_bytes_expr)
             total_val = arith_d.index_cast(uint64, real_valid_index)
         else:
-            total_val = arith_d.constant(
-                uint64, get_constant_attr(total_bytes, uint64)
-            )
+            total_val = arith_d.constant(uint64, get_constant_attr(total_bytes, uint64))
         metadata = memref_d.extract_strided_metadata(ptr)
         offset_elements = metadata[1]
         offset_bytes = arith_d.index_cast(uint64, offset_elements)
@@ -868,7 +867,9 @@ def _try_iv_split_offset(
     strides: list[int | IndexExpr],
     dynamic_vals: dict[IndexExpr, Any],
     use_subs_idxc: bool = True,
-    precomputed_iv_stride: dict[sympy.Symbol, IndexExpr | list[IndexExpr]] | None = None,
+    precomputed_iv_stride: (
+        dict[sympy.Symbol, IndexExpr | list[IndexExpr]] | None
+    ) = None,
     **kwargs,
 ) -> Optional[Value]:
     """Compute a hoisted IV-split linearized offset for a loop-carried read.
@@ -941,9 +942,7 @@ def _try_iv_split_offset(
                 lin_offset = (
                     term
                     if lin_offset is None
-                    else arith_d.addi(
-                        lin_offset, term, overflow_flags=overflow_flags
-                    )
+                    else arith_d.addi(lin_offset, term, overflow_flags=overflow_flags)
                 )
 
         iv_mlir = subs_map.get(iv_sym)
@@ -1203,9 +1202,7 @@ def handle_read(emitter: WaveEmitter, node: fx.Node):
             subs_map = add_emitter_subs(emitter, dynamic_vals_map_start)
             with hoist_ip:
                 strides_vals = [gen_sympy_index(subs_map, s) for s in iv_strides]
-                zero_indices = [arith_d.constant(IndexType.get(), 0)] * len(
-                    iv_strides
-                )
+                zero_indices = [arith_d.constant(IndexType.get(), 0)] * len(iv_strides)
                 lin_src, _ = _linearize_memref(
                     kb_src, zero_indices, zero_indices, strides_vals
                 )
@@ -1232,7 +1229,9 @@ def handle_read(emitter: WaveEmitter, node: fx.Node):
                 result = vector_d.load(vector_type, lin_src, [total_offset])
             else:
                 element_type = vector_type.element_type
-                zero = arith_d.constant(element_type, get_constant_attr(0, element_type))
+                zero = arith_d.constant(
+                    element_type, get_constant_attr(0, element_type)
+                )
                 passthru = vector_d.broadcast(vector_type, zero)
                 result = vector_d.maskedload(
                     vector_type, lin_src, [total_offset], mask, passthru
@@ -1335,6 +1334,24 @@ def handle_write(emitter: WaveEmitter, node: fx.Node):
     )
 
     use_llvm_store = flags != MemoryAccessFlags.NONE
+
+    is_shared = get_custom(memory).type.address_space == SHARED_ADDRESS_SPACE
+    is_bf16 = isinstance(element_type, BF16Type)
+
+    if not is_shared and is_bf16 and getattr(node, "_permlane_pack_global", False):
+        _write_permlane_pack_to_global(
+            emitter,
+            insert_vector,
+            kb_dest,
+            output_shape,
+            start_indices,
+            start_indices_wg,
+            start_indices_th,
+            get_custom(memory),
+            index,
+        )
+        return
+
     if use_llvm_store:
         _create_llvm_read_write(
             kb_dest, kb_ir_type, start_indices, insert_type, flags, insert_vector
@@ -1352,6 +1369,130 @@ def handle_write(emitter: WaveEmitter, node: fx.Node):
             elements_per_thread,
             get_custom(memory),
             mask,
+            node_index=index,
+        )
+
+
+def _write_permlane_pack_to_global(
+    emitter: WaveEmitter,
+    insert_vector: Value,
+    kb_dest: Value,
+    output_shape: tuple,
+    start_indices: tuple,
+    start_indices_wg: tuple,
+    start_indices_th: tuple,
+    memory_custom,
+    index: dict,
+):
+    """Pack two lanes' bf16 values via permlane16_swap for wide global stores.
+
+    MMA accumulator layout (F32_16x16x128_F8F6F4) gives each thread 4
+    consecutive M values.  Lanes are grouped by 16: lanes 0-15 own M=0-3,
+    lanes 16-31 own M=4-7, etc.  ``v_permlane16_swap_b32`` exchanges data
+    between paired groups, giving each lane 8 consecutive M values that
+    can be written as a single ``buffer_store_dwordx4`` (128 bits).
+
+    Both lane halves produce identical data at the same address (benign
+    duplicate store):
+
+      - Lower half (lanes 0-15 in each 32-lane group):
+        data = [own, partner], address = thread's original M index.
+      - Upper half (lanes 16-31):
+        data = [partner, own], address = original M index - 4.
+
+    This dual-write avoids divergent control flow (no scf.if / exec
+    masking needed).  The buffer descriptor's ``valid_bytes`` handles
+    out-of-bounds suppression for dynamic shapes.
+
+    Precondition: M must be the innermost (last) memory dimension with
+    stride 1 (i.e. transpose_output=True, shape [N, M]).
+    """
+    f32_type = F32Type.get()
+    i32_type = IntegerType.get_signless(32)
+    idx_type = IndexType.get()
+    bf16_type = BF16Type.get()
+
+    # waveasm defers vector arith.truncf (f32->bf16), so insert_vector
+    # is nominally vector<4xbf16> but the underlying data is still f32
+    # in AGPRs.  Get the f32 source directly from the defining truncf op.
+    truncf_op = insert_vector.owner
+    if truncf_op.name == "arith.truncf":
+        f32_vec = truncf_op.operands[0]
+    else:
+        f32_vec = insert_vector
+
+    # Extract 4 f32 accumulator values.
+    e = [
+        vector_d.extract(f32_vec, static_position=[i], dynamic_position=[])
+        for i in range(4)
+    ]
+
+    # Swap each f32 value with the partner lane (16 positions apart).
+    swap_type = llvm_d.StructType.get_literal([i32_type, i32_type])
+
+    p = []
+    for ei in e:
+        ei_i32 = arith_d.bitcast(i32_type, ei)
+        swapped_i32 = llvm_d.extractvalue(
+            i32_type,
+            rocdl_d.permlane16_swap(swap_type, ei_i32, ei_i32, False, False),
+            [0],
+        )
+        p.append(arith_d.bitcast(f32_type, swapped_i32))
+
+    # Determine lane position within each 32-lane half-wavefront.
+    lane_in_wave = arith_d.remui(emitter.thread_ids[0], arith_d.constant(idx_type, 64))
+    half_pos = arith_d.remui(lane_in_wave, arith_d.constant(idx_type, 32))
+    is_lower = arith_d.cmpi(
+        arith_d.CmpIPredicate.ult, half_pos, arith_d.constant(idx_type, 16)
+    )
+
+    four = arith_d.constant(idx_type, 4)
+    v2f32_type = VectorType.get([2], f32_type)
+    v2bf16_type = VectorType.get([2], bf16_type)
+
+    adj_th = list(start_indices_th)
+    adj_th[-1] = arith_d.select(is_lower, adj_th[-1], arith_d.subi(adj_th[-1], four))
+
+    adj_full = list(start_indices)
+    adj_full[-1] = arith_d.select(
+        is_lower, adj_full[-1], arith_d.subi(adj_full[-1], four)
+    )
+
+    # Select values: own for lower lanes, partner for upper (and vice versa).
+    s_lo = [arith_d.select(is_lower, e[i], p[i]) for i in range(4)]
+    s_hi = [arith_d.select(is_lower, p[i], e[i]) for i in range(4)]
+
+    # Emit 4 stores of vector<2xbf16> (= buffer_store_dword each).
+    # Each pair of f32 values is packed into one bf16 dword by
+    # v_cvt_pk_bf16_f32.  Using 2-element stores avoids the multi-dword
+    # PackOp, which the register allocator cannot handle (it does not
+    # insert copies for PackOp operands).
+    all_vals = s_lo + s_hi
+    for pair_idx in range(4):
+        pair_f32 = vector_d.from_elements(
+            v2f32_type, [all_vals[pair_idx * 2], all_vals[pair_idx * 2 + 1]]
+        )
+        pair_bf16 = arith_d.truncf(v2bf16_type, pair_f32)
+
+        elem_offset = arith_d.constant(idx_type, pair_idx * 2)
+        cur_th = list(adj_th)
+        cur_th[-1] = arith_d.addi(adj_th[-1], elem_offset)
+        cur_full = list(adj_full)
+        cur_full[-1] = arith_d.addi(adj_full[-1], elem_offset)
+
+        _create_vec_read_write(
+            emitter,
+            output_shape,
+            kb_dest,
+            pair_bf16,
+            None,
+            tuple(cur_full),
+            start_indices_wg,
+            tuple(cur_th),
+            2,
+            memory_custom,
+            None,
             node_index=index,
         )
 
@@ -1680,9 +1821,7 @@ def handle_gather_to_lds(emitter: WaveEmitter, node: fx.Node):
             dynamic_values=src_dynamic_vals_map_start,
         )
         if mask:
-            mask = vector_d.extract(
-                mask, static_position=[0], dynamic_position=[]
-            )
+            mask = vector_d.extract(mask, static_position=[0], dynamic_position=[])
             oob_index_value = _get_out_of_bounds_index(element_type)
             oob_index = arith_d.constant(IndexType.get(), oob_index_value)
             src_offset = arith_d.select(mask, src_offset, oob_index)

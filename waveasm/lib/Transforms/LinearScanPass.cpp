@@ -312,6 +312,13 @@ private:
           // Result should be allocated to same physical register as accumulator
           tiedPairs[op->getResult(0)] = acc;
         }
+      } else if (isa<V_PERMLANE16_SWAP_B32>(op)) {
+        // v_permlane16_swap_b32 modifies vSRC in-place.  The second result
+        // captures the new vSRC value and must share the same physical
+        // register so the register allocator keeps the register live.
+        if (op->getNumResults() >= 2 && op->getNumOperands() >= 1) {
+          tiedPairs[op->getResult(1)] = op->getOperand(0);
+        }
       }
     });
 

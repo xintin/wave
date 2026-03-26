@@ -970,6 +970,22 @@ std::optional<std::string> KernelGenerator::generateOp(Operation *op) {
             return formatter.format("v_cvt_pk_bf16_f32", operands);
           })
 
+      // V_PERMLANE16_SWAP_B32: swap data between lanes 16 apart
+      // GCN ISA: v_permlane16_swap_b32 vDST, vSRC (VOP1, 2 operands)
+      // Hardware hazard: VALU writes to vSRC need 2 wait states before
+      // permlane can read it (VALUWritesVDstWaitStates=2).  Insert s_nop 1
+      // unconditionally; the preceding VALU provides 1 wait state, the
+      // nop provides the second.
+      .Case<V_PERMLANE16_SWAP_B32>(
+          [&](V_PERMLANE16_SWAP_B32 permOp) -> std::optional<std::string> {
+            llvm::SmallVector<std::string> operands;
+            operands.push_back(resolveValue(permOp.getDst0()));
+            operands.push_back(resolveValue(permOp.getSrc0()));
+            std::string swapStr =
+                formatter.format("v_permlane16_swap_b32", operands);
+            return std::string("s_nop 1\n  ") + swapStr;
+          })
+
       // Carry ops: on GFX9, carry-out is implicit VCC.
       // v_add_co_u32:  dst, vcc, src0, src1
       // v_addc_co_u32: dst, vcc, src0, src1, vcc  (carry-in).

@@ -15,8 +15,10 @@
 
 #include "mlir/Dialect/AMDGPU/IR/AMDGPUDialect.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/LLVMIR/ROCDLDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "llvm/Support/Debug.h"
@@ -386,8 +388,8 @@ static void emitSrdNumRecords(OpBuilder &builder, Location loc, int64_t srdBase,
         if (cmpLhsMapped && cmpRhsMapped && trueMapped && falseMapped &&
             isScalarOrImm(*cmpLhsMapped) && isScalarOrImm(*cmpRhsMapped) &&
             isScalarOrImm(*trueMapped) && isScalarOrImm(*falseMapped)) {
-          emitScalarCmp(builder, loc, cmpOp.getPredicate(),
-                        *cmpLhsMapped, *cmpRhsMapped, ctx);
+          emitScalarCmp(builder, loc, cmpOp.getPredicate(), *cmpLhsMapped,
+                        *cmpRhsMapped, ctx);
 
           auto dstType = PSRegType::get(builder.getContext(), srdBase + 2, 1);
           Value trueV = *trueMapped;
@@ -1246,6 +1248,89 @@ LogicalResult handleReadFirstLane(Operation *op, TranslationContext &ctx) {
 
   auto result = V_READFIRSTLANE_B32::create(builder, loc, sregType, *src);
   ctx.getMapper().mapValue(op->getResult(0), result);
+
+  return success();
+}
+
+LogicalResult handlePermlane16Swap(Operation *op, TranslationContext &ctx) {
+  auto swapOp = cast<ROCDL::Permlane16SwapOp>(op);
+  auto &builder = ctx.getBuilder();
+  auto loc = op->getLoc();
+  auto vregType = ctx.createVRegType();
+
+  auto src0 = ctx.getMapper().getMapped(swapOp.getOperand(0));
+  auto src1 = ctx.getMapper().getMapped(swapOp.getOperand(1));
+  if (!src0 || !src1)
+    return op->emitError("permlane16_swap operand not mapped");
+
+  if (isAGPRType(src0->getType()))
+    src0 = V_ACCVGPR_READ_B32::create(builder, loc, vregType, *src0);
+  if (isAGPRType(src1->getType()))
+    src1 = V_ACCVGPR_READ_B32::create(builder, loc, vregType, *src1);
+
+  auto permOp = V_PERMLANE16_SWAP_B32::create(builder, loc, vregType, vregType,
+                                              *src0, *src1);
+
+  // rocdl.permlane16_swap returns !llvm.struct<(i32, i32)>.
+  // Map result 0 to the struct SSA value (used by llvm.extractvalue 0)
+  // and result 1 to the second output (extractvalue 1).
+  ctx.getMapper().mapValue(op->getResult(0), permOp.getResult(0));
+  ctx.getMapper().mapSecondResult(op->getResult(0), permOp.getResult(1));
+
+  return success();
+}
+
+LogicalResult handleLLVMExtractValue(Operation *op, TranslationContext &ctx) {
+  auto extractOp = cast<LLVM::ExtractValueOp>(op);
+  auto position = extractOp.getPosition();
+  if (position.size() != 1)
+    return op->emitError("only single-level extractvalue supported");
+
+  int64_t idx = position[0];
+  Value container = extractOp.getContainer();
+
+  if (idx == 0) {
+    auto mapped = ctx.getMapper().getMapped(container);
+    if (!mapped)
+      return op->emitError("extractvalue: container not mapped (index 0)");
+    ctx.getMapper().mapValue(op->getResult(0), *mapped);
+  } else if (idx == 1) {
+    auto mapped = ctx.getMapper().getSecondResult(container);
+    if (!mapped)
+      return op->emitError("extractvalue: no second result (index 1)");
+    ctx.getMapper().mapValue(op->getResult(0), *mapped);
+  } else {
+    return op->emitError("extractvalue index > 1 not supported");
+  }
+
+  return success();
+}
+
+LogicalResult handleVectorFromElements(Operation *op, TranslationContext &ctx) {
+  auto fromElOp = cast<vector::FromElementsOp>(op);
+  auto &builder = ctx.getBuilder();
+  auto loc = op->getLoc();
+  auto resultType = fromElOp.getResult().getType();
+  auto vecType = cast<VectorType>(resultType);
+  int64_t numElems = vecType.getNumElements();
+  int64_t elemBits = vecType.getElementType().getIntOrFloatBitWidth();
+  int64_t totalBytes = numElems * ((elemBits + 7) / 8);
+  int64_t numDwords = (totalBytes + 3) / 4;
+  if (numDwords < 1)
+    numDwords = 1;
+
+  auto vregType = ctx.createVRegType(numDwords, numDwords > 1 ? numDwords : 1);
+
+  SmallVector<Value> mappedSrcs;
+  for (auto operand : fromElOp.getElements()) {
+    auto mapped = ctx.getMapper().getMapped(operand);
+    if (!mapped)
+      return op->emitError("from_elements operand not mapped");
+    mappedSrcs.push_back(*mapped);
+  }
+
+  auto packed = PackOp::create(builder, loc, vregType, mappedSrcs);
+  ctx.getMapper().mapValue(op->getResult(0), packed);
 
   return success();
 }

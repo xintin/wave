@@ -493,6 +493,19 @@ def WaveASM_V_LOG_F32 : VALUUnaryOp<"v_log_f32">;
 def WaveASM_V_SIN_F32 : VALUUnaryOp<"v_sin_f32">;
 def WaveASM_V_COS_F32 : VALUUnaryOp<"v_cos_f32">;
 
+// Lane-swap operations
+def WaveASM_V_PERMLANE16_SWAP_B32 : WAVEASMOp<"v_permlane16_swap_b32", [Pure]> {
+  let summary = "Swap data between lanes 16 positions apart";
+  let description = [{
+    Exchanges the value in each lane with the lane 16 positions apart
+    within a 32-lane group. Lane i (i < 16) swaps with lane i + 16.
+    Returns a struct {swapped, original} as two separate VGPR results.
+  }];
+  let arguments = (ins WaveASM_AnyVGPR:$src0, WaveASM_AnyVGPR:$src1);
+  let results = (outs WaveASM_AnyVGPR:$dst0, WaveASM_AnyVGPR:$dst1);
+  let assemblyFormat = "$src0 `,` $src1 attr-dict `:` type($src0) `,` type($src1) `->` type($dst0) `,` type($dst1)";
+}
+
 // Lane operations (VGPR -> SGPR)
 def WaveASM_V_READFIRSTLANE_B32 : WAVEASMOp<"v_readfirstlane_b32", [Pure]> {
   let summary = "Read first lane of VGPR to SGPR";
@@ -675,8 +688,12 @@ def WaveASM_V_WRITELANE_B32 : WAVEASMOp<"v_writelane_b32", [Pure]> {
 }
 
 // VGPR/AGPR cross-bank moves
-def WaveASM_V_ACCVGPR_READ_B32 : WAVEASMOp<"v_accvgpr_read_b32", [Pure]> {
+def WaveASM_V_ACCVGPR_READ_B32 : WAVEASMOp<"v_accvgpr_read_b32"> {
   let summary = "Read AGPR lane into VGPR";
+  // NOT Pure: duplicate reads must not be CSE-folded.
+  // v_permlane16_swap_b32 modifies its src register in-place; if CSE
+  // merges two reads and the swap clobbers the shared result, later
+  // uses see the wrong value.
   let arguments = (ins WaveASM_AnyAGPR:$src);
   let results = (outs WaveASM_AnyVGPR:$dst);
   let assemblyFormat = "$src attr-dict `:` type($src) `->` type($dst)";

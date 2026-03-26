@@ -437,6 +437,21 @@ LogicalResult handleArithTruncI(Operation *op, TranslationContext &ctx) {
   return success();
 }
 
+LogicalResult handleArithBitcast(Operation *op, TranslationContext &ctx) {
+  auto bitcastOp = cast<arith::BitcastOp>(op);
+  auto src = ctx.getMapper().getMapped(bitcastOp.getIn());
+  if (src) {
+    // Emit ensureVGPR to coerce AGPR/SGPR sources to VGPR.
+    // V_ACCVGPR_READ_B32 is no longer [Pure], so each call produces a
+    // distinct read that the register allocator keeps live independently.
+    auto &builder = ctx.getBuilder();
+    auto loc = op->getLoc();
+    Value vgpr = ensureVGPR(builder, loc, ctx, *src);
+    ctx.getMapper().mapValue(bitcastOp.getResult(), vgpr);
+  }
+  return success();
+}
+
 //===----------------------------------------------------------------------===//
 // Comparison and Select Operations
 //===----------------------------------------------------------------------===//
@@ -458,7 +473,8 @@ LogicalResult handleArithCmpI(Operation *op, TranslationContext &ctx) {
   // handleArithSelect which emits s_cmp + s_cselect as a pair.
   bool lhsScalar = isSGPRType(lhs->getType()) || isImmType(lhs->getType());
   bool rhsScalar = isSGPRType(rhs->getType()) || isImmType(rhs->getType());
-  bool usedByCondition = cmpOp.getResult().hasOneUse() &&
+  bool usedByCondition =
+      cmpOp.getResult().hasOneUse() &&
       isa<ConditionOp>(*cmpOp.getResult().getUsers().begin());
 
   if (lhsScalar && rhsScalar && usedByCondition) {
@@ -486,8 +502,8 @@ LogicalResult handleArithCmpI(Operation *op, TranslationContext &ctx) {
       if (auto selectUser = dyn_cast<arith::SelectOp>(user)) {
         auto trueMap = ctx.getMapper().getMapped(selectUser.getTrueValue());
         auto falseMap = ctx.getMapper().getMapped(selectUser.getFalseValue());
-        if (!trueMap || !falseMap ||
-            !isScalarOrImm(*trueMap) || !isScalarOrImm(*falseMap)) {
+        if (!trueMap || !falseMap || !isScalarOrImm(*trueMap) ||
+            !isScalarOrImm(*falseMap)) {
           allUsersFused = false;
           break;
         }
@@ -570,8 +586,8 @@ LogicalResult handleArithSelect(Operation *op, TranslationContext &ctx) {
     if (auto cmpOp = condMLIR.getDefiningOp<arith::CmpIOp>()) {
       auto cmpLhs = ctx.getMapper().getMapped(cmpOp.getLhs());
       auto cmpRhs = ctx.getMapper().getMapped(cmpOp.getRhs());
-      if (cmpLhs && cmpRhs &&
-          isScalarOrImm(*cmpLhs) && isScalarOrImm(*cmpRhs)) {
+      if (cmpLhs && cmpRhs && isScalarOrImm(*cmpLhs) &&
+          isScalarOrImm(*cmpRhs)) {
         auto sregType = ctx.createSRegType();
         Value lhsOp = *cmpLhs;
         Value rhsOp = *cmpRhs;

@@ -167,9 +167,7 @@ def _split_coeff(expr: sympy.Expr) -> tuple[sympy.Integer, sympy.Expr]:
     return (sympy.Integer(1), expr)
 
 
-def _contains_factor(
-    factors: list[sympy.Expr], target: sympy.Expr
-) -> bool:
+def _contains_factor(factors: list[sympy.Expr], target: sympy.Expr) -> bool:
     """Check if *target* appears as a factor in *factors* (possibly nested)."""
     for f in factors:
         if f == target:
@@ -365,7 +363,9 @@ def _custom_simplify_once(expr: sympy.Expr) -> sympy.Expr:
                 pass  # Symbolic comparison — can't determine.
         return sympy.Mod(remainder, q, evaluate=False)
 
-    expr = expr.replace(lambda e: transform_floor_div(e) is not None, transform_floor_div)
+    expr = expr.replace(
+        lambda e: transform_floor_div(e) is not None, transform_floor_div
+    )
     expr = expr.replace(lambda e: transform_mod_div(e) is not None, transform_mod_div)
     expr = expr.replace(lambda e: transform_mod(e) is not None, transform_mod)
     expr = expr.replace(lambda e: transform_floor(e) is not None, transform_floor)
@@ -428,11 +428,8 @@ def _extract_iv_from_floor_mod(
         if iv_coeff == 0:
             return sympy.floor(arg)
         rest = numer - iv_coeff * iv
-        return (
-            sympy.floor(iv_coeff / denom) * iv
-            + sympy.floor(
-                (sympy.Mod(iv_coeff, denom, evaluate=False) * iv + rest) / denom
-            )
+        return sympy.floor(iv_coeff / denom) * iv + sympy.floor(
+            (sympy.Mod(iv_coeff, denom, evaluate=False) * iv + rest) / denom
         )
 
     def _rewrite_mod(*args):
@@ -458,6 +455,7 @@ def _extract_iv_from_floor_mod(
         return (simplify(coeff), simplify(base))
 
     return None
+
 
 def simplify_divisor_multiples(expr: sympy.Expr) -> sympy.Expr:
     """Factor out divisor-multiples from floor/Mod without expand/cancel.

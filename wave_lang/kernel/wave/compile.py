@@ -573,6 +573,11 @@ def build_graph_passes(
         partial(guard_g2s_with_bounds_check, trace, launchable.constraints)
     )
 
+    if options.coalesce_epilogue_stores:
+        from .coalesce_epilogue_stores import coalesce_epilogue_stores
+
+        graph_passes.append(partial(coalesce_epilogue_stores, trace))
+
     if options.optimization_level:
         graph_passes += [
             partial(
@@ -1322,6 +1327,7 @@ def _generate_asm_code(mb, options):
 
     # Debug: save a copy of the MLIR input to waveasm-translate
     import shutil
+
     shutil.copy(mlir_path, "/tmp/waveasm_input.mlir")
 
     try:
@@ -1350,7 +1356,7 @@ def _generate_asm_code(mb, options):
         # TODO: improve Ticketing logic (better latency-covering heuristics,
         # smarter coalescing) so ticketed waitcnt can be always-on without
         # a performance hit, removing this wave-shape conditional.
-        use_ticketed_waitcnt = False 
+        use_ticketed_waitcnt = False
         waitcnt_flag = (
             "--waveasm-insert-waitcnt"
             if use_ticketed_waitcnt
@@ -1381,7 +1387,9 @@ def _generate_asm_code(mb, options):
             ir_dump_path = os.environ.get("WAVEASM_DUMP_IR")
             if ir_dump_path:
                 full_cmd.append("--mlir-print-ir-after-all")
-            result = subprocess.run(full_cmd, capture_output=True, text=True, timeout=120)
+            result = subprocess.run(
+                full_cmd, capture_output=True, text=True, timeout=120
+            )
             if ir_dump_path and result.stderr:
                 os.makedirs(os.path.dirname(ir_dump_path) or ".", exist_ok=True)
                 with open(ir_dump_path, "w") as f:

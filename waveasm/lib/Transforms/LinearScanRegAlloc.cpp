@@ -195,8 +195,8 @@ allocateRegClass(ArrayRef<LiveRange> ranges, RegPool &pool,
       int64_t maxEnd = ranges.back().end;
       int64_t threshold = (maxEnd * 3) / 4;
       if (rangeLength > threshold)
-        physReg = tryAllocateFromTop(pool, range.size, range.alignment,
-                                     maxPressure);
+        physReg =
+            tryAllocateFromTop(pool, range.size, range.alignment, maxPressure);
       else
         physReg = tryAllocate(pool, range.size, range.alignment);
     }

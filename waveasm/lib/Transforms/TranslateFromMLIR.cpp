@@ -17,6 +17,7 @@
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/LLVMIR/ROCDLDialect.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -776,6 +777,7 @@ LogicalResult handleArithShRSI(Operation *op, TranslationContext &ctx);
 LogicalResult handleArithExtUI(Operation *op, TranslationContext &ctx);
 LogicalResult handleArithExtSI(Operation *op, TranslationContext &ctx);
 LogicalResult handleArithTruncI(Operation *op, TranslationContext &ctx);
+LogicalResult handleArithBitcast(Operation *op, TranslationContext &ctx);
 LogicalResult handleArithMinSI(Operation *op, TranslationContext &ctx);
 LogicalResult handleArithMaxSI(Operation *op, TranslationContext &ctx);
 LogicalResult handleArithMinUI(Operation *op, TranslationContext &ctx);
@@ -1023,8 +1025,7 @@ LogicalResult handleVectorTransferWrite(Operation *op,
     if (isAGPRType(storeData.getType())) {
       auto vregType =
           ctx.createVRegType(numDwords, numDwords > 1 ? numDwords : 1);
-      storeData =
-          V_ACCVGPR_READ_B32::create(builder, loc, vregType, storeData);
+      storeData = V_ACCVGPR_READ_B32::create(builder, loc, vregType, storeData);
     }
 
     if (numDwords == 1) {
@@ -1303,6 +1304,15 @@ convertF32ToBF16ForStore(Value srcData, int64_t numElems,
                          Location loc) {
   Type srcType = srcData.getType();
 
+  // If the data register width already matches the packed bf16 size
+  // (numElems/2 dwords), the data is already in packed bf16 format
+  // (e.g. from the permlane16_swap pack path). Skip conversion.
+  int64_t srcDwords = getRegSize(srcType);
+  int64_t expectedPackedDwords = (numElems + 1) / 2;
+  if (srcDwords == expectedPackedDwords && !isAGPRType(srcType)) {
+    return {srcData, expectedPackedDwords * 4};
+  }
+
   // VALU conversion instructions cannot read from AGPR. Move to VGPR first.
   if (isAGPRType(srcType)) {
     int64_t size = getRegSize(srcType);
@@ -1311,7 +1321,20 @@ convertF32ToBF16ForStore(Value srcData, int64_t numElems,
     srcType = srcData.getType();
   }
 
+  // Look through PackOp to get the original operands directly.
+  // The register allocator does not insert copies for PackOp, so
+  // ExtractOp from a PackOp whose inputs are at different physical
+  // registers reads stale data (same issue documented in
+  // ArithLegalization.cpp::splitI64).
+  SmallVector<Value> packOperands;
+  if (auto packOp = srcData.getDefiningOp<PackOp>()) {
+    for (auto operand : packOp.getOperands())
+      packOperands.push_back(operand);
+  }
+
   auto extractF32Elem = [&](int64_t i) -> Value {
+    if (!packOperands.empty() && i < (int64_t)packOperands.size())
+      return packOperands[i];
     if (auto pvreg = dyn_cast<PVRegType>(srcType)) {
       int64_t baseIdx = pvreg.getIndex() + i;
       auto elemType = PVRegType::get(builder.getContext(), baseIdx, 1);
@@ -1511,14 +1534,27 @@ LogicalResult handleVectorStore(Operation *op, TranslationContext &ctx) {
   } else {
     // Global store - buffer_store_dwordx* with splitting for large vectors
 
+    Type elementType = memrefType.getElementType();
+    int64_t elementBytes = (elementType.getIntOrFloatBitWidth() + 7) / 8;
+
+    // BF16 store conversion MUST happen before address computation so that
+    // the PackOp inputs (from vector.from_elements / arith.select) are
+    // consumed immediately and don't need to survive across the address
+    // VALU instructions which can clobber their registers.
+    if (elementType.isBF16() && data.has_value()) {
+      int64_t numElems = vectorType.getNumElements();
+      auto [converted, newNumBytes] =
+          convertF32ToBF16ForStore(*data, numElems, ctx, builder, loc);
+      data = converted;
+      numBytes = newNumBytes;
+    }
+
     // Compute voffset as byte offset from indices and strides
     // For 2D memrefs: offset = idx0 * stride0 * elementBytes + idx1 * stride1 *
     // elementBytes
     Value voffset;
     int64_t instOffset = 0; // Constant offset for buffer_store offset:N syntax
     auto indices = storeOp.getIndices();
-    Type elementType = memrefType.getElementType();
-    int64_t elementBytes = (elementType.getIntOrFloatBitWidth() + 7) / 8;
 
     // Get strides from the memref type
     SmallVector<int64_t, 4> strides;
@@ -1638,16 +1674,6 @@ LogicalResult handleVectorStore(Operation *op, TranslationContext &ctx) {
 
     // Check if the source value has split results from a corresponding load
     auto splitResults = ctx.getSplitResults(storeOp.getValueToStore());
-
-    // BF16 store conversion: the arith.truncf handler defers vector f32->bf16
-    // conversion, so data registers may still contain f32 values.
-    if (elementType.isBF16() && data.has_value()) {
-      int64_t numElems = vectorType.getNumElements();
-      auto [converted, newNumBytes] =
-          convertF32ToBF16ForStore(*data, numElems, ctx, builder, loc);
-      data = converted;
-      numBytes = newNumBytes;
-    }
 
     // Split large stores into multiple buffer_store_dwordx4 (16 bytes each)
     // Use the same voffset for all stores, with instOffset for subsequent
@@ -1870,9 +1896,12 @@ LogicalResult handleRawBufferLoad(Operation *op, TranslationContext &ctx);
 LogicalResult handleRawBufferStore(Operation *op, TranslationContext &ctx);
 LogicalResult handleMemRefAtomicRMW(Operation *op, TranslationContext &ctx);
 LogicalResult handleReadFirstLane(Operation *op, TranslationContext &ctx);
+LogicalResult handlePermlane16Swap(Operation *op, TranslationContext &ctx);
 LogicalResult handleROCDLSBarrier(Operation *op, TranslationContext &ctx);
 LogicalResult handleROCDLSetPrio(Operation *op, TranslationContext &ctx);
 LogicalResult handleSWaitcnt(Operation *op, TranslationContext &ctx);
+LogicalResult handleLLVMExtractValue(Operation *op, TranslationContext &ctx);
+LogicalResult handleVectorFromElements(Operation *op, TranslationContext &ctx);
 
 //===----------------------------------------------------------------------===//
 // OpHandlerRegistry Implementation
@@ -1978,6 +2007,7 @@ void OpHandlerRegistry::registerDefaultHandlers(mlir::MLIRContext *ctx) {
   REGISTER_HANDLER(arith::ExtUIOp, handleArithExtUI);
   REGISTER_HANDLER(arith::ExtSIOp, handleArithExtSI);
   REGISTER_HANDLER(arith::TruncIOp, handleArithTruncI);
+  REGISTER_HANDLER(arith::BitcastOp, handleArithBitcast);
   REGISTER_HANDLER(arith::MinSIOp, handleArithMinSI);
   REGISTER_HANDLER(arith::MaxSIOp, handleArithMaxSI);
   REGISTER_HANDLER(arith::MinUIOp, handleArithMinUI);
@@ -2019,6 +2049,10 @@ void OpHandlerRegistry::registerDefaultHandlers(mlir::MLIRContext *ctx) {
   REGISTER_HANDLER(vector::TransferWriteOp, handleVectorTransferWrite);
   REGISTER_HANDLER(vector::FMAOp, handleVectorFma);
   REGISTER_HANDLER(vector::ReductionOp, handleVectorReduction);
+  REGISTER_HANDLER(vector::FromElementsOp, handleVectorFromElements);
+
+  // LLVM dialect
+  REGISTER_HANDLER(LLVM::ExtractValueOp, handleLLVMExtractValue);
 
   // AMDGPU dialect
   REGISTER_HANDLER(amdgpu::LDSBarrierOp, handleAMDGPULdsBarrier);
@@ -2033,6 +2067,7 @@ void OpHandlerRegistry::registerDefaultHandlers(mlir::MLIRContext *ctx) {
 
   // ROCDL dialect
   REGISTER_HANDLER(ROCDL::ReadfirstlaneOp, handleReadFirstLane);
+  REGISTER_HANDLER(ROCDL::Permlane16SwapOp, handlePermlane16Swap);
   REGISTER_HANDLER(ROCDL::SBarrierOp, handleROCDLSBarrier);
   REGISTER_HANDLER(ROCDL::SetPrioOp, handleROCDLSetPrio);
   REGISTER_HANDLER(ROCDL::SWaitcntOp, handleSWaitcnt);

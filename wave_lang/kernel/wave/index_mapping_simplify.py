@@ -23,12 +23,10 @@ The decomposition uses:
 
 import sympy
 from collections.abc import Sequence
-from functools import lru_cache
 
 from ..lang.wave_types import IndexMapping
 from .utils.symbol_utils import (
     _split_sum_by_divisibility,
-    expr_bounds,
     IndexExpr,
     IndexSymbol,
     subs_idxc,
@@ -290,9 +288,7 @@ def simplify_index_mapping(
         except (IndexError, KeyError):
             divisor_lb = divisor
         if sym_lower_bounds:
-            divisor_lb = divisor_lb.subs(
-                {s: lb for s, lb in sym_lower_bounds.items()}
-            )
+            divisor_lb = divisor_lb.subs({s: lb for s, lb in sym_lower_bounds.items()})
         # Evaluate floor/ceiling after substitution.
         try:
             divisor_lb = sympy.Integer(int(divisor_lb))

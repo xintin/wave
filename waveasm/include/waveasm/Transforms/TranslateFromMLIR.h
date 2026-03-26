@@ -52,8 +52,22 @@ public:
     return valueMap.contains(mlirValue);
   }
 
+  /// Map a second result for multi-result ops (e.g. permlane16_swap)
+  void mapSecondResult(mlir::Value inputValue, mlir::Value asmValue) {
+    secondResultMap[inputValue] = asmValue;
+  }
+
+  /// Get the second result for a multi-result op
+  std::optional<mlir::Value> getSecondResult(mlir::Value mlirValue) const {
+    auto it = secondResultMap.find(mlirValue);
+    if (it != secondResultMap.end())
+      return it->second;
+    return std::nullopt;
+  }
+
 private:
   llvm::DenseMap<mlir::Value, mlir::Value> valueMap;
+  llvm::DenseMap<mlir::Value, mlir::Value> secondResultMap;
 };
 
 //===----------------------------------------------------------------------===//

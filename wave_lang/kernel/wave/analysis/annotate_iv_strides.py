@@ -33,9 +33,7 @@ def annotate_iv_strides(
     """Annotate every mapped Read/GatherToLDS with ``meta["iv_stride"]``."""
     idxc = IndexingContext.current()
 
-    for node in trace.walk(
-        lambda n: isinstance(get_custom(n), (Read, GatherToLDS))
-    ):
+    for node in trace.walk(lambda n: isinstance(get_custom(n), (Read, GatherToLDS))):
         if node.meta.get("iv_stride") is not None:
             continue
 
@@ -62,8 +60,11 @@ def annotate_iv_strides(
         )
 
         iv_stride = compute_iv_stride_through_mapping(
-            mapping, symbolic_shape, index,
-            is_read=True, mem_strides=list(phys_strides),
+            mapping,
+            symbolic_shape,
+            index,
+            is_read=True,
+            mem_strides=list(phys_strides),
             constraints=constraints,
         )
         if iv_stride is not None:

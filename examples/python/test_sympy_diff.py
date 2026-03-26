@@ -33,7 +33,11 @@ FAIL = 0
 
 def check(name, got, expected):
     global PASS, FAIL
-    ok = sympy.expand(got - expected) == 0 if not isinstance(got, bool) else got == expected
+    ok = (
+        sympy.expand(got - expected) == 0
+        if not isinstance(got, bool)
+        else got == expected
+    )
     if ok:
         PASS += 1
     else:

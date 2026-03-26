@@ -52,8 +52,7 @@ struct PhysVGPRRange {
   int64_t length() const { return lastUsePoint - defPoint; }
 };
 
-static void collectOps(Block &block,
-                       llvm::SmallVectorImpl<Operation *> &ops) {
+static void collectOps(Block &block, llvm::SmallVectorImpl<Operation *> &ops) {
   for (Operation &op : block) {
     ops.push_back(&op);
     for (Region &region : op.getRegions())
@@ -65,8 +64,7 @@ static void collectOps(Block &block,
 /// Record a PVRegType occurrence. Merges into existing entry if the base
 /// index matches, taking max size/alignment and extending the time range.
 static void recordPVReg(int64_t baseIdx, int64_t size, int64_t point,
-                        bool isDef,
-                        llvm::DenseMap<int64_t, int64_t> &defPoints,
+                        bool isDef, llvm::DenseMap<int64_t, int64_t> &defPoints,
                         llvm::DenseMap<int64_t, int64_t> &usePoints,
                         llvm::DenseMap<int64_t, int64_t> &sizes,
                         llvm::DenseMap<int64_t, int64_t> &alignments) {
@@ -122,10 +120,9 @@ findAllocBase(int64_t idx, int64_t size,
   return {idx, size};
 }
 
-static void buildPhysRanges(
-    ProgramOp program,
-    llvm::SmallVectorImpl<PhysVGPRRange> &ranges,
-    llvm::DenseMap<int64_t, int64_t> &rangeBaseToIdx) {
+static void buildPhysRanges(ProgramOp program,
+                            llvm::SmallVectorImpl<PhysVGPRRange> &ranges,
+                            llvm::DenseMap<int64_t, int64_t> &rangeBaseToIdx) {
 
   llvm::SmallVector<Operation *> ops;
   collectOps(program.getBodyBlock(), ops);
@@ -251,8 +248,8 @@ static void buildPhysRanges(
     body.walk([&](Operation *innerOp) {
       for (Value operand : innerOp->getOperands()) {
         if (auto pvreg = dyn_cast<PVRegType>(operand.getType())) {
-          auto [base, allocSize] = findAllocBase(pvreg.getIndex(),
-                                                 pvreg.getSize(), knownSizes);
+          auto [base, allocSize] =
+              findAllocBase(pvreg.getIndex(), pvreg.getSize(), knownSizes);
           auto defIt = defPoints.find(base);
           if (defIt != defPoints.end() && defIt->second < loopStart) {
             // Value defined before the loop but used inside — extend to
@@ -411,8 +408,8 @@ static void applyRemapping(ProgramOp program,
     }
 
     if (auto condOp = dyn_cast<ConditionOp>(op)) {
-      if (auto attr = condOp->getAttrOfType<DenseI64ArrayAttr>(
-              "_iterArgPhysRegs")) {
+      if (auto attr =
+              condOp->getAttrOfType<DenseI64ArrayAttr>("_iterArgPhysRegs")) {
         auto vals = attr.asArrayRef();
         llvm::SmallVector<int64_t> newVals(vals.begin(), vals.end());
         bool anyChanged = false;
@@ -422,8 +419,7 @@ static void applyRemapping(ProgramOp program,
           if (i < condOp.getIterArgs().size()) {
             Type ty = condOp.getIterArgs()[i].getType();
             if (isa<PVRegType>(ty)) {
-              int64_t newIdx =
-                  remapIndex(newVals[i], 1, oldToNew, ranges);
+              int64_t newIdx = remapIndex(newVals[i], 1, oldToNew, ranges);
               if (newIdx != newVals[i]) {
                 newVals[i] = newIdx;
                 anyChanged = true;
@@ -493,9 +489,9 @@ struct WAVEASMVGPRCompaction
       if (!anyChange)
         return;
 
-      LLVM_DEBUG(llvm::dbgs() << "VGPR compaction: " << maxBefore << " -> "
-                              << maxAfter << " (saved "
-                              << (maxBefore - maxAfter) << ")\n");
+      LLVM_DEBUG(llvm::dbgs()
+                 << "VGPR compaction: " << maxBefore << " -> " << maxAfter
+                 << " (saved " << (maxBefore - maxAfter) << ")\n");
 
       applyRemapping(program, oldToNew, ranges);
     });
