@@ -43,6 +43,219 @@ from wave_lang.kernel.lang.global_symbols import (
     SHARED_ADDRESS_SPACE,
 )
 from utils import parse_args, list_tests, run_test
+import re
+
+
+def coalesce_buffer_stores_dwordx4(asm_text):
+    """Post-process assembly to merge 4 consecutive buffer_store_dword into buffer_store_dwordx4.
+
+    Detects groups of 4 buffer_store_dword with same SRD+voffset and
+    offsets {X, X+4, X+8, X+12}.  Replaces each store with a v_mov_b32
+    copy to v0-v3, then emits one buffer_store_dwordx4 v[0:3].
+    """
+    store_re = re.compile(
+        r"^  buffer_store_dword (v\d+), (v\d+), (s\[\d+:\d+\]), 0 offen(?: offset:(\d+))?$"
+    )
+
+    lines = asm_text.split("\n")
+    out = []
+    i = 0
+    coalesced_count = 0
+    while i < len(lines):
+        m0 = store_re.match(lines[i])
+        if m0:
+            group = [(i, m0)]
+            j = i + 1
+            while j < len(lines) and len(group) < 4:
+                mj = store_re.match(lines[j])
+                if mj:
+                    group.append((j, mj))
+                j += 1
+
+            if len(group) == 4:
+                srds = [g.group(3) for _, g in group]
+                voffs = [g.group(2) for _, g in group]
+                offsets = [int(g.group(4)) if g.group(4) else 0 for _, g in group]
+                base = offsets[0]
+                if (
+                    all(s == srds[0] for s in srds)
+                    and all(v == voffs[0] for v in voffs)
+                    and offsets == [base, base + 4, base + 8, base + 12]
+                ):
+                    store_line_indices = {idx for idx, _ in group}
+                    slot = 0
+                    for k in range(i, group[-1][0] + 1):
+                        if k in store_line_indices:
+                            data_reg = group[slot][1].group(1)
+                            out.append(f"  v_mov_b32 v{slot}, {data_reg}")
+                            slot += 1
+                        else:
+                            out.append(lines[k])
+                    merged = (
+                        f"  buffer_store_dwordx4 v[0:3], {voffs[0]}, {srds[0]}, 0 offen"
+                    )
+                    if base > 0:
+                        merged += f" offset:{base}"
+                    out.append(merged)
+                    coalesced_count += 1
+                    i = group[-1][0] + 1
+                    continue
+
+        out.append(lines[i])
+        i += 1
+
+    print(
+        f"[asm_transform] Coalesced {coalesced_count} groups of 4 stores -> buffer_store_dwordx4"
+    )
+    return "\n".join(out)
+
+
+def convert_first_eliminate_cndmask(asm_text):
+    """Replace per-tile swap+cndmask+cvt+store with convert-first+swap+dwordx4.
+
+    The current epilogue swaps individual f32 values, then uses v_cndmask_b32
+    to select own vs partner data (8 cndmask per tile = 384 total).  This
+    transform converts to packed bf16 FIRST, swaps the packed dwords (1 swap
+    instead of 4), re-reads AGPRs for own data, and stores via dwordx4.
+    Eliminates all data-select cndmask and halves the swap count.
+    """
+    read_re = re.compile(r"^\s*v_accvgpr_read_b32\s+(v\d+),\s+a(\d+)")
+    nop_re = re.compile(r"^s_nop 1\s*$")
+    swap_re = re.compile(r"^\s*v_permlane16_swap_b32\s+")
+    store_off12_re = re.compile(
+        r"^\s*buffer_store_dword\s+v\d+,\s+(v\d+),\s+(s\[\d+:\d+\]),\s+0 offen\s+offset:12\s*$"
+    )
+    sub4_re = re.compile(r"^\s*v_sub_u32\s+v\d+,\s+v\d+,\s+4\s*$")
+    cmp_ne_v244_re = re.compile(r"^\s*v_cmp_ne_u32\s+vcc,\s+v244,\s+0")
+    cndmask_re = re.compile(r"^\s*v_cndmask_b32\s+(v\d+),")
+    lshlrev1_re = re.compile(r"^\s*v_lshlrev_b32\s+v\d+,\s+1,")
+
+    lines = asm_text.split("\n")
+    out = []
+    tile_count = 0
+    i = 0
+
+    while i < len(lines):
+        if i + 11 < len(lines) and read_re.match(lines[i]):
+            agprs = []
+            ok = True
+            for k in range(4):
+                base = i + k * 3
+                m = read_re.match(lines[base])
+                if not (
+                    m
+                    and nop_re.match(lines[base + 1])
+                    and swap_re.match(lines[base + 2])
+                ):
+                    ok = False
+                    break
+                agprs.append(int(m.group(2)))
+            if not ok:
+                out.append(lines[i])
+                i += 1
+                continue
+
+            swap_end = i + 12
+
+            j = swap_end
+            srd = None
+            while j < len(lines):
+                sm = store_off12_re.match(lines[j])
+                if sm:
+                    srd = sm.group(2)
+                    break
+                j += 1
+
+            if srd is None:
+                out.append(lines[i])
+                i += 1
+                continue
+
+            tile_end = j + 1
+            tile_count += 1
+
+            middle = lines[swap_end:tile_end]
+            preserved = []
+            mi = 0
+            while mi < len(middle):
+                s = middle[mi].strip()
+
+                # Offset-select pattern: v_sub_u32 .., 4 -> v_cmp_ne -> v_cndmask
+                if sub4_re.match(s):
+                    preserved.append(middle[mi])
+                    if mi + 2 < len(middle):
+                        preserved.append(middle[mi + 1])
+                        preserved.append(middle[mi + 2])
+                        mi += 3
+                    else:
+                        mi += 1
+                    continue
+
+                # Lane-mask creation: v_cndmask_b32 v244, ...
+                cm = cndmask_re.match(s)
+                if cm and cm.group(1) == "v244":
+                    preserved.append(middle[mi])
+                    mi += 1
+                    continue
+
+                if (
+                    cmp_ne_v244_re.match(s)
+                    or (cm and cm.group(1) != "v244")
+                    or s.startswith("v_accvgpr_read_b32")
+                    or s.startswith("v_cvt_pk_bf16_f32")
+                    or s.startswith("buffer_store_dword")
+                    or lshlrev1_re.match(s)
+                ):
+                    mi += 1
+                    continue
+
+                preserved.append(middle[mi])
+                mi += 1
+
+            a0, a1, a2, a3 = agprs
+            # Preserved lines (lane mask, offset select, addr comp, SRD)
+            # must come first so v244 and v253 are set before we use them.
+            out.extend(preserved)
+            out.extend(
+                [
+                    f"  v_accvgpr_read_b32 v0, a{a0}",
+                    f"  v_accvgpr_read_b32 v1, a{a1}",
+                    f"  v_cvt_pk_bf16_f32 v2, v0, v1",
+                    f"  v_accvgpr_read_b32 v0, a{a2}",
+                    f"  v_accvgpr_read_b32 v1, a{a3}",
+                    f"  v_cvt_pk_bf16_f32 v3, v0, v1",
+                    "s_nop 1",
+                    "    v_permlane16_swap_b32 v4, v2",
+                    "s_nop 1",
+                    "    v_permlane16_swap_b32 v5, v3",
+                    f"  v_accvgpr_read_b32 v0, a{a0}",
+                    f"  v_accvgpr_read_b32 v1, a{a1}",
+                    f"  v_cvt_pk_bf16_f32 v2, v0, v1",
+                    f"  v_accvgpr_read_b32 v0, a{a2}",
+                    f"  v_accvgpr_read_b32 v1, a{a3}",
+                    f"  v_cvt_pk_bf16_f32 v3, v0, v1",
+                    "  v_cmp_ne_u32 vcc, v244, 0",
+                    "  v_cndmask_b32 v0, v4, v2",
+                    "  v_cndmask_b32 v1, v5, v3",
+                    "  v_cndmask_b32 v6, v2, v4",
+                    "  v_cndmask_b32 v7, v3, v5",
+                    "  v_mov_b32 v2, v6",
+                    "  v_mov_b32 v3, v7",
+                    "  v_lshlrev_b32 v245, 1, v253",
+                    f"  buffer_store_dwordx4 v[0:3], v245, {srd}, 0 offen",
+                ]
+            )
+
+            i = tile_end
+            continue
+
+        out.append(lines[i])
+        i += 1
+
+    print(
+        f"[convert_first] Transformed {tile_count} tiles: eliminated cndmask, merged to dwordx4"
+    )
+    return "\n".join(out)
 
 
 def _run_mxfp_gemm(gemm, shape):
@@ -632,6 +845,178 @@ def test_dbuf_4wave_mxfp_dynamic_preshuffle_b_gemm_asm_bf16_coalesced(
     print(
         "MXFP GEMM preshuffle-B 4-wave bf16 coalesced epilogue (WaveASM backend) test passed!"
     )
+
+
+def test_dbuf_4wave_mxfp_dynamic_preshuffle_b_gemm_asm_bf16_coalesced_dwordx4(
+    is_debug=False,
+    shape=(6400, 3072, 7168),
+    block=(256, 192, 256),
+    eliminate_epilogue=True,
+):
+    """Same as bf16_coalesced but with post-asm dwordx4 store coalescing."""
+    gemm, options = get_tagged_mxfp4_gemm_preshuffle_b(
+        shape,
+        block,
+        wave_shape=(2, 2),
+        reorder_workgroups=True,
+        output_dtype=tkl.bf16,
+        transpose_output=True,
+    )
+    dynamic_symbols = [tkl.sym.M, tkl.sym.N, tkl.sym.K]
+    for sym in dynamic_symbols:
+        del options.subs[sym]
+    options.dynamic_symbols = dynamic_symbols
+    options.use_buffer_ops = True
+    options.backend = "asm"
+    options.use_wave_asm_backend = True
+    options.wave_runtime = True
+    options.eliminate_epilogue = eliminate_epilogue
+    options.coalesce_epilogue_stores = True
+    options.asm_transform = coalesce_buffer_stores_dwordx4
+    options.dump_intermediates = (
+        "build/intermediates/waveasm_256x192x256_bf16_coalesced_dwordx4/"
+    )
+    options.print_mlir_file = (
+        "gemm_mxfp4_dbuf_4wave_asymmetric_bf16_coalesced_dwordx4.mlir"
+    )
+    options.print_mlir = True
+    schedule = get_mxfp4_asymmetric_schedule(
+        eliminate_epilogue=eliminate_epilogue, is_bscale_shuffled=True
+    )
+    options.print_ir_after = "all" if is_debug else []
+    options = set_default_run_config(options)
+    gemm = wave_compile(options, gemm, schedule)
+
+    _run_mxfp_gemm_preshuffle(
+        gemm, shape, all=True, output_dtype=torch.bfloat16, transpose_output=True
+    )
+    print("MXFP GEMM bf16 coalesced dwordx4 epilogue (WaveASM backend) test passed!")
+
+
+def _compile_bf16_kernel(block, *, coalesce=False, dwordx4=False, convert_first=False):
+    """Compile a bf16 kernel once (M,N,K dynamic). Returns (kernel, transpose_output)."""
+    shape_placeholder = (block[0] * 4, block[1] * 4, block[2] * 4)
+    kwargs = dict(
+        wave_shape=(2, 2),
+        reorder_workgroups=True,
+        output_dtype=tkl.bf16,
+    )
+    if coalesce:
+        kwargs["transpose_output"] = True
+    gemm, options = get_tagged_mxfp4_gemm_preshuffle_b(
+        shape_placeholder, block, **kwargs
+    )
+    for sym in [tkl.sym.M, tkl.sym.N, tkl.sym.K]:
+        del options.subs[sym]
+    options.dynamic_symbols = [tkl.sym.M, tkl.sym.N, tkl.sym.K]
+    options.use_buffer_ops = True
+    options.backend = "asm"
+    options.use_wave_asm_backend = True
+    options.wave_runtime = True
+    options.eliminate_epilogue = True
+    if coalesce:
+        options.coalesce_epilogue_stores = True
+    if convert_first:
+        options.asm_transform = convert_first_eliminate_cndmask
+    elif dwordx4:
+        options.asm_transform = coalesce_buffer_stores_dwordx4
+    schedule = get_mxfp4_asymmetric_schedule(
+        eliminate_epilogue=True,
+        is_bscale_shuffled=True,
+    )
+    options = set_default_run_config(options)
+    return wave_compile(options, gemm, schedule), coalesce
+
+
+def _time_kernel(gemm, shape, transpose_output, warmup=2, iters=5):
+    """Time a compiled GEMM kernel on the given shape. Returns median us."""
+    x, w, x_scales, w_scales = generate_gemm_afp4wfp4_inputs(shape)
+    w_t = w.T.contiguous()
+    w_t_ps = b_preshuffle(w_t)
+    x_scales_ps = e8m0_shuffle(x_scales)
+    w_scales_ps = e8m0_shuffle(w_scales)
+    x, w_t_ps = x.cuda(), w_t_ps.cuda()
+    x_scales_ps, w_scales_ps = x_scales_ps.cuda(), w_scales_ps.cuda()
+    if transpose_output:
+        out = torch.zeros(w_t_ps.shape[0], x.shape[0], dtype=torch.bfloat16).cuda()
+    else:
+        out = torch.zeros(x.shape[0], w_t_ps.shape[0], dtype=torch.bfloat16).cuda()
+
+    for _ in range(warmup):
+        gemm(x, x_scales_ps, w_t_ps, w_scales_ps, out)
+    torch.cuda.synchronize()
+
+    start_events = [torch.cuda.Event(enable_timing=True) for _ in range(iters)]
+    end_events = [torch.cuda.Event(enable_timing=True) for _ in range(iters)]
+    for i in range(iters):
+        start_events[i].record()
+        gemm(x, x_scales_ps, w_t_ps, w_scales_ps, out)
+        end_events[i].record()
+    torch.cuda.synchronize()
+
+    times = sorted([s.elapsed_time(e) * 1000 for s, e in zip(start_events, end_events)])
+    return times[len(times) // 2]
+
+
+def test_benchmark_bf16_shapes(is_debug=False, **kwargs):
+    """Benchmark bf16 baseline vs dwordx4 vs convert-first across multiple shapes."""
+    shapes = [
+        (6912, 768, 23296),
+        (7168, 1536, 487680),
+        (6400, 3072, 7168),
+        (8192, 3072, 184576),
+        (4608, 7680, 6656),
+    ]
+    block = (256, 192, 256)
+    warmup = 10
+    iters = 50
+    rounds = 5
+
+    print("Compiling bf16 baseline kernel...")
+    baseline_kernel, _ = _compile_bf16_kernel(block, coalesce=False)
+    print("Compiling bf16 coalesced-dwordx4 kernel...")
+    dwordx4_kernel, _ = _compile_bf16_kernel(block, coalesce=True, dwordx4=True)
+    print("Compiling bf16 convert-first kernel...")
+    cvtfirst_kernel, _ = _compile_bf16_kernel(block, coalesce=True, convert_first=True)
+
+    hdr = f"{'Shape (M,N,K)':<30} {'Baseline':>10} {'dwordx4':>10} {'cvt-first':>10} {'cvt/base':>10}"
+    print(f"\n{hdr}")
+    print("-" * len(hdr))
+    for shape in shapes:
+        bt, dt, ct = [], [], []
+        for _ in range(rounds):
+            bt.append(
+                _time_kernel(
+                    baseline_kernel,
+                    shape,
+                    transpose_output=False,
+                    warmup=warmup,
+                    iters=iters,
+                )
+            )
+            dt.append(
+                _time_kernel(
+                    dwordx4_kernel,
+                    shape,
+                    transpose_output=True,
+                    warmup=warmup,
+                    iters=iters,
+                )
+            )
+            ct.append(
+                _time_kernel(
+                    cvtfirst_kernel,
+                    shape,
+                    transpose_output=True,
+                    warmup=warmup,
+                    iters=iters,
+                )
+            )
+        tb = sorted(bt)[len(bt) // 2]
+        td = sorted(dt)[len(dt) // 2]
+        tc = sorted(ct)[len(ct) // 2]
+        print(f"{str(shape):<30} {tb:>8.1f}us {td:>8.1f}us {tc:>8.1f}us {tb/tc:>9.3f}x")
+    print()
 
 
 if __name__ == "__main__":
